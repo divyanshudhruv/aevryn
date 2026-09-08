@@ -1,5 +1,5 @@
 {
-	"name": "@aevryn/api",
+	"name": "@aevryn/workflow",
 	"type": "module",
 	"exports": {
 		".": {
@@ -9,17 +9,13 @@
 			"default": "./src/*.ts"
 		}
 	},
-	"scripts": {},
+	"scripts": {
+		"check-types": "tsc --noEmit"
+	},
 	"dependencies": {
-		"@aevryn/agent": "workspace:*",
-		"@aevryn/auth": "workspace:*",
 		"@aevryn/db": "workspace:*",
 		"@aevryn/env": "workspace:*",
-		"@aevryn/workflow": "workspace:*",
-		"@trpc/client": "catalog:",
-		"@trpc/server": "catalog:",
-		"dotenv": "catalog:",
-		"next": "catalog:",
+		"drizzle-orm": "^0.45.2",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

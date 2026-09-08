@@ -30,7 +30,6 @@ export const failureClassSchema = z.enum(FAILURE_CLASSES);
 export const memoryCategorySchema = z.enum(MEMORY_CATEGORIES);
 
 export type ObservationContent = z.infer<typeof observationContentSchema>;
-export type AgentState = z.infer<typeof agentStateSchema>;
 export type ToolInput = z.infer<typeof toolInputSchema>;
 export type ToolOutput = z.infer<typeof toolOutputSchema>;
 export type EventData = z.infer<typeof eventDataSchema>;

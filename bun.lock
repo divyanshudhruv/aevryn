@@ -83,6 +83,7 @@
         "@aevryn/auth": "workspace:*",
         "@aevryn/db": "workspace:*",
         "@aevryn/env": "workspace:*",
+        "@aevryn/workflow": "workspace:*",
         "@trpc/client": "catalog:",
         "@trpc/server": "catalog:",
         "dotenv": "catalog:",
@@ -170,6 +171,19 @@
         "typescript": "catalog:",
       },
     },
+    "packages/workflow": {
+      "name": "@aevryn/workflow",
+      "dependencies": {
+        "@aevryn/db": "workspace:*",
+        "@aevryn/env": "workspace:*",
+        "drizzle-orm": "^0.45.2",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@aevryn/config": "workspace:*",
+        "typescript": "catalog:",
+      },
+    },
   },
   "catalog": {
     "@tailwindcss/postcss": "^4.3.3",
@@ -204,6 +218,8 @@
     "@aevryn/env": ["@aevryn/env@workspace:packages/env"],
 
     "@aevryn/ui": ["@aevryn/ui@workspace:packages/ui"],
+
+    "@aevryn/workflow": ["@aevryn/workflow@workspace:packages/workflow"],
 
     "@ai-sdk/gateway": ["@ai-sdk/gateway@4.0.75", "", { "dependencies": { "@ai-sdk/provider": "4.0.10", "@ai-sdk/provider-utils": "5.0.36", "@vercel/oidc": "3.2.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-HOnhw3oXtBnboBF7kAKipjToCN6+5w6EuukiUKiULcxBitS+vbHRRv9IUBcq+Z1wkXcJjfywKrt5r++I6OYyXg=="],
 

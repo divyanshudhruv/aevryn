@@ -5,6 +5,7 @@ import * as schema from "./schema";
 
 export * from "./domain";
 export * from "./ids";
+export * from "./schema";
 export * from "./zod";
 
 export function createDb() {
@@ -12,3 +13,6 @@ export function createDb() {
 }
 
 export const db = createDb();
+
+export type Db = ReturnType<typeof createDb>;
+export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
