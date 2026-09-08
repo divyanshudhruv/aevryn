@@ -26,13 +26,13 @@ export const env = createEnv({
 		NODE_ENV: z
 			.enum(["development", "production", "test"])
 			.default("development"),
-		/** Anakin web-capability provider. Key format: `ak-...`. */
 		ANAKIN_API_KEY: z.string().min(1).optional(),
 		ANAKIN_BASE_URL: z.url().optional(),
-		/** Inngest durable-execution configuration. */
 		INNGEST_EVENT_KEY: z.string().min(1).optional(),
 		INNGEST_SIGNING_KEY: z.string().min(1).optional(),
 		INNGEST_APP_ID: z.string().min(1).optional(),
+		GROQ_API_KEY: z.string().min(1).optional(),
+		GROQ_MODEL: z.string().min(1).default("llama-3.3-70b-versatile"),
 	},
 	runtimeEnv: runtimeEnv,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,

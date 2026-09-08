@@ -19,7 +19,6 @@ export const agentState = pgTable(
 		workflowId: text("workflow_id")
 			.notNull()
 			.references(() => workflow.id, { onDelete: "cascade" }),
-		/** Frequently queried snapshot columns extracted from the JSONB payload. */
 		phase: text("phase"),
 		status: text("status"),
 		version: integer("version").notNull().default(1),

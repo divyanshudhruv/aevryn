@@ -1,0 +1,23 @@
+{
+	"name": "@aevryn/agent",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@aevryn/db": "workspace:*",
+		"@aevryn/env": "workspace:*",
+		"@anakin-io/sdk": "^0.1.0",
+		"ai": "^7.0.93",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@aevryn/config": "workspace:*",
+		"typescript": "catalog:"
+	}
+}

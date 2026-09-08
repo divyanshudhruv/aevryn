@@ -22,7 +22,6 @@ export const memory = pgTable(
 		workflowId: text("workflow_id").references(() => workflow.id, {
 			onDelete: "set null",
 		}),
-		/** Owning user; required for cross-user isolation. */
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -30,7 +29,6 @@ export const memory = pgTable(
 		content: jsonb("content")
 			.$type<z.input<typeof memoryContentSchema>>()
 			.notNull(),
-		/** Semantic embedding (must match configured embedder dimension). */
 		embedding: vector("embedding", { dimensions: 1536 }),
 		metadata: jsonb("metadata").$type<Record<string, unknown>>(),
 		schemaVersion: integer("schema_version").notNull().default(1),

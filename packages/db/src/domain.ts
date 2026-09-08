@@ -31,7 +31,6 @@ export type StepStatus = (typeof STEP_STATUSES)[number];
 export const TOOL_STATUSES = ["called", "completed", "failed"] as const;
 export type ToolStatus = (typeof TOOL_STATUSES)[number];
 
-/** Structural classification of an external failure. */
 export const FAILURE_CLASSES = ["transient", "structural", "fatal"] as const;
 export type FailureClass = (typeof FAILURE_CLASSES)[number];
 

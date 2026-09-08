@@ -22,7 +22,6 @@ export const workflowStep = pgTable(
 			.notNull()
 			.default("pending"),
 		order: integer("order").notNull().default(0),
-		/** Idempotency key for durable external side effects within this step. */
 		idempotencyKey: text("idempotency_key"),
 		schemaVersion: integer("schema_version").notNull().default(1),
 		startedAt: timestamp("started_at", { withTimezone: true }),

@@ -18,12 +18,10 @@ export const ID_PREFIXES = {
 
 export type IdPrefix = (typeof ID_PREFIXES)[keyof typeof ID_PREFIXES];
 
-/** Generate a prefixed ULID for a domain entity. */
 export function makeId(prefix: IdPrefix): string {
 	return `${prefix}${factory()}`;
 }
 
-/** Validate that a string is a prefixed ULID for the given entity prefix. */
 export function isValidId(prefix: IdPrefix, id: string): boolean {
 	if (!id.startsWith(prefix)) return false;
 	return /^[0-9A-HJKMNP-TV-Z]{26}$/.test(id.slice(prefix.length));
