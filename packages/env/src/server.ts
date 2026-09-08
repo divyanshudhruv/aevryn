@@ -32,7 +32,7 @@ export const env = createEnv({
 		INNGEST_SIGNING_KEY: z.string().min(1).optional(),
 		INNGEST_APP_ID: z.string().min(1).optional(),
 		GROQ_API_KEY: z.string().min(1).optional(),
-		GROQ_MODEL: z.string().min(1).default("llama-3.3-70b-versatile"),
+		GROQ_MODEL: z.string().min(1).default("qwen/qwen3.8-27b"),
 	},
 	runtimeEnv: runtimeEnv,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,

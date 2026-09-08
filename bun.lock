@@ -79,6 +79,7 @@
     "packages/api": {
       "name": "@aevryn/api",
       "dependencies": {
+        "@aevryn/agent": "workspace:*",
         "@aevryn/auth": "workspace:*",
         "@aevryn/db": "workspace:*",
         "@aevryn/env": "workspace:*",
