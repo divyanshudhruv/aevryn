@@ -91,7 +91,30 @@ async function dispatchEvent(
 		data: {
 			workflowId: workflow.id,
 			executionId: execution.id,
-			objective,
+			prompt: objective,
+			modelContextCapChars: tokenCapChars,
+		},
+	});
+	return { workflowId: workflow.id, executionId: execution.id };
+}
+
+async function dispatchPlanningMessage(
+	message: string,
+	tokenCapChars?: number,
+): Promise<{ workflowId: string; executionId: string }> {
+	const ownerId = userId;
+	if (!ownerId) throw new Error("fixture user missing");
+	const { workflow } = await svc.createWorkflow({
+		userId: ownerId,
+		objective: message,
+	});
+	const { execution } = await svc.enqueueMessage(workflow.id, message);
+	await inngest.send({
+		name: executionRunEvent,
+		data: {
+			workflowId: workflow.id,
+			executionId: execution.id,
+			prompt: message,
 			modelContextCapChars: tokenCapChars,
 		},
 	});
@@ -140,9 +163,35 @@ async function main() {
 		);
 	console.log("success path: final status", status);
 	if (status !== "completed") {
-		throw new Error("expected completed execution, got " + status);
+		throw new Error(`expected completed execution, got ${status}`);
 	}
 	await printRunDetails(executionId, workflowId);
+
+	const plan = await dispatchPlanningMessage(OBJECTIVE, TOKEN_CAP_CHARS);
+	console.log("planning path: dispatched (draft workflow)", {
+		workflowId: plan.workflowId,
+		executionId: plan.executionId,
+	});
+	const planStatus = await waitForTerminal(plan.executionId);
+	if (!planStatus) {
+		throw new Error(
+			`timed out waiting for planning execution to finish (${MAX_WAIT_MS}ms)`,
+		);
+	}
+	console.log("planning path: final status", planStatus);
+	const persistedPlan = await svc.getPlan(plan.workflowId);
+	const workflow = await svc.getWorkflowById(plan.workflowId);
+	console.log(
+		"planning path: workflow status",
+		workflow?.status,
+		"plan?",
+		!!persistedPlan,
+	);
+	if (workflow?.status !== "draft") {
+		throw new Error(
+			`expected draft workflow to stay draft, got ${workflow?.status}`,
+		);
+	}
 
 	const failed = await dispatchEvent(OBJECTIVE);
 	console.log("failure path: dispatched (will simulate failure gate)", {

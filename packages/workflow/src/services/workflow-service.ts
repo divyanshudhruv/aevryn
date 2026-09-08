@@ -23,12 +23,16 @@ import {
 	createWorkflowSchema,
 	type FailExecution,
 	failExecutionSchema,
+	type Plan,
+	planSchema,
 	type RecordSteps,
 	recordStepsSchema,
 	type StartExecution,
 	startExecutionSchema,
 	type statePatchSchema,
+	type ToolActivityUpsert,
 	type ToolCallRecord,
+	toolActivityUpsertSchema,
 } from "../schemas";
 
 type AgentStateValue = z.infer<typeof statePatchSchema>;
@@ -88,6 +92,7 @@ export class WorkflowService {
 					workflowId: workflow.id,
 					status: "running",
 					startedAt: new Date(),
+					prompt: parsed.prompt ?? "",
 				},
 				tx,
 			);
@@ -105,8 +110,45 @@ export class WorkflowService {
 		});
 	}
 
+	async getWorkflowById(workflowId: string): Promise<Workflow | null> {
+		return this.workflows.findById(workflowId);
+	}
+
 	async getExecution(executionId: string): Promise<WorkflowExecution | null> {
 		return this.executions.findById(executionId);
+	}
+
+	/**
+	 * Append a user message to a thread as a new durable execution. The
+	 * workflow's own status is untouched: a draft stays draft while the
+	 * message is planned, an active workflow stays active while it runs.
+	 */
+	async enqueueMessage(
+		workflowId: string,
+		prompt: string,
+	): Promise<StartExecutionOutcome> {
+		return db.transaction(async (tx) => {
+			const workflow = await this.workflows.requireById(workflowId, tx);
+			const execution = await this.executions.insert(
+				{
+					workflowId: workflow.id,
+					status: "running",
+					startedAt: new Date(),
+					prompt,
+				},
+				tx,
+			);
+			await this.events.insert(
+				{
+					workflowId: workflow.id,
+					executionId: execution.id,
+					type: "execution.started",
+					data: {},
+				},
+				tx,
+			);
+			return { workflow, execution };
+		});
 	}
 
 	async recordSteps(input: RecordSteps): Promise<RecordStepsOutcome> {
@@ -128,20 +170,24 @@ export class WorkflowService {
 				tx,
 			);
 			const stepById = new Map(stepRows.map((row) => [row.order, row]));
-			const toolRows = parsed.steps.flatMap((step) => {
+			let toolOrder = 0;
+			const toolRows = [];
+			for (const step of parsed.steps) {
 				const stepRow = stepById.get(step.order);
-				if (!stepRow) {
-					return [];
+				for (const call of step.toolCalls) {
+					toolRows.push(
+						this.toToolExecutionRow(
+							execution.workflowId,
+							execution.id,
+							stepRow?.id ?? null,
+							toolOrder++,
+							call,
+						),
+					);
 				}
-				return this.toToolExecutionRows(
-					execution.workflowId,
-					execution.id,
-					stepRow.id,
-					step.toolCalls,
-				);
-			});
+			}
 			if (toolRows.length > 0) {
-				await this.toolExecutions.insertMany(toolRows, tx);
+				await this.toolExecutions.upsertManyByOrder(toolRows, tx);
 			}
 			return {
 				stepCount: stepRows.length,
@@ -158,7 +204,10 @@ export class WorkflowService {
 				{ status: "completed", completedAt: new Date() },
 				tx,
 			);
-			await this.workflows.setStatus(execution.workflowId, "completed", tx);
+			const workflow = await this.workflows.findById(execution.workflowId);
+			if (workflow && workflow.status !== "draft") {
+				await this.workflows.setStatus(execution.workflowId, "completed", tx);
+			}
 			await this.events.insert(
 				{
 					workflowId: execution.workflowId,
@@ -183,7 +232,10 @@ export class WorkflowService {
 				},
 				tx,
 			);
-			await this.workflows.setStatus(execution.workflowId, "failed", tx);
+			const workflow = await this.workflows.findById(execution.workflowId);
+			if (workflow && workflow.status !== "draft") {
+				await this.workflows.setStatus(execution.workflowId, "failed", tx);
+			}
 			await this.events.insert(
 				{
 					workflowId: execution.workflowId,
@@ -279,6 +331,164 @@ export class WorkflowService {
 		};
 	}
 
+	async getThread(workflowId: string): Promise<{
+		workflow: Workflow;
+		plan: Plan | null;
+		activity: ActivitySnapshot | null;
+		turns: Array<{
+			execution: WorkflowExecution;
+			steps: WorkflowStep[];
+			toolExecutions: ToolExecution[];
+		}>;
+	}> {
+		const workflow = await this.workflows.requireById(workflowId);
+		const executions = await this.executions.listByWorkflowChronological(
+			workflowId,
+			50,
+		);
+		const turns = await Promise.all(
+			executions.map(async (execution) => ({
+				execution,
+				steps: await this.steps.listByExecution(execution.id),
+				toolExecutions: await this.toolExecutions.listByExecution(execution.id),
+			})),
+		);
+		return {
+			workflow,
+			plan: await this.getPlan(workflowId),
+			activity: await this.getActivitySnapshot(workflowId),
+			turns,
+		};
+	}
+
+	/**
+	 * Assemble the prior conversation in a thread as replay context for the
+	 * current run. History is bounded by maxChars (the same context-cap the
+	 * user controls); oldest messages are dropped first. Only turns that have
+	 * a persisted assistant answer are included.
+	 */
+	async getConversationContext(
+		workflowId: string,
+		excludeExecutionId: string,
+		maxChars: number | undefined,
+	): Promise<string | null> {
+		const budget = maxChars ?? 6000;
+		const executions = await this.executions.listByWorkflowChronological(
+			workflowId,
+			50,
+		);
+		const blocks: string[] = [];
+		let used = 0;
+		for (const execution of executions) {
+			if (execution.id === excludeExecutionId || !execution.prompt) {
+				continue;
+			}
+			const steps = await this.steps.listByExecution(execution.id);
+			const answer = steps[0]?.assistantText?.trim();
+			if (!answer) {
+				continue;
+			}
+			const block = `user: ${execution.prompt}\nassistant: ${answer}`;
+			if (used + block.length > budget) {
+				break;
+			}
+			blocks.unshift(block);
+			used += block.length;
+		}
+		if (blocks.length === 0) {
+			return null;
+		}
+		return `Prior messages in this thread:\n${blocks.join("\n\n")}`;
+	}
+
+	async updatePlan(workflowId: string, plan: Plan | null): Promise<void> {
+		const existing = await this.states.findByWorkflow(workflowId);
+		await this.states.upsert(workflowId, {
+			phase: "planning",
+			data: {
+				...(existing?.data ?? {}),
+				phase: "planning",
+				data: {
+					...(existing?.data?.data ?? {}),
+					plan: plan ?? null,
+				},
+			},
+		});
+	}
+
+	async getPlan(workflowId: string): Promise<Plan | null> {
+		const state = await this.states.findByWorkflow(workflowId);
+		const candidate = state?.data?.data?.plan;
+		if (!candidate) {
+			return null;
+		}
+		const parsed = planSchema.safeParse(candidate);
+		return parsed.success ? parsed.data : null;
+	}
+
+	async bindWorkflow(workflowId: string): Promise<void> {
+		const workflow = await this.workflows.requireById(workflowId);
+		if (workflow.status !== "draft") {
+			throw new Error(
+				`Workflow ${workflowId} is not in draft; cannot bind a started workflow`,
+			);
+		}
+		const plan = await this.getPlan(workflowId);
+		if (!plan) {
+			throw new Error(`Workflow ${workflowId} has no plan to bind`);
+		}
+		return db.transaction(async (tx) => {
+			await this.workflows.setStatus(workflowId, "active", tx);
+			if (plan.objective) {
+				await this.workflows.setObjective(workflowId, plan.objective, tx);
+			}
+			await this.events.insert(
+				{
+					workflowId,
+					type: "workflow.bound",
+					data: { title: plan.title, objective: plan.objective },
+				},
+				tx,
+			);
+		});
+	}
+
+	async discardPlan(workflowId: string): Promise<void> {
+		await this.workflows.requireById(workflowId);
+		await this.updatePlan(workflowId, null);
+	}
+
+	/**
+	 * Cancel all live executions of a workflow. The workflow keeps its own
+	 * status (a bound thread stays active) so the user can Run it again.
+	 */
+	async stopExecution(workflowId: string): Promise<{ cancelled: number }> {
+		const executions = await this.executions.listByWorkflow(workflowId, 50);
+		const live = executions.filter((execution) =>
+			["pending", "running", "sleeping"].includes(execution.status),
+		);
+		await this.workflows.requireById(workflowId);
+		for (const execution of live) {
+			await db.transaction(async (tx) => {
+				await this.executions.update(
+					execution.id,
+					{ status: "cancelled", completedAt: new Date() },
+					tx,
+				);
+				await this.events.insert(
+					{
+						workflowId,
+						executionId: execution.id,
+						type: "execution.cancelled",
+						data: { reason: "stopped by user" },
+					},
+					tx,
+				);
+			});
+		}
+		return { cancelled: live.length };
+	}
+
 	async listRuns(
 		userId: string,
 		limit = 20,
@@ -314,15 +524,34 @@ export class WorkflowService {
 		return next;
 	}
 
-	private toToolExecutionRows(
+	/**
+	 * Persist a live tool activity record. Idempotent: the (execution, order)
+	 * pair is unique, so a retried run updates the same row instead of
+	 * duplicating tool calls.
+	 */
+	async upsertToolActivity(input: ToolActivityUpsert): Promise<void> {
+		const parsed = toolActivityUpsertSchema.parse(input);
+		await this.toolExecutions.upsertByOrder({
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			order: parsed.order,
+			tool: parsed.tool,
+			status: parsed.status,
+			input: parsed.input ?? {},
+		});
+	}
+
+	private toToolExecutionRow(
 		workflowId: string,
 		executionId: string,
-		stepId: string,
-		calls: ToolCallRecord[],
+		stepId: string | null,
+		order: number,
+		call: ToolCallRecord,
 	) {
-		return calls.map((call) => ({
+		return {
 			workflowId,
 			executionId,
+			order,
 			stepId,
 			tool: call.toolName,
 			provider: call.provider?.id,
@@ -336,6 +565,6 @@ export class WorkflowService {
 			durationMs: call.provider?.durationMs
 				? Math.round(call.provider.durationMs)
 				: undefined,
-		}));
+		};
 	}
 }

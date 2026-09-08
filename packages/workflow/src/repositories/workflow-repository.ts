@@ -75,6 +75,22 @@ export class WorkflowRepository {
 		return rows[0];
 	}
 
+	async setObjective(
+		id: string,
+		objective: string,
+		client: DbClient = db,
+	): Promise<Workflow> {
+		const rows = await client
+			.update(workflow)
+			.set({ objective })
+			.where(eq(workflow.id, id))
+			.returning();
+		if (!rows[0]) {
+			throw new WorkflowNotFoundError(id);
+		}
+		return rows[0];
+	}
+
 	async listByUser(
 		userId: string,
 		limit = 50,

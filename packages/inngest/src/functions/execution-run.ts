@@ -2,9 +2,16 @@ import {
 	type AgentActivity,
 	type AgentResult,
 	createDefaultRegistry,
+	createPlanningRegistry,
+	PLANNING_SYSTEM_INSTRUCTIONS,
 	runAgent,
 } from "@aevryn/agent";
-import { type ActivitySnapshot, WorkflowService } from "@aevryn/workflow";
+import {
+	type ActivitySnapshot,
+	type Plan,
+	planSchema,
+	WorkflowService,
+} from "@aevryn/workflow";
 import { NonRetriableError } from "inngest";
 import { z } from "zod";
 import { inngest } from "../client";
@@ -25,22 +32,73 @@ const failureEventSchema = z.object({
 	}),
 });
 
-function createActivityAccumulator() {
+function extractPlan(text: string): Plan | null {
+	const match = text.match(/```json\s*([\s\S]*?)```/);
+	if (!match?.[1]) {
+		return null;
+	}
+	try {
+		return planSchema.parse(JSON.parse(match[1]));
+	} catch {
+		return null;
+	}
+}
+
+async function buildConversationInstructions(
+	workflowId: string,
+	executionId: string,
+	maxChars: number | undefined,
+	mode: "planning" | "run",
+): Promise<string | undefined> {
+	const context = await workflowService.getConversationContext(
+		workflowId,
+		executionId,
+		maxChars,
+	);
+	if (mode === "planning") {
+		const base = PLANNING_SYSTEM_INSTRUCTIONS;
+		return context ? `${base}\n\n${context}` : base;
+	}
+	return context ?? undefined;
+}
+
+function createActivityAccumulator(workflowId: string, executionId: string) {
 	const snapshot: ActivitySnapshot = {
 		status: "running",
 		currentActivity: "starting",
+		executionId,
 		steps: [],
 		tools: [],
 		updatedAt: new Date(),
 	};
 	let toolCounter = 0;
+	const persistTool = (
+		activity: Extract<
+			AgentActivity,
+			{ type: "tool-start" } | { type: "tool-end" }
+		>,
+		order: number,
+	) =>
+		workflowService.upsertToolActivity({
+			workflowId,
+			executionId,
+			order,
+			tool: activity.tool,
+			status: activity.type === "tool-start" ? "called" : activity.status,
+			input:
+				activity.type === "tool-start"
+					? (activity.input as Record<string, unknown> | undefined)
+					: undefined,
+		});
 	return {
 		apply(activity: AgentActivity): void {
 			snapshot.updatedAt = new Date();
 			switch (activity.type) {
 				case "tool-start": {
+					const order = toolCounter++;
+					void persistTool(activity, order).catch(() => {});
 					snapshot.tools.push({
-						order: toolCounter++,
+						order,
 						step: snapshot.steps.length,
 						tool: activity.tool,
 						status: "running",
@@ -54,6 +112,7 @@ function createActivityAccumulator() {
 					);
 					if (entry) {
 						entry.status = activity.status;
+						void persistTool(activity, entry.order).catch(() => {});
 					}
 					snapshot.currentActivity = undefined;
 					break;
@@ -86,6 +145,7 @@ export async function runAgentStep(data: unknown): Promise<{
 	workflowId: string;
 	executionId: string;
 	status: "running" | "skipped";
+	mode: "planning" | "run";
 	result?: AgentResult;
 }> {
 	const parsed = executionRunEventSchema.parse(data);
@@ -93,22 +153,43 @@ export async function runAgentStep(data: unknown): Promise<{
 	if (!execution) {
 		throw new NonRetriableError(`Execution not found: ${parsed.executionId}`);
 	}
-	if (execution.status === "completed" || execution.status === "failed") {
+	if (
+		execution.status === "completed" ||
+		execution.status === "failed" ||
+		execution.status === "cancelled"
+	) {
 		return {
 			workflowId: parsed.workflowId,
 			executionId: parsed.executionId,
 			status: "skipped",
+			mode: "run",
 		};
 	}
-	const activity = createActivityAccumulator();
+	const workflow = await workflowService.getWorkflowById(execution.workflowId);
+	if (!workflow) {
+		throw new NonRetriableError(`Workflow not found: ${execution.workflowId}`);
+	}
+	const mode: "planning" | "run" =
+		workflow.status === "draft" ? "planning" : "run";
+	const activity = createActivityAccumulator(workflow.id, parsed.executionId);
 	return {
 		workflowId: parsed.workflowId,
 		executionId: parsed.executionId,
 		status: "running",
+		mode,
 		result: await runAgent({
-			registry: createDefaultRegistry(),
-			objective: parsed.objective,
+			registry:
+				mode === "planning"
+					? createPlanningRegistry()
+					: createDefaultRegistry(),
+			objective: parsed.prompt,
 			modelContextCapChars: parsed.modelContextCapChars,
+			instructions: await buildConversationInstructions(
+				workflow.id,
+				parsed.executionId,
+				parsed.modelContextCapChars,
+				mode,
+			),
 			onActivity: async (next) => {
 				activity.apply(next);
 				await workflowService.updateActivitySnapshot(
@@ -136,7 +217,9 @@ export async function persistAndCompleteStep(
 	const execution = await workflowService.getExecution(outcome.executionId);
 	if (
 		execution &&
-		(execution.status === "completed" || execution.status === "failed")
+		(execution.status === "completed" ||
+			execution.status === "failed" ||
+			execution.status === "cancelled")
 	) {
 		return {
 			workflowId: outcome.workflowId,
@@ -157,6 +240,14 @@ export async function persistAndCompleteStep(
 		executionId: outcome.executionId,
 		steps: result.steps,
 	});
+	let planEmitted = false;
+	if (outcome.mode === "planning") {
+		const plan = extractPlan(result.text);
+		if (plan) {
+			await workflowService.updatePlan(outcome.workflowId, plan);
+			planEmitted = true;
+		}
+	}
 	await workflowService.completeExecution({
 		executionId: outcome.executionId,
 	});
@@ -181,6 +272,7 @@ export async function persistAndCompleteStep(
 			(count, step) => count + step.toolCalls.length,
 			0,
 		),
+		planEmitted,
 	};
 }
 
@@ -206,7 +298,8 @@ export const executionRun = inngest.createFunction(
 			if (
 				!execution ||
 				execution.status === "completed" ||
-				execution.status === "failed"
+				execution.status === "failed" ||
+				execution.status === "cancelled"
 			) {
 				return;
 			}

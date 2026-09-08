@@ -10,7 +10,7 @@ export type CreateWorkflow = z.infer<typeof createWorkflowSchema>;
 
 export const startExecutionSchema = z.object({
 	workflowId: z.string().min(1),
-	prompt: z.string().max(2000),
+	prompt: z.string().max(2000).optional(),
 });
 
 export type StartExecution = z.infer<typeof startExecutionSchema>;
@@ -86,6 +86,7 @@ export type ApplyState = z.infer<typeof applyStateSchema>;
 export const activitySnapshotSchema = z.object({
 	status: z.enum(["running", "completed", "failed"]),
 	currentActivity: z.string().optional(),
+	executionId: z.string().optional(),
 	steps: z.array(
 		z.object({
 			order: z.number().int().min(0),
@@ -104,3 +105,29 @@ export const activitySnapshotSchema = z.object({
 });
 
 export type ActivitySnapshot = z.infer<typeof activitySnapshotSchema>;
+
+export const toolActivityStatusSchema = z.enum([
+	"called",
+	"completed",
+	"failed",
+]);
+
+export const toolActivityUpsertSchema = z.object({
+	workflowId: z.string().min(1),
+	executionId: z.string().min(1),
+	order: z.number().int().min(0),
+	tool: z.string().min(1),
+	status: toolActivityStatusSchema,
+	input: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type ToolActivityUpsert = z.infer<typeof toolActivityUpsertSchema>;
+
+export const planSchema = z.object({
+	title: z.string().min(1).max(200),
+	objective: z.string().min(1).max(2000),
+	summary: z.string().min(1).max(2000),
+	steps: z.array(z.string().min(1).max(2000)).max(20).optional(),
+});
+
+export type Plan = z.infer<typeof planSchema>;

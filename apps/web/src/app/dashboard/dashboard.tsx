@@ -2,55 +2,53 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { ExecutionTimeline } from "@/components/execution-timeline";
-import { InputBar } from "@/components/input-bar";
+import { InputBar, type RunHandle } from "@/components/input-bar";
 import { Sidebar } from "@/components/sidebar";
+import { ThreadView } from "@/components/thread-view";
 import { trpc } from "@/utils/trpc";
 
 export default function Dashboard() {
 	const queryClient = useQueryClient();
-	const [executionId, setExecutionId] = useState<string | null>(null);
-	const [isNew, setIsNew] = useState(false);
+	const [workflowId, setWorkflowId] = useState<string | null>(null);
 
-	const open = (id: string) => {
-		setExecutionId(id);
-		setIsNew(false);
+	const open = (handle: RunHandle) => {
+		setWorkflowId(handle.workflowId);
+		queryClient.invalidateQueries({
+			queryKey: trpc.agent.listRuns.queryKey(),
+		});
 	};
 
 	const openNew = () => {
-		setExecutionId(null);
-		setIsNew(true);
-	};
-
-	const onRunStart = (id: string) => {
-		open(id);
-		queryClient.invalidateQueries({ queryKey: trpc.agent.listRuns.queryKey() });
+		setWorkflowId(null);
 	};
 
 	return (
 		<div className="flex h-full min-h-0 gap-4 p-4">
 			<Sidebar
-				activeExecutionId={executionId}
-				onSelect={open}
+				activeWorkflowId={workflowId}
+				onSelect={setWorkflowId}
 				onNew={openNew}
 			/>
 			<main className="flex min-w-0 flex-1 flex-col">
-				{isNew ? (
-					<div className="flex min-h-0 flex-1 items-center justify-center p-4">
-						<InputBar autoFocus onRunStart={onRunStart} />
-					</div>
-				) : executionId ? (
+				{workflowId ? (
 					<div className="flex min-h-0 flex-1 flex-col gap-3">
 						<div className="min-h-0 flex-1">
-							<ExecutionTimeline executionId={executionId} />
+							<ThreadView workflowId={workflowId} />
 						</div>
 						<div className="shrink-0">
-							<InputBar onRunStart={onRunStart} />
+							<InputBar workflowId={workflowId} onRunStart={open} />
 						</div>
 					</div>
 				) : (
-					<div className="flex min-h-0 flex-1 items-center justify-center p-4 text-muted-foreground text-sm">
-						Select a workflow from the sidebar or start a new one.
+					<div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 p-4">
+						<div className="text-center">
+							<p className="text-muted-foreground text-sm">
+								Describe what you want done. Aevryn will ask clarifying
+								questions, propose a plan, then only run it once you start the
+								thread.
+							</p>
+						</div>
+						<InputBar autoFocus onRunStart={open} />
 					</div>
 				)}
 			</main>

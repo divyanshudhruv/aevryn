@@ -6,8 +6,14 @@ import { Loader2Icon, PlusIcon } from "lucide-react";
 
 import { trpc } from "@/utils/trpc";
 
-function statusDot(status: string | null | undefined): string {
-	switch (status) {
+function statusDot(
+	executionStatus: string | null | undefined,
+	workflowStatus: string | null | undefined,
+): string {
+	if (workflowStatus === "draft") {
+		return "bg-muted-foreground";
+	}
+	switch (executionStatus) {
 		case "running":
 		case "pending":
 			return "bg-primary animate-pulse";
@@ -22,12 +28,12 @@ function statusDot(status: string | null | undefined): string {
 }
 
 export function Sidebar({
-	activeExecutionId,
+	activeWorkflowId,
 	onSelect,
 	onNew,
 }: {
-	activeExecutionId: string | null;
-	onSelect: (executionId: string) => void;
+	activeWorkflowId: string | null;
+	onSelect: (workflowId: string) => void;
 	onNew: () => void;
 }) {
 	const runs = useQuery({
@@ -44,7 +50,7 @@ export function Sidebar({
 				onClick={onNew}
 			>
 				<PlusIcon className="size-4" />
-				New workflow
+				New thread
 			</Button>
 			<div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
 				{runs.isPending ? (
@@ -54,31 +60,35 @@ export function Sidebar({
 				) : null}
 				{runs.data?.length === 0 ? (
 					<p className="p-2 text-muted-foreground text-sm">
-						No workflows yet. Start one with New workflow.
+						No threads yet. Start one with New thread.
 					</p>
 				) : null}
 				{runs.data?.map(({ workflow, execution }) => (
 					<button
 						key={workflow.id}
 						type="button"
-						onClick={() => execution && onSelect(execution.id)}
-						disabled={!execution}
+						onClick={() => onSelect(workflow.id)}
 						className={
-							"flex w-full items-center gap-2 rounded-md border px-2 py-2 text-left disabled:opacity-50" +
-							(activeExecutionId === execution?.id
+							"flex w-full items-center gap-2 rounded-md border px-2 py-2 text-left" +
+							(activeWorkflowId === workflow.id
 								? "border-primary/40 bg-accent"
 								: "border-transparent hover:bg-muted")
 						}
 					>
 						<span
-							className={`size-2 shrink-0 rounded-full ${statusDot(execution?.status)}`}
+							className={`size-2 shrink-0 rounded-full ${statusDot(
+								execution?.status,
+								workflow.status,
+							)}`}
 							aria-hidden
 						/>
 						<span className="min-w-0 flex-1 truncate text-xs">
 							{workflow.objective}
 						</span>
 						<span className="shrink-0 text-[10px] text-muted-foreground uppercase">
-							{execution?.status}
+							{workflow.status === "draft"
+								? "draft"
+								: (execution?.status ?? workflow.status)}
 						</span>
 					</button>
 				))}

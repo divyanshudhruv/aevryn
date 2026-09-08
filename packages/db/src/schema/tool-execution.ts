@@ -5,6 +5,7 @@ import {
 	pgTable,
 	text,
 	timestamp,
+	unique,
 } from "drizzle-orm/pg-core";
 
 import type { z } from "zod";
@@ -28,6 +29,7 @@ export const toolExecution = pgTable(
 		stepId: text("step_id").references(() => workflowStep.id, {
 			onDelete: "set null",
 		}),
+		order: integer("order").notNull(),
 		tool: text("tool").notNull(),
 		provider: text("provider"),
 		status: text("status", { enum: TOOL_STATUSES }).notNull(),
@@ -51,6 +53,10 @@ export const toolExecution = pgTable(
 		),
 		index("tool_execution_tool_status_idx").on(table.tool, table.status),
 		index("tool_execution_error_idx").on(table.errorCode),
+		unique("tool_execution_execution_order_key").on(
+			table.executionId,
+			table.order,
+		),
 	],
 );
 

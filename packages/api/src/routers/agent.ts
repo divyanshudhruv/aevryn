@@ -6,48 +6,75 @@ import { z } from "zod";
 
 import { protectedProcedure, router } from "../index";
 
-const runObjectiveSchema = z.object({
-	objective: z.string().min(1).max(2000),
+const sendMessageSchema = z.object({
+	message: z.string().min(1).max(2000),
+	workflowId: z.string().min(1).optional(),
 	modelContextCapChars: z.number().int().positive().max(2_000_000).optional(),
 });
 
+const workflowIdSchema = z.object({ workflowId: z.string().min(1) });
+
 const workflowService = new WorkflowService();
 
+async function requireEnv() {
+	if (!env.GROQ_API_KEY) {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: "GROQ_API_KEY is not configured",
+		});
+	}
+	if (!env.ANAKIN_API_KEY) {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: "ANAKIN_API_KEY is not configured",
+		});
+	}
+}
+
+async function requireOwnedWorkflow(workflowId: string, userId: string) {
+	const workflow = await workflowService.getWorkflowById(workflowId);
+	if (!workflow || workflow.userId !== userId) {
+		throw new TRPCError({
+			code: "UNAUTHORIZED",
+			message: "Workflow does not belong to the current user",
+		});
+	}
+	return workflow;
+}
+
 export const agentRouter = router({
-	runObjective: protectedProcedure
-		.input(runObjectiveSchema)
+	sendMessage: protectedProcedure
+		.input(sendMessageSchema)
 		.mutation(async ({ input, ctx }) => {
-			if (!env.GROQ_API_KEY) {
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: "GROQ_API_KEY is not configured",
-				});
-			}
-			if (!env.ANAKIN_API_KEY) {
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: "ANAKIN_API_KEY is not configured",
-				});
-			}
+			await requireEnv();
 
 			const userId = ctx.session.user.id;
-			const { workflow } = await workflowService.createWorkflow({
-				userId,
-				objective: input.objective,
-			});
 
-			const started = await workflowService.startExecution({
-				workflowId: workflow.id,
-			});
+			let workflowId: string;
+			if (input.workflowId) {
+				const workflow = await requireOwnedWorkflow(input.workflowId, userId);
+				workflowId = workflow.id;
+			} else {
+				const created = await workflowService.createWorkflow({
+					userId,
+					objective: input.message,
+				});
+				workflowId = created.workflow.id;
+			}
+
+			const started = await workflowService.enqueueMessage(
+				workflowId,
+				input.message,
+			);
 			const executionId = started.execution.id;
 
 			try {
 				await inngest.send({
 					name: executionRunEvent,
 					data: {
-						workflowId: workflow.id,
+						workflowId,
 						executionId,
-						objective: input.objective,
+						prompt: input.message,
 						modelContextCapChars: input.modelContextCapChars,
 					},
 				});
@@ -62,55 +89,183 @@ export const agentRouter = router({
 			}
 
 			return {
-				workflowId: workflow.id,
+				workflowId,
 				executionId,
 				status: "queued" as const,
 			};
 		}),
-	getRun: protectedProcedure
-		.input(z.object({ executionId: z.string().min(1) }))
-		.query(async ({ input, ctx }) => {
-			const timeline = await workflowService.getExecutionTimeline(
-				input.executionId,
+	confirmWorkflow: protectedProcedure
+		.input(workflowIdSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			try {
+				await workflowService.bindWorkflow(input.workflowId);
+			} catch (error) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message:
+						error instanceof Error
+							? error.message
+							: "Workflow could not be bound",
+				});
+			}
+			const plan = await workflowService.getPlan(input.workflowId);
+			const workflow = await workflowService.getWorkflowById(input.workflowId);
+			const objective = plan?.objective ?? workflow?.objective;
+			if (!objective) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Bound workflow has no objective to run",
+				});
+			}
+			const started = await workflowService.enqueueMessage(
+				input.workflowId,
+				objective,
 			);
-			if (timeline.workflow.userId !== ctx.session.user.id) {
+			try {
+				await inngest.send({
+					name: executionRunEvent,
+					data: {
+						workflowId: input.workflowId,
+						executionId: started.execution.id,
+						prompt: objective,
+					},
+				});
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : "Unknown error";
+				await workflowService.failExecution({
+					executionId: started.execution.id,
+					reason: message.slice(0, 500),
+				});
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Workflow bound but its first run could not be queued",
+				});
+			}
+			return { bound: true as const, executionId: started.execution.id };
+		}),
+	discardPlan: protectedProcedure
+		.input(workflowIdSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			await workflowService.discardPlan(input.workflowId);
+			return { discarded: true as const };
+		}),
+	getThread: protectedProcedure
+		.input(workflowIdSchema)
+		.query(async ({ input, ctx }) => {
+			const thread = await workflowService.getThread(input.workflowId);
+			if (thread.workflow.userId !== ctx.session.user.id) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
-					message: "Execution does not belong to the current user",
+					message: "Workflow does not belong to the current user",
 				});
 			}
 			return {
 				workflow: {
-					id: timeline.workflow.id,
-					objective: timeline.workflow.objective,
+					id: thread.workflow.id,
+					objective: thread.workflow.objective,
+					status: thread.workflow.status,
+					createdAt: thread.workflow.createdAt,
 				},
-				execution: {
-					id: timeline.execution.id,
-					status: timeline.execution.status,
-					reason: timeline.execution.reason,
-					startedAt: timeline.execution.startedAt,
-					completedAt: timeline.execution.completedAt,
-				},
-				steps: timeline.steps.map((step) => ({
-					id: step.id,
-					order: step.order,
-					kind: step.kind,
-					text: step.assistantText,
-					status: step.status,
-					createdAt: step.createdAt,
+				plan: thread.plan,
+				activity: thread.activity,
+				turns: thread.turns.map((turn) => ({
+					execution: {
+						id: turn.execution.id,
+						status: turn.execution.status,
+						reason: turn.execution.reason,
+						startedAt: turn.execution.startedAt,
+						completedAt: turn.execution.completedAt,
+					},
+					prompt: turn.execution.prompt,
+					steps: [...turn.steps]
+						.sort((a, b) => a.order - b.order)
+						.map((step) => ({
+							id: step.id,
+							order: step.order,
+							kind: step.kind,
+							text: step.assistantText,
+							status: step.status,
+							createdAt: step.createdAt,
+						})),
+					toolExecutions: turn.toolExecutions.map((tool) => ({
+						id: tool.id,
+						order: tool.order,
+						stepId: tool.stepId,
+						tool: tool.tool,
+						status: tool.status,
+						durationMs: tool.durationMs,
+						errorCode: tool.errorCode,
+						input: tool.input,
+						output: tool.output,
+					})),
 				})),
-				toolExecutions: timeline.toolExecutions.map((tool) => ({
-					id: tool.id,
-					stepId: tool.stepId,
-					tool: tool.tool,
-					status: tool.status,
-					durationMs: tool.durationMs,
-					errorCode: tool.errorCode,
-					input: tool.input,
-					output: tool.output,
-				})),
-				activity: timeline.activity,
 			};
+		}),
+	runWorkflow: protectedProcedure
+		.input(workflowIdSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			const workflow = await workflowService.getWorkflowById(input.workflowId);
+			if (!workflow) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Workflow not found",
+				});
+			}
+			if (workflow.status === "draft") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Workflow is not bound — start it from the plan card first",
+				});
+			}
+			if (!workflow.objective) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Bound workflow has no objective to run",
+				});
+			}
+			const started = await workflowService.enqueueMessage(
+				input.workflowId,
+				workflow.objective,
+			);
+			try {
+				await inngest.send({
+					name: executionRunEvent,
+					data: {
+						workflowId: input.workflowId,
+						executionId: started.execution.id,
+						prompt: workflow.objective,
+					},
+				});
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : "Unknown error";
+				await workflowService.failExecution({
+					executionId: started.execution.id,
+					reason: message.slice(0, 500),
+				});
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Run could not be queued",
+				});
+			}
+			return {
+				workflowId: input.workflowId,
+				executionId: started.execution.id,
+				status: "queued" as const,
+			};
+		}),
+	stopWorkflow: protectedProcedure
+		.input(workflowIdSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			const { cancelled } = await workflowService.stopExecution(
+				input.workflowId,
+			);
+			return { stopped: true as const, cancelled };
 		}),
 	listRuns: protectedProcedure
 		.input(z.object({ limit: z.number().int().min(1).max(50).optional() }))

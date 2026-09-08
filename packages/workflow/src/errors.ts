@@ -12,18 +12,6 @@ export class ExecutionNotFoundError extends Error {
 	}
 }
 
-export class ConcurrencyLimitError extends Error {
-	constructor(
-		readonly workflowId: string,
-		readonly maxActive: number,
-	) {
-		super(
-			`Workflow ${workflowId} already has ${maxActive} active runs; new runs blocked until one completes`,
-		);
-		this.name = "ConcurrencyLimitError";
-	}
-}
-
 export class StateConflictError extends Error {
 	constructor(
 		readonly workflowId: string,
