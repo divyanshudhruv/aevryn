@@ -5,7 +5,7 @@ import {
 	type WorkflowExecution,
 	workflowExecution,
 } from "@aevryn/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { ExecutionNotFoundError } from "../errors";
 import type { DbClient } from "../types";
@@ -14,6 +14,7 @@ export interface CreateExecutionParams {
 	workflowId: string;
 	status?: NewWorkflowExecution["status"];
 	startedAt?: Date;
+	prompt?: string;
 }
 
 export interface UpdateExecutionParams {
@@ -22,6 +23,8 @@ export interface UpdateExecutionParams {
 	startedAt?: Date;
 	completedAt?: Date;
 }
+
+const ACTIVE_STATUSES = ["pending", "running"] as const;
 
 export class ExecutionRepository {
 	async insert(
@@ -35,6 +38,7 @@ export class ExecutionRepository {
 				workflowId: params.workflowId,
 				status: params.status,
 				startedAt: params.startedAt,
+				prompt: params.prompt ?? "",
 			})
 			.returning();
 		const row = rows[0];
@@ -99,5 +103,34 @@ export class ExecutionRepository {
 			.where(and(eq(workflowExecution.workflowId, workflowId)))
 			.orderBy(desc(workflowExecution.createdAt))
 			.limit(limit);
+	}
+
+	async listByWorkflowChronological(
+		workflowId: string,
+		limit = 50,
+		client: DbClient = db,
+	): Promise<WorkflowExecution[]> {
+		return client
+			.select()
+			.from(workflowExecution)
+			.where(and(eq(workflowExecution.workflowId, workflowId)))
+			.orderBy(asc(workflowExecution.createdAt))
+			.limit(limit);
+	}
+
+	async countActiveByWorkflow(
+		workflowId: string,
+		client: DbClient = db,
+	): Promise<number> {
+		const rows = await client
+			.select({ count: sql<number>`count(*)::int` })
+			.from(workflowExecution)
+			.where(
+				and(
+					eq(workflowExecution.workflowId, workflowId),
+					inArray(workflowExecution.status, [...ACTIVE_STATUSES]),
+				),
+			);
+		return rows[0]?.count ?? 0;
 	}
 }

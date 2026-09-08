@@ -10,6 +10,7 @@ export type CreateWorkflow = z.infer<typeof createWorkflowSchema>;
 
 export const startExecutionSchema = z.object({
 	workflowId: z.string().min(1),
+	prompt: z.string().max(2000),
 });
 
 export type StartExecution = z.infer<typeof startExecutionSchema>;
@@ -56,6 +57,7 @@ export type ToolCallRecord = z.infer<typeof toolCallRecordSchema>;
 export const stepRecordSchema = z.object({
 	order: z.number().int().min(0),
 	kind: z.string().min(1),
+	text: z.string().optional(),
 	toolCalls: z.array(toolCallRecordSchema).max(50),
 	createdAt: z.coerce.date(),
 });
@@ -80,3 +82,25 @@ export const applyStateSchema = z.object({
 });
 
 export type ApplyState = z.infer<typeof applyStateSchema>;
+
+export const activitySnapshotSchema = z.object({
+	status: z.enum(["running", "completed", "failed"]),
+	currentActivity: z.string().optional(),
+	steps: z.array(
+		z.object({
+			order: z.number().int().min(0),
+			text: z.string(),
+		}),
+	),
+	tools: z.array(
+		z.object({
+			order: z.number().int().min(0),
+			step: z.number().int().min(0),
+			tool: z.string().min(1),
+			status: z.enum(["running", "completed", "failed"]),
+		}),
+	),
+	updatedAt: z.coerce.date(),
+});
+
+export type ActivitySnapshot = z.infer<typeof activitySnapshotSchema>;

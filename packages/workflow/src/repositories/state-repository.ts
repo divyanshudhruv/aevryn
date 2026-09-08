@@ -72,4 +72,43 @@ export class StateRepository {
 		}
 		return rows[0];
 	}
+
+	/**
+	 * Insert-or-update the agent state for a workflow. Optimistic-versioned
+	 * updates are used when a row exists; a fresh insert wins if none exists.
+	 * Used for idempotent live snapshots written during an execution.
+	 */
+	async upsert(
+		workflowId: string,
+		params: UpdateStateParams,
+		client: DbClient = db,
+	): Promise<AgentState> {
+		const existing = await this.findByWorkflow(workflowId, client);
+		if (!existing) {
+			if (params.data) {
+				return this.insert(
+					{ workflowId, phase: params.phase, data: params.data },
+					client,
+				);
+			}
+			throw new Error("Cannot create agent state without data");
+		}
+		const rows = await client
+			.update(agentState)
+			.set({
+				...params,
+				version: existing.version + 1,
+			})
+			.where(
+				and(
+					eq(agentState.workflowId, workflowId),
+					eq(agentState.version, existing.version),
+				),
+			)
+			.returning();
+		if (!rows[0]) {
+			throw new StateConflictError(workflowId, existing.version);
+		}
+		return rows[0];
+	}
 }

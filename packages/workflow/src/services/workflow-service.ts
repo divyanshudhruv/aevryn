@@ -1,4 +1,10 @@
-import { db, type Workflow, type WorkflowExecution } from "@aevryn/db";
+import {
+	db,
+	type ToolExecution,
+	type Workflow,
+	type WorkflowExecution,
+	type WorkflowStep,
+} from "@aevryn/db";
 import type { z } from "zod";
 import { EventRepository } from "../repositories/event-repository";
 import { ExecutionRepository } from "../repositories/execution-repository";
@@ -7,7 +13,9 @@ import { StepRepository } from "../repositories/step-repository";
 import { ToolExecutionRepository } from "../repositories/tool-execution-repository";
 import { WorkflowRepository } from "../repositories/workflow-repository";
 import {
+	type ActivitySnapshot,
 	type ApplyState,
+	activitySnapshotSchema,
 	applyStateSchema,
 	type CompleteExecution,
 	type CreateWorkflow,
@@ -109,6 +117,7 @@ export class WorkflowService {
 				parsed.steps.map((step) => ({
 					executionId: execution.id,
 					kind: step.kind,
+					assistantText: step.text ?? null,
 					status: step.toolCalls.every((call) => call.status === "completed")
 						? "completed"
 						: "failed",
@@ -217,6 +226,77 @@ export class WorkflowService {
 		return state?.data ?? null;
 	}
 
+	/**
+	 * Persist a live activity snapshot for a workflow. Overwrites the previous
+	 * snapshot, so repeated writes are idempotent and safe across retries.
+	 */
+	async updateActivitySnapshot(
+		workflowId: string,
+		snapshot: ActivitySnapshot,
+	): Promise<void> {
+		const parsed = activitySnapshotSchema.parse(snapshot);
+		const existing = await this.states.findByWorkflow(workflowId);
+		await this.states.upsert(workflowId, {
+			phase: "executing",
+			data: {
+				...existing?.data,
+				data: {
+					...(existing?.data?.data ?? {}),
+					activity: parsed,
+				},
+			},
+		});
+	}
+
+	async getActivitySnapshot(
+		workflowId: string,
+	): Promise<ActivitySnapshot | null> {
+		const state = await this.states.findByWorkflow(workflowId);
+		const activity = state?.data?.data?.activity;
+		if (!activity) {
+			return null;
+		}
+		const parsed = activitySnapshotSchema.safeParse(activity);
+		return parsed.success ? parsed.data : null;
+	}
+
+	async getExecutionTimeline(executionId: string): Promise<{
+		workflow: Workflow;
+		execution: WorkflowExecution;
+		steps: WorkflowStep[];
+		toolExecutions: ToolExecution[];
+		activity: ActivitySnapshot | null;
+	}> {
+		const execution = await this.executions.requireById(executionId);
+		const workflow = await this.workflows.requireById(execution.workflowId);
+		const activity = await this.getActivitySnapshot(workflow.id);
+		return {
+			workflow,
+			execution,
+			steps: await this.steps.listByExecution(execution.id),
+			toolExecutions: await this.toolExecutions.listByExecution(execution.id),
+			activity,
+		};
+	}
+
+	async listRuns(
+		userId: string,
+		limit = 20,
+	): Promise<
+		Array<{
+			workflow: Workflow;
+			execution: WorkflowExecution | null;
+		}>
+	> {
+		const workflows = await this.workflows.listByUser(userId, limit);
+		return Promise.all(
+			workflows.map(async (workflow) => {
+				const executions = await this.executions.listByWorkflow(workflow.id, 1);
+				return { workflow, execution: executions[0] ?? null };
+			}),
+		);
+	}
+
 	private mergeState(
 		current: AgentStateValue | undefined,
 		patch: AgentStateValue,
@@ -254,8 +334,8 @@ export class WorkflowService {
 			output: call.output,
 			errorCode: call.error?.code,
 			durationMs: call.provider?.durationMs
-			? Math.round(call.provider.durationMs)
-			: undefined,
+				? Math.round(call.provider.durationMs)
+				: undefined,
 		}));
 	}
 }

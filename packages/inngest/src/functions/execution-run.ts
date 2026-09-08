@@ -1,9 +1,10 @@
 import {
+	type AgentActivity,
 	type AgentResult,
 	createDefaultRegistry,
 	runAgent,
 } from "@aevryn/agent";
-import { WorkflowService } from "@aevryn/workflow";
+import { type ActivitySnapshot, WorkflowService } from "@aevryn/workflow";
 import { NonRetriableError } from "inngest";
 import { z } from "zod";
 import { inngest } from "../client";
@@ -24,6 +25,63 @@ const failureEventSchema = z.object({
 	}),
 });
 
+function createActivityAccumulator() {
+	const snapshot: ActivitySnapshot = {
+		status: "running",
+		currentActivity: "starting",
+		steps: [],
+		tools: [],
+		updatedAt: new Date(),
+	};
+	let toolCounter = 0;
+	return {
+		apply(activity: AgentActivity): void {
+			snapshot.updatedAt = new Date();
+			switch (activity.type) {
+				case "tool-start": {
+					snapshot.tools.push({
+						order: toolCounter++,
+						step: snapshot.steps.length,
+						tool: activity.tool,
+						status: "running",
+					});
+					snapshot.currentActivity = `running ${activity.tool}`;
+					break;
+				}
+				case "tool-end": {
+					const entry = snapshot.tools.find(
+						(t) => t.tool === activity.tool && t.status === "running",
+					);
+					if (entry) {
+						entry.status = activity.status;
+					}
+					snapshot.currentActivity = undefined;
+					break;
+				}
+				case "step-end": {
+					snapshot.steps = snapshot.steps.filter(
+						(s) => s.order !== activity.step,
+					);
+					snapshot.steps.push({
+						order: activity.step,
+						text: activity.text,
+					});
+					snapshot.steps.sort((a, b) => a.order - b.order);
+					snapshot.currentActivity = "summarizing";
+					break;
+				}
+			}
+		},
+		snapshot() {
+			return {
+				...snapshot,
+				steps: [...snapshot.steps],
+				tools: [...snapshot.tools],
+			};
+		},
+	};
+}
+
 export async function runAgentStep(data: unknown): Promise<{
 	workflowId: string;
 	executionId: string;
@@ -42,6 +100,7 @@ export async function runAgentStep(data: unknown): Promise<{
 			status: "skipped",
 		};
 	}
+	const activity = createActivityAccumulator();
 	return {
 		workflowId: parsed.workflowId,
 		executionId: parsed.executionId,
@@ -50,6 +109,13 @@ export async function runAgentStep(data: unknown): Promise<{
 			registry: createDefaultRegistry(),
 			objective: parsed.objective,
 			modelContextCapChars: parsed.modelContextCapChars,
+			onActivity: async (next) => {
+				activity.apply(next);
+				await workflowService.updateActivitySnapshot(
+					parsed.workflowId,
+					activity.snapshot(),
+				);
+			},
 		}),
 	};
 }
@@ -94,6 +160,17 @@ export async function persistAndCompleteStep(
 	await workflowService.completeExecution({
 		executionId: outcome.executionId,
 	});
+	const activity = await workflowService.getActivitySnapshot(
+		outcome.workflowId,
+	);
+	if (activity) {
+		await workflowService.updateActivitySnapshot(outcome.workflowId, {
+			...activity,
+			status: "completed",
+			currentActivity: undefined,
+			updatedAt: new Date(),
+		});
+	}
 	return {
 		workflowId: outcome.workflowId,
 		executionId: outcome.executionId,
@@ -139,6 +216,20 @@ export const executionRun = inngest.createFunction(
 				"execution failed unexpectedly"
 			).slice(0, 500);
 			await workflowService.failExecution({ executionId, reason });
+			const activity = await workflowService.getActivitySnapshot(
+				parsed.data.data.event.data.workflowId,
+			);
+			if (activity) {
+				await workflowService.updateActivitySnapshot(
+					parsed.data.data.event.data.workflowId,
+					{
+						...activity,
+						status: "failed",
+						currentActivity: undefined,
+						updatedAt: new Date(),
+					},
+				);
+			}
 		},
 	},
 	async ({ event, step }) => {

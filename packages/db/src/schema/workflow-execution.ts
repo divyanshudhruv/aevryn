@@ -14,6 +14,7 @@ export const workflowExecution = pgTable(
 			.notNull()
 			.default("pending"),
 		reason: text("reason"),
+		prompt: text("prompt").notNull().default(""),
 		schemaVersion: integer("schema_version").notNull().default(1),
 		startedAt: timestamp("started_at", { withTimezone: true }),
 		completedAt: timestamp("completed_at", { withTimezone: true }),

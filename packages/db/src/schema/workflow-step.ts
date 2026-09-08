@@ -18,6 +18,7 @@ export const workflowStep = pgTable(
 			.notNull()
 			.references(() => workflowExecution.id, { onDelete: "cascade" }),
 		kind: text("kind").notNull(),
+		assistantText: text("assistant_text"),
 		status: text("status", { enum: STEP_STATUSES })
 			.notNull()
 			.default("pending"),

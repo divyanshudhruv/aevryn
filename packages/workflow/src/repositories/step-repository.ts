@@ -12,6 +12,7 @@ import type { DbClient } from "../types";
 export interface CreateStepRow {
 	executionId: string;
 	kind: string;
+	assistantText?: string | null;
 	status: NewWorkflowStep["status"];
 	order?: number;
 	startedAt?: Date;
@@ -33,6 +34,7 @@ export class StepRepository {
 					id: ids.step(),
 					executionId: step.executionId,
 					kind: step.kind,
+					assistantText: step.assistantText,
 					status: step.status,
 					order: step.order ?? index,
 					startedAt: step.startedAt,

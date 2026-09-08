@@ -67,4 +67,74 @@ export const agentRouter = router({
 				status: "queued" as const,
 			};
 		}),
+	getRun: protectedProcedure
+		.input(z.object({ executionId: z.string().min(1) }))
+		.query(async ({ input, ctx }) => {
+			const timeline = await workflowService.getExecutionTimeline(
+				input.executionId,
+			);
+			if (timeline.workflow.userId !== ctx.session.user.id) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "Execution does not belong to the current user",
+				});
+			}
+			return {
+				workflow: {
+					id: timeline.workflow.id,
+					objective: timeline.workflow.objective,
+				},
+				execution: {
+					id: timeline.execution.id,
+					status: timeline.execution.status,
+					reason: timeline.execution.reason,
+					startedAt: timeline.execution.startedAt,
+					completedAt: timeline.execution.completedAt,
+				},
+				steps: timeline.steps.map((step) => ({
+					id: step.id,
+					order: step.order,
+					kind: step.kind,
+					text: step.assistantText,
+					status: step.status,
+					createdAt: step.createdAt,
+				})),
+				toolExecutions: timeline.toolExecutions.map((tool) => ({
+					id: tool.id,
+					stepId: tool.stepId,
+					tool: tool.tool,
+					status: tool.status,
+					durationMs: tool.durationMs,
+					errorCode: tool.errorCode,
+					input: tool.input,
+					output: tool.output,
+				})),
+				activity: timeline.activity,
+			};
+		}),
+	listRuns: protectedProcedure
+		.input(z.object({ limit: z.number().int().min(1).max(50).optional() }))
+		.query(async ({ input, ctx }) => {
+			const runs = await workflowService.listRuns(
+				ctx.session.user.id,
+				input.limit ?? 20,
+			);
+			return runs.map(({ workflow, execution }) => ({
+				workflow: {
+					id: workflow.id,
+					objective: workflow.objective,
+					status: workflow.status,
+					createdAt: workflow.createdAt,
+				},
+				execution: execution
+					? {
+							id: execution.id,
+							status: execution.status,
+							reason: execution.reason,
+							startedAt: execution.startedAt,
+							completedAt: execution.completedAt,
+						}
+					: null,
+			}));
+		}),
 });
