@@ -9,6 +9,12 @@ export interface AgentRuntimeOptions {
 	objective: string;
 	maxSteps?: number;
 	model?: string;
+	/**
+	 * Maximum characters of a tool result that are echoed back to the model.
+	 * Full tool output is still recorded in execution records. Apply a cap to
+	 * keep the model context small across long agent loops.
+	 */
+	modelContextCapChars?: number;
 }
 
 export interface PendingApproval {
@@ -56,6 +62,18 @@ export interface AgentResult {
 }
 
 const now = () => new Date();
+
+function capModelOutput(data: unknown, capChars: number | undefined): unknown {
+	if (!capChars || data == null) return data;
+	const json = JSON.stringify(data);
+	if (json.length <= capChars) return data;
+	return {
+		truncated: true,
+		maxChars: capChars,
+		note: "Full output stored in the execution log. Request more detail with a follow-up tool call only if needed.",
+		preview: json.slice(0, capChars),
+	} satisfies Record<string, unknown>;
+}
 
 export async function runAgent(
 	options: AgentRuntimeOptions,
@@ -105,7 +123,7 @@ export async function runAgent(
 						id: capability.name,
 						durationMs: elapsedMs,
 					};
-					return result.data;
+					return capModelOutput(result.data, options.modelContextCapChars);
 				},
 			}),
 		]),

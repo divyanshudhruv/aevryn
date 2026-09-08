@@ -1,5 +1,5 @@
-import { createDefaultRegistry, runAgent } from "@aevryn/agent";
 import { env } from "@aevryn/env/server";
+import { executionRunEvent, inngest } from "@aevryn/inngest";
 import { WorkflowService } from "@aevryn/workflow";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -8,19 +8,10 @@ import { protectedProcedure, router } from "../index";
 
 const runObjectiveSchema = z.object({
 	objective: z.string().min(1).max(2000),
+	modelContextCapChars: z.number().int().positive().max(2_000_000).optional(),
 });
 
 const workflowService = new WorkflowService();
-
-export function persistAgentRun(
-	executionId: string,
-	result: Awaited<ReturnType<typeof runAgent>>,
-) {
-	return workflowService.recordSteps({
-		executionId,
-		steps: result.steps,
-	});
-}
 
 export const agentRouter = router({
 	runObjective: protectedProcedure
@@ -45,35 +36,35 @@ export const agentRouter = router({
 				objective: input.objective,
 			});
 
-			let executionId: string | undefined;
+			const started = await workflowService.startExecution({
+				workflowId: workflow.id,
+			});
+			const executionId = started.execution.id;
+
 			try {
-				const started = await workflowService.startExecution({
-					workflowId: workflow.id,
+				await inngest.send({
+					name: executionRunEvent,
+					data: {
+						workflowId: workflow.id,
+						executionId,
+						objective: input.objective,
+						modelContextCapChars: input.modelContextCapChars,
+					},
 				});
-				executionId = started.execution.id;
-				const result = await runAgent({
-					registry: createDefaultRegistry(),
-					objective: input.objective,
-				});
-				await persistAgentRun(executionId, result);
-				await workflowService.completeExecution({ executionId });
-				return {
-					workflowId: workflow.id,
-					executionId,
-					text: result.text,
-					toolsCalled: result.toolsCalled,
-					pendingApprovals: result.pendingApprovals,
-				};
 			} catch (error) {
 				const message =
 					error instanceof Error ? error.message : "Unknown error";
-				if (executionId) {
-					await workflowService.failExecution({
-						executionId,
-						reason: message,
-					});
-				}
+				await workflowService.failExecution({
+					executionId,
+					reason: message,
+				});
 				throw error;
 			}
+
+			return {
+				workflowId: workflow.id,
+				executionId,
+				status: "queued" as const,
+			};
 		}),
 });

@@ -44,7 +44,7 @@ export const toolCallRecordSchema = z.object({
 			id: z.string().min(1),
 			operation: z.string().optional(),
 			requestId: z.string().optional(),
-			durationMs: z.number().int().nonnegative().optional(),
+			durationMs: z.number().nonnegative().optional(),
 		})
 		.optional(),
 	startedAt: z.coerce.date(),

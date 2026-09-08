@@ -97,6 +97,10 @@ export class WorkflowService {
 		});
 	}
 
+	async getExecution(executionId: string): Promise<WorkflowExecution | null> {
+		return this.executions.findById(executionId);
+	}
+
 	async recordSteps(input: RecordSteps): Promise<RecordStepsOutcome> {
 		const parsed = recordStepsSchema.parse(input);
 		const execution = await this.executions.requireById(parsed.executionId);
@@ -249,7 +253,9 @@ export class WorkflowService {
 			input: call.input,
 			output: call.output,
 			errorCode: call.error?.code,
-			durationMs: call.provider?.durationMs,
+			durationMs: call.provider?.durationMs
+			? Math.round(call.provider.durationMs)
+			: undefined,
 		}));
 	}
 }

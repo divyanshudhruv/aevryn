@@ -12,6 +12,7 @@
 		"@aevryn/api": "workspace:*",
 		"@aevryn/auth": "workspace:*",
 		"@aevryn/env": "workspace:*",
+		"@aevryn/inngest": "workspace:*",
 		"@aevryn/ui": "workspace:*",
 		"@swc/helpers": "^0.5.23",
 		"@tanstack/react-form": "^1.33.2",

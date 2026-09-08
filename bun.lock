@@ -31,6 +31,7 @@
         "@aevryn/api": "workspace:*",
         "@aevryn/auth": "workspace:*",
         "@aevryn/env": "workspace:*",
+        "@aevryn/inngest": "workspace:*",
         "@aevryn/ui": "workspace:*",
         "@swc/helpers": "^0.5.23",
         "@tanstack/react-form": "^1.33.2",
@@ -83,6 +84,7 @@
         "@aevryn/auth": "workspace:*",
         "@aevryn/db": "workspace:*",
         "@aevryn/env": "workspace:*",
+        "@aevryn/inngest": "workspace:*",
         "@aevryn/workflow": "workspace:*",
         "@trpc/client": "catalog:",
         "@trpc/server": "catalog:",
@@ -143,6 +145,21 @@
       "devDependencies": {
         "@aevryn/config": "workspace:*",
         "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/inngest": {
+      "name": "@aevryn/inngest",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aevryn/agent": "workspace:*",
+        "@aevryn/env": "workspace:*",
+        "@aevryn/workflow": "workspace:*",
+        "inngest": "^4.20.0",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@aevryn/config": "workspace:*",
         "typescript": "catalog:",
       },
     },
@@ -216,6 +233,8 @@
     "@aevryn/db": ["@aevryn/db@workspace:packages/db"],
 
     "@aevryn/env": ["@aevryn/env@workspace:packages/env"],
+
+    "@aevryn/inngest": ["@aevryn/inngest@workspace:packages/inngest"],
 
     "@aevryn/ui": ["@aevryn/ui@workspace:packages/ui"],
 
