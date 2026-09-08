@@ -8,6 +8,7 @@ import { AnakinWireAdapter } from "./adapters/anakin-wire";
 import { createBrowserSessionCreateCapability } from "./capabilities/browser-session-create";
 import { createBrowserSessionDeleteCapability } from "./capabilities/browser-session-delete";
 import { createBrowserSessionListCapability } from "./capabilities/browser-session-list";
+import { createBrowserSessionRenameCapability } from "./capabilities/browser-session-rename";
 import { createCrawlSiteCapability } from "./capabilities/crawl-site";
 import { createMapSiteCapability } from "./capabilities/map-site";
 import { createResearchTopicCapability } from "./capabilities/research-topic";
@@ -34,6 +35,7 @@ export function createDefaultRegistry(): CapabilityRegistry {
 	registry.register(createWireActionCapability(wire));
 	registry.register(createBrowserSessionListCapability(sessions));
 	registry.register(createBrowserSessionCreateCapability(sessions));
+	registry.register(createBrowserSessionRenameCapability(sessions));
 	registry.register(createBrowserSessionDeleteCapability(sessions));
 	return registry;
 }

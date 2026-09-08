@@ -1,8 +1,18 @@
 import type { z } from "zod";
 
+export type CapabilityFailureClass = "retryable" | "recoverable" | "fatal";
+
+export interface CapabilityProvider {
+	id: string;
+	operation?: string;
+	requestId?: string;
+	durationMs?: number;
+}
+
 export interface CapabilitySuccess {
 	ok: true;
 	data: unknown;
+	provider?: CapabilityProvider;
 }
 
 export interface CapabilityFailure {
@@ -10,7 +20,10 @@ export interface CapabilityFailure {
 	error: {
 		code: string;
 		message: string;
+		failureClass: CapabilityFailureClass;
+		retryable: boolean;
 	};
+	provider?: CapabilityProvider;
 }
 
 export type CapabilityResult = CapabilitySuccess | CapabilityFailure;

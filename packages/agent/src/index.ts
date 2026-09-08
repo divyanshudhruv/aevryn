@@ -15,6 +15,7 @@ export * from "./adapters/wire";
 export * from "./capabilities/browser-session-create";
 export * from "./capabilities/browser-session-delete";
 export * from "./capabilities/browser-session-list";
+export * from "./capabilities/browser-session-rename";
 export * from "./capabilities/crawl-site";
 export * from "./capabilities/map-site";
 export * from "./capabilities/research-topic";

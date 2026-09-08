@@ -1,13 +1,18 @@
 import { z } from "zod";
 import type { MapAdapter } from "../adapters/map";
 import type { Capability } from "../capability";
+import { toCapabilityFailure } from "../errors";
 
 const mapSiteInputSchema = z.object({
 	url: z.string().url(),
 	limit: z.number().int().positive().max(5000).optional(),
 	depth: z.number().int().positive().max(10).optional(),
+	limitPerLevel: z.number().int().positive().max(1000).optional(),
 	includeSubdomains: z.boolean().optional(),
 	includeExternalLinks: z.boolean().optional(),
+	search: z.string().max(500).optional(),
+	useBrowser: z.boolean().optional(),
+	sessionId: z.string().optional(),
 });
 
 export function createMapSiteCapability(adapter: MapAdapter): Capability {
@@ -26,25 +31,33 @@ export function createMapSiteCapability(adapter: MapAdapter): Capability {
 					error: {
 						code: "INVALID_CAPABILITY_INPUT",
 						message: parsed.error.message,
+						failureClass: "fatal",
+						retryable: false,
 					},
 				};
 			}
+			const startedAt = performance.now();
 			try {
 				const result = await adapter.map(parsed.data.url, {
 					limit: parsed.data.limit,
 					depth: parsed.data.depth,
+					limitPerLevel: parsed.data.limitPerLevel,
 					includeSubdomains: parsed.data.includeSubdomains,
 					includeExternalLinks: parsed.data.includeExternalLinks,
+					search: parsed.data.search,
+					useBrowser: parsed.data.useBrowser,
+					sessionId: parsed.data.sessionId,
 				});
-				return { ok: true, data: result };
-			} catch (error) {
 				return {
-					ok: false,
-					error: {
-						code: "CAPABILITY_EXECUTION_FAILED",
-						message: error instanceof Error ? error.message : "Unknown error",
+					ok: true,
+					data: result,
+					provider: {
+						id: adapter.name,
+						durationMs: performance.now() - startedAt,
 					},
 				};
+			} catch (error) {
+				return toCapabilityFailure(error, performance.now() - startedAt);
 			}
 		},
 	};

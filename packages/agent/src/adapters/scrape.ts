@@ -9,10 +9,16 @@ export type ScrapeFormat =
 	| "screenshotFullPage"
 	| "summary";
 
+export type TerminalStatus = "completed" | "failed";
+
 export interface ScrapeResult {
 	id: string;
 	url: string;
+	status: TerminalStatus;
 	cached: boolean;
+	durationMs: number;
+	createdAt?: string;
+	completedAt?: string;
 	markdown?: string;
 	html?: string;
 	cleanedHtml?: string;
@@ -21,6 +27,7 @@ export interface ScrapeResult {
 	summary?: string;
 	generatedJson?: Record<string, unknown>;
 	screenshotUrl?: string;
+	fullPageScreenshotUrl?: string;
 	error?: string;
 }
 
@@ -33,6 +40,9 @@ export interface ScrapeAdapter {
 			country?: string;
 			useBrowser?: boolean;
 			generateJson?: boolean;
+			forceFresh?: boolean;
+			sessionId?: string;
+			sessionName?: string;
 		},
 	): Promise<ScrapeResult>;
 }

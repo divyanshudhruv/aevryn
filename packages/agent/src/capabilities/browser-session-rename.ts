@@ -3,22 +3,23 @@ import type { BrowserSessionAdapter } from "../adapters/browser-session";
 import type { Capability } from "../capability";
 import { toCapabilityFailure } from "../errors";
 
-const browserSessionDeleteInputSchema = z.object({
+const browserSessionRenameInputSchema = z.object({
 	sessionId: z.string().min(1),
+	name: z.string().min(1),
 });
 
-export function createBrowserSessionDeleteCapability(
+export function createBrowserSessionRenameCapability(
 	adapter: BrowserSessionAdapter,
 ): Capability {
 	return {
-		name: "browserSessionDelete",
+		name: "browserSessionRename",
 		description:
-			"Delete an existing persistent browser session and its stored cookies. " +
-			"Use when a session is no longer needed or its login must be cleared.",
-		inputSchema: browserSessionDeleteInputSchema,
+			"Rename an existing persistent browser session. Use when a session's " +
+			"current name no longer describes its purpose.",
+		inputSchema: browserSessionRenameInputSchema,
 		requiresApproval: true,
 		async execute(input) {
-			const parsed = browserSessionDeleteInputSchema.safeParse(input);
+			const parsed = browserSessionRenameInputSchema.safeParse(input);
 			if (!parsed.success) {
 				return {
 					ok: false,
@@ -32,10 +33,12 @@ export function createBrowserSessionDeleteCapability(
 			}
 			const startedAt = performance.now();
 			try {
-				await adapter.delete(parsed.data.sessionId);
+				const result = await adapter.update(parsed.data.sessionId, {
+					name: parsed.data.name,
+				});
 				return {
 					ok: true,
-					data: { deleted: parsed.data.sessionId },
+					data: result,
 					provider: {
 						id: adapter.name,
 						durationMs: performance.now() - startedAt,

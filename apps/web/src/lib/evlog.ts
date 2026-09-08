@@ -3,10 +3,10 @@ import { createEvlog } from "evlog/next";
 import { createInstrumentation } from "evlog/next/instrumentation/create";
 
 export const { withEvlog, useLogger, log, createError } = createEvlog({
-  service: "aevryn-web",
-  drain: process.env.NODE_ENV === "production" ? undefined : createFsDrain(),
+	service: "aevryn-web",
+	drain: process.env.NODE_ENV === "production" ? undefined : createFsDrain(),
 });
 
 export const { register, onRequestError } = createInstrumentation({
-  service: "aevryn-web",
+	service: "aevryn-web",
 });

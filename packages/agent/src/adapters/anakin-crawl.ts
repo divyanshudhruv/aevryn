@@ -24,6 +24,7 @@ export class AnakinCrawlAdapter implements CrawlAdapter {
 			excludePatterns?: string[];
 			country?: string;
 			useBrowser?: boolean;
+			sessionId?: string;
 		},
 	): Promise<CrawlResult> {
 		const result = await this.client.crawl(url, {
@@ -33,6 +34,7 @@ export class AnakinCrawlAdapter implements CrawlAdapter {
 			excludePatterns: options?.excludePatterns,
 			country: options?.country,
 			useBrowser: options?.useBrowser,
+			sessionId: options?.sessionId,
 		});
 		return {
 			id: result.id,
@@ -41,9 +43,13 @@ export class AnakinCrawlAdapter implements CrawlAdapter {
 			completedPages: result.completedPages,
 			pages: result.pages.map((page) => ({
 				url: page.url,
+				status: page.status,
 				markdown: page.markdown,
+				html: page.html,
+				durationMs: page.durationMs,
 				error: page.error,
 			})),
+			durationMs: result.durationMs,
 		};
 	}
 }

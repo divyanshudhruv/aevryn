@@ -28,9 +28,15 @@ export class AnakinResearchAdapter implements ResearchAdapter {
 		});
 		return {
 			id: result.id,
+			status: result.status,
+			jobType: result.jobType,
 			summary: result.generatedJson?.summary,
 			structuredData: result.generatedJson?.structured_data,
 			dataSchema: result.generatedJson?.data_schema,
+			cached: result.cached,
+			createdAt: result.createdAt,
+			completedAt: result.completedAt,
+			durationMs: result.durationMs,
 			error: result.error,
 		};
 	}

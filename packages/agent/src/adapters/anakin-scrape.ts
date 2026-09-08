@@ -22,6 +22,9 @@ export class AnakinScrapeAdapter implements ScrapeAdapter {
 			country?: string;
 			useBrowser?: boolean;
 			generateJson?: boolean;
+			forceFresh?: boolean;
+			sessionId?: string;
+			sessionName?: string;
 		},
 	): Promise<ScrapeResult> {
 		const doc = await this.client.scrape(url, {
@@ -29,11 +32,18 @@ export class AnakinScrapeAdapter implements ScrapeAdapter {
 			country: options?.country,
 			useBrowser: options?.useBrowser,
 			generateJson: options?.generateJson,
+			forceFresh: options?.forceFresh,
+			sessionId: options?.sessionId,
+			sessionName: options?.sessionName,
 		});
 		return {
 			id: doc.id,
 			url: doc.url,
+			status: doc.status,
 			cached: doc.cached,
+			durationMs: doc.durationMs,
+			createdAt: doc.createdAt,
+			completedAt: doc.completedAt,
 			markdown: doc.markdown,
 			html: doc.html,
 			cleanedHtml: doc.cleanedHtml,
@@ -41,7 +51,8 @@ export class AnakinScrapeAdapter implements ScrapeAdapter {
 			images: doc.images,
 			summary: doc.summary,
 			generatedJson: doc.generatedJson,
-			screenshotUrl: doc.screenshotUrl ?? doc.fullPageScreenshotUrl,
+			screenshotUrl: doc.screenshotUrl,
+			fullPageScreenshotUrl: doc.fullPageScreenshotUrl,
 			error: doc.error,
 		};
 	}

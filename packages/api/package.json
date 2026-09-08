@@ -1,27 +1,27 @@
 {
-  "name": "@aevryn/api",
-  "type": "module",
-  "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
-  },
-  "scripts": {},
-  "dependencies": {
-    "@aevryn/auth": "workspace:*",
-    "@aevryn/db": "workspace:*",
-    "@aevryn/env": "workspace:*",
-    "@trpc/client": "catalog:",
-    "@trpc/server": "catalog:",
-    "dotenv": "catalog:",
-    "next": "catalog:",
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@aevryn/config": "workspace:*",
-    "typescript": "catalog:"
-  }
+	"name": "@aevryn/api",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {},
+	"dependencies": {
+		"@aevryn/auth": "workspace:*",
+		"@aevryn/db": "workspace:*",
+		"@aevryn/env": "workspace:*",
+		"@trpc/client": "catalog:",
+		"@trpc/server": "catalog:",
+		"dotenv": "catalog:",
+		"next": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@aevryn/config": "workspace:*",
+		"typescript": "catalog:"
+	}
 }

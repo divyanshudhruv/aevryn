@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { BrowserSessionAdapter } from "../adapters/browser-session";
 import type { Capability } from "../capability";
+import { toCapabilityFailure } from "../errors";
 
 const browserSessionListInputSchema = z.object({
 	domain: z.string().optional(),
@@ -23,20 +24,24 @@ export function createBrowserSessionListCapability(
 					error: {
 						code: "INVALID_CAPABILITY_INPUT",
 						message: parsed.error.message,
+						failureClass: "fatal",
+						retryable: false,
 					},
 				};
 			}
+			const startedAt = performance.now();
 			try {
 				const result = await adapter.list({ domain: parsed.data.domain });
-				return { ok: true, data: result };
-			} catch (error) {
 				return {
-					ok: false,
-					error: {
-						code: "CAPABILITY_EXECUTION_FAILED",
-						message: error instanceof Error ? error.message : "Unknown error",
+					ok: true,
+					data: result,
+					provider: {
+						id: adapter.name,
+						durationMs: performance.now() - startedAt,
 					},
 				};
+			} catch (error) {
+				return toCapabilityFailure(error, performance.now() - startedAt);
 			}
 		},
 	};

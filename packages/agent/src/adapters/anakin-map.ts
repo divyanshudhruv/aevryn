@@ -20,15 +20,23 @@ export class AnakinMapAdapter implements MapAdapter {
 		options?: {
 			limit?: number;
 			depth?: number;
+			limitPerLevel?: number;
 			includeSubdomains?: boolean;
 			includeExternalLinks?: boolean;
+			search?: string;
+			useBrowser?: boolean;
+			sessionId?: string;
 		},
 	): Promise<MapResult> {
 		const result = await this.client.map(url, {
 			limit: options?.limit,
 			depth: options?.depth,
+			limitPerLevel: options?.limitPerLevel,
 			includeSubdomains: options?.includeSubdomains,
 			includeExternalLinks: options?.includeExternalLinks,
+			search: options?.search,
+			useBrowser: options?.useBrowser,
+			sessionId: options?.sessionId,
 		});
 		return {
 			id: result.id,
@@ -37,6 +45,7 @@ export class AnakinMapAdapter implements MapAdapter {
 			totalLinks: result.totalLinks,
 			externalLinks: result.externalLinks,
 			totalExternalLinks: result.totalExternalLinks,
+			durationMs: result.durationMs,
 		};
 	}
 }

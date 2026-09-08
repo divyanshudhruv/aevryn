@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { SearchAdapter } from "../adapters/search";
-import type { Capability } from "../capability";
+import type { Capability, CapabilityProvider } from "../capability";
+import { toCapabilityFailure } from "../errors";
 
 const searchWebInputSchema = z.object({
 	query: z.string().min(1),
@@ -37,9 +38,12 @@ export function createSearchWebCapability(adapter: SearchAdapter): Capability {
 					error: {
 						code: "INVALID_CAPABILITY_INPUT",
 						message: parsed.error.message,
+						failureClass: "fatal",
+						retryable: false,
 					},
 				};
 			}
+			const startedAt = performance.now();
 			try {
 				const result = await adapter.search(parsed.data.query, {
 					limit: parsed.data.limit,
@@ -51,18 +55,22 @@ export function createSearchWebCapability(adapter: SearchAdapter): Capability {
 						error: {
 							code: "INVALID_CAPABILITY_OUTPUT",
 							message: output.error.message,
+							failureClass: "fatal",
+							retryable: false,
+						},
+						provider: {
+							id: adapter.name,
+							durationMs: performance.now() - startedAt,
 						},
 					};
 				}
-				return { ok: true, data: output.data };
-			} catch (error) {
-				return {
-					ok: false,
-					error: {
-						code: "CAPABILITY_EXECUTION_FAILED",
-						message: error instanceof Error ? error.message : "Unknown error",
-					},
+				const provider: CapabilityProvider = {
+					id: adapter.name,
+					durationMs: performance.now() - startedAt,
 				};
+				return { ok: true, data: output.data, provider };
+			} catch (error) {
+				return toCapabilityFailure(error, performance.now() - startedAt);
 			}
 		},
 	};

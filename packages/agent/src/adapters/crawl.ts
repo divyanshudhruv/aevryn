@@ -1,6 +1,11 @@
+import type { TerminalStatus } from "./scrape";
+
 export interface CrawlPage {
 	url: string;
+	status: TerminalStatus;
 	markdown?: string;
+	html?: string;
+	durationMs: number;
 	error?: string;
 }
 
@@ -10,6 +15,7 @@ export interface CrawlResult {
 	totalPages: number;
 	completedPages: number;
 	pages: CrawlPage[];
+	durationMs: number;
 }
 
 export interface CrawlAdapter {
@@ -23,6 +29,7 @@ export interface CrawlAdapter {
 			excludePatterns?: string[];
 			country?: string;
 			useBrowser?: boolean;
+			sessionId?: string;
 		},
 	): Promise<CrawlResult>;
 }

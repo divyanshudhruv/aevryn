@@ -5,6 +5,7 @@ export interface MapResult {
 	totalLinks: number;
 	externalLinks: string[];
 	totalExternalLinks: number;
+	durationMs: number;
 }
 
 export interface MapAdapter {
@@ -14,8 +15,12 @@ export interface MapAdapter {
 		options?: {
 			limit?: number;
 			depth?: number;
+			limitPerLevel?: number;
 			includeSubdomains?: boolean;
 			includeExternalLinks?: boolean;
+			search?: string;
+			useBrowser?: boolean;
+			sessionId?: string;
 		},
 	): Promise<MapResult>;
 }

@@ -3,6 +3,7 @@ import { Anakin } from "@anakin-io/sdk";
 import type {
 	BrowserSession,
 	BrowserSessionAdapter,
+	BrowserSessionCreateOptions,
 	BrowserSessionHandle,
 } from "./browser-session";
 
@@ -32,24 +33,45 @@ export class AnakinBrowserSessionAdapter implements BrowserSessionAdapter {
 			createdAt: session.createdAt,
 			lastUsedAt: session.lastUsedAt,
 			expiresAt: session.expiresAt,
+			cookieCount: session.cookieCount,
+			storageItemCount: session.storageItemCount,
 		}));
 	}
 
-	async create(options: {
-		websiteUrl: string;
-		name: string;
-		record?: boolean;
-	}): Promise<BrowserSessionHandle> {
+	async create(
+		options: BrowserSessionCreateOptions,
+	): Promise<BrowserSessionHandle> {
 		const handle = await this.client.sessions.create({
 			websiteUrl: options.websiteUrl,
 			name: options.name,
 			record: options.record,
+			sessionType: options.sessionType,
 		});
 		return {
 			sessionId: handle.sessionId,
 			novncUrl: handle.novncUrl,
 			accessToken: handle.accessToken,
 			expiresIn: handle.expiresIn,
+			wsUrl: handle.wsUrl,
+		};
+	}
+
+	async update(
+		sessionId: string,
+		params: { name: string },
+	): Promise<BrowserSession> {
+		const session = await this.client.sessions.update(sessionId, params);
+		return {
+			id: session.id,
+			name: session.name,
+			websiteUrl: session.websiteUrl,
+			websiteDomain: session.websiteDomain,
+			isActive: session.isActive,
+			createdAt: session.createdAt,
+			lastUsedAt: session.lastUsedAt,
+			expiresAt: session.expiresAt,
+			cookieCount: session.cookieCount,
+			storageItemCount: session.storageItemCount,
 		};
 	}
 
