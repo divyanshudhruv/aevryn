@@ -68,6 +68,7 @@ The core product is a persistent objective-execution engine.
 * shadcn/ui
 * tRPC
 * Better Auth
+* zustand (global client state)
 
 ## Agent
 
@@ -629,6 +630,12 @@ rec_01K...
 Do not use sequential public identifiers.
 
 Do not put sensitive information into IDs.
+
+Generate IDs with the `ids` utility from `@aevryn/db` (e.g. `ids.workflow()`,
+`ids.execution()`), implemented in `packages/db/src/ids.ts`. Validate with
+`isValidId(prefix, id)`.
+
+The same prefixes must stay in sync with the `ID_PREFIXES` map there.
 
 ---
 
