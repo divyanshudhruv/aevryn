@@ -684,15 +684,71 @@ export class WorkflowService {
 				{ status: "sleeping", reason },
 				tx,
 			);
+			const workflowId = execution.workflowId;
+			const existing = await this.states.findByWorkflow(workflowId);
+			await this.states.upsert(
+				workflowId,
+				{
+					phase: "sleeping",
+					data: {
+						...(existing?.data ?? {}),
+						data: {
+							...(existing?.data?.data ?? {}),
+							sleepUntil: sleepUntil.toISOString(),
+							sleepReason: reason ?? null,
+						},
+					},
+				},
+				tx,
+			);
 			await this.events.insert(
 				{
-					workflowId: execution.workflowId,
+					workflowId,
 					executionId: execution.id,
 					type: "execution.sleeping",
 					data: { sleepUntil: sleepUntil.toISOString() },
 				},
 				tx,
 			);
+		});
+	}
+
+	async listSleepingExecutions(): Promise<WorkflowExecution[]> {
+		return this.executions.listByStatus("sleeping");
+	}
+
+	/**
+	 * Sleeping executions whose persisted wake time has passed. Used by the
+	 * schedule-tick function to resume them with a fresh durable execution.
+	 */
+	async listDueSleepingExecutions(now: Date): Promise<WorkflowExecution[]> {
+		const sleeping = await this.executions.listByStatus("sleeping");
+		const due: WorkflowExecution[] = [];
+		for (const execution of sleeping) {
+			const state = await this.states.findByWorkflow(execution.workflowId);
+			const sleepUntil = (
+				state?.data?.data as Record<string, unknown> | undefined
+			)?.sleepUntil as string | undefined;
+			if (sleepUntil && new Date(sleepUntil).getTime() <= now.getTime()) {
+				due.push(execution);
+			}
+		}
+		return due;
+	}
+
+	/**
+	 * Mark a sleeping execution as superseded when a new wake execution is
+	 * started. The execution closes without changing the workflow status (an
+	 * active monitor stays active for its next run).
+	 */
+	async completeSupersededExecution(
+		executionId: string,
+		reason = "superseded by wake execution",
+	): Promise<void> {
+		await this.executions.update(executionId, {
+			status: "completed",
+			reason,
+			completedAt: new Date(),
 		});
 	}
 

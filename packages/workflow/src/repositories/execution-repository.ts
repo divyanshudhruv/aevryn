@@ -1,5 +1,6 @@
 import {
 	db,
+	type ExecutionStatus,
 	ids,
 	type NewWorkflowExecution,
 	type WorkflowExecution,
@@ -112,6 +113,19 @@ export class ExecutionRepository {
 			.select()
 			.from(workflowExecution)
 			.where(and(eq(workflowExecution.workflowId, workflowId)))
+			.orderBy(asc(workflowExecution.createdAt))
+			.limit(limit);
+	}
+
+	async listByStatus(
+		status: ExecutionStatus,
+		limit = 200,
+		client: DbClient = db,
+	): Promise<WorkflowExecution[]> {
+		return client
+			.select()
+			.from(workflowExecution)
+			.where(eq(workflowExecution.status, status))
 			.orderBy(asc(workflowExecution.createdAt))
 			.limit(limit);
 	}

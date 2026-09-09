@@ -12,6 +12,7 @@ import { createBrowserSessionRenameCapability } from "./capabilities/browser-ses
 import { createCrawlSiteCapability } from "./capabilities/crawl-site";
 import { createMapSiteCapability } from "./capabilities/map-site";
 import { createResearchTopicCapability } from "./capabilities/research-topic";
+import { createScheduleCapability } from "./capabilities/schedule-create";
 import { createScrapeUrlCapability } from "./capabilities/scrape-url";
 import { createSearchWebCapability } from "./capabilities/search-web";
 import { createWireActionCapability } from "./capabilities/wire-action";
@@ -37,5 +38,20 @@ export function createDefaultRegistry(): CapabilityRegistry {
 	registry.register(createBrowserSessionCreateCapability(sessions));
 	registry.register(createBrowserSessionRenameCapability(sessions));
 	registry.register(createBrowserSessionDeleteCapability(sessions));
+	return registry;
+}
+
+/**
+ * Add the schedule capability to a registry for a specific workflow. The
+ * schedule is bound to the owning workflow (and its user) so the capability
+ * can persist a recurring schedule without letting the model touch arbitrary
+ * workflows.
+ */
+export function withScheduleCapability(
+	registry: CapabilityRegistry,
+	workflowId: string,
+	userId: string,
+): CapabilityRegistry {
+	registry.register(createScheduleCapability(workflowId, userId));
 	return registry;
 }

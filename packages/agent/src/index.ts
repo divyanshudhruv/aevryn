@@ -19,6 +19,7 @@ export * from "./capabilities/browser-session-rename";
 export * from "./capabilities/crawl-site";
 export * from "./capabilities/map-site";
 export * from "./capabilities/research-topic";
+export * from "./capabilities/schedule-create";
 export * from "./capabilities/scrape-url";
 export * from "./capabilities/search-web";
 export * from "./capabilities/wire-action";

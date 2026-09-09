@@ -5,6 +5,7 @@ import {
 	createPlanningRegistry,
 	PLANNING_SYSTEM_INSTRUCTIONS,
 	runAgent,
+	withScheduleCapability,
 } from "@aevryn/agent";
 import { env } from "@aevryn/env/server";
 import {
@@ -267,7 +268,11 @@ export async function runAgentStep(data: unknown): Promise<{
 			registry:
 				mode === "planning"
 					? createPlanningRegistry()
-					: createDefaultRegistry(),
+					: withScheduleCapability(
+							createDefaultRegistry(),
+							workflow.id,
+							workflow.userId,
+						),
 			objective: parsed.prompt,
 			maxSteps: env.AGENT_MAX_STEPS,
 			modelContextCapChars: parsed.modelContextCapChars,
