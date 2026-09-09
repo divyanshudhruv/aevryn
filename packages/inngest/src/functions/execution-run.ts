@@ -5,13 +5,14 @@ import {
 	createPlanningRegistry,
 	PLANNING_SYSTEM_INSTRUCTIONS,
 	runAgent,
-	withScheduleCapability,
+	withExecutionCapabilities,
 } from "@aevryn/agent";
 import { env } from "@aevryn/env/server";
 import {
 	type ActivitySnapshot,
 	type Decision,
 	decisionSchema,
+	Mem0MemoryStore,
 	type Plan,
 	planSchema,
 	WorkflowService,
@@ -26,6 +27,7 @@ import {
 } from "../events";
 
 const workflowService = new WorkflowService();
+const memoryStore = new Mem0MemoryStore(env.MEM0_API_KEY);
 
 const failureEventSchema = z.object({
 	data: z.object({
@@ -81,8 +83,61 @@ async function buildConversationInstructions(
 		const base = PLANNING_SYSTEM_INSTRUCTIONS;
 		return context ? `${base}\n\n${context}` : base;
 	}
-	const base = RUN_DECISION_INSTRUCTIONS;
+	let base = RUN_DECISION_INSTRUCTIONS;
+	const memory = await retrieveRelevantMemory(workflowId);
+	if (memory) {
+		base = `${base}\n\n${memory}`;
+	}
 	return context ? `${base}\n\n${context}` : base;
+}
+
+async function retrieveRelevantMemory(
+	workflowId: string,
+): Promise<string | null> {
+	try {
+		const workflow = await workflowService.getWorkflowById(workflowId);
+		if (!workflow) {
+			return null;
+		}
+		const entries = await memoryStore.search({
+			userId: workflow.userId,
+			query: workflow.objective,
+			limit: 3,
+		});
+		if (entries.length === 0) {
+			return null;
+		}
+		const lines = entries.map((entry) => `- [${entry.category}] ${entry.text}`);
+		return `Retrieved from long-term memory (use if relevant, ignore if stale):\n${lines.join("\n")}`;
+	} catch {
+		return null;
+	}
+}
+
+async function storeEpisodicMemory(
+	workflowId: string,
+	executionId: string,
+	summary: string,
+): Promise<void> {
+	try {
+		const workflow = await workflowService.getWorkflowById(workflowId);
+		if (!workflow) {
+			return;
+		}
+		await memoryStore.store({
+			userId: workflow.userId,
+			workflowId,
+			executionId,
+			category: "episodic",
+			text: `Completed run of "${workflow.objective}". Result: ${summary}`.slice(
+				0,
+				4000,
+			),
+			metadata: { workflowObjective: workflow.objective },
+		});
+	} catch {
+		// Memory persistence must never fail a run.
+	}
 }
 
 function createActivityAccumulator(workflowId: string, executionId: string) {
@@ -268,7 +323,7 @@ export async function runAgentStep(data: unknown): Promise<{
 			registry:
 				mode === "planning"
 					? createPlanningRegistry()
-					: withScheduleCapability(
+					: withExecutionCapabilities(
 							createDefaultRegistry(),
 							workflow.id,
 							workflow.userId,
@@ -416,11 +471,15 @@ export async function persistAndCompleteStep(
 			updatedAt: new Date(),
 		});
 	}
+	const summary = result.text.slice(0, 500);
+	if (finalizedStatus === "completed") {
+		await storeEpisodicMemory(outcome.workflowId, outcome.executionId, summary);
+	}
 	return {
 		workflowId: outcome.workflowId,
 		executionId: outcome.executionId,
 		status: finalizedStatus,
-		summary: result.text.slice(0, 500),
+		summary,
 		stepCount: result.steps.length,
 		toolCount: result.steps.reduce(
 			(count, step) => count + step.toolCalls.length,

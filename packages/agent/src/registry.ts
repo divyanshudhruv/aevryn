@@ -11,6 +11,8 @@ import { createBrowserSessionListCapability } from "./capabilities/browser-sessi
 import { createBrowserSessionRenameCapability } from "./capabilities/browser-session-rename";
 import { createCrawlSiteCapability } from "./capabilities/crawl-site";
 import { createMapSiteCapability } from "./capabilities/map-site";
+import { createSearchMemoryCapability } from "./capabilities/memory-search";
+import { createStoreMemoryCapability } from "./capabilities/memory-store";
 import { createResearchTopicCapability } from "./capabilities/research-topic";
 import { createScheduleCapability } from "./capabilities/schedule-create";
 import { createScrapeUrlCapability } from "./capabilities/scrape-url";
@@ -47,11 +49,13 @@ export function createDefaultRegistry(): CapabilityRegistry {
  * can persist a recurring schedule without letting the model touch arbitrary
  * workflows.
  */
-export function withScheduleCapability(
+export function withExecutionCapabilities(
 	registry: CapabilityRegistry,
 	workflowId: string,
 	userId: string,
 ): CapabilityRegistry {
 	registry.register(createScheduleCapability(workflowId, userId));
+	registry.register(createStoreMemoryCapability(userId, workflowId));
+	registry.register(createSearchMemoryCapability(userId, workflowId));
 	return registry;
 }
