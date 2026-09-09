@@ -9,19 +9,26 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@aevryn/ui/components/card";
+import { Input } from "@aevryn/ui/components/input";
 import { Message, MessageContent } from "@aevryn/ui/components/message";
 import { Skeleton } from "@aevryn/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+	AlertTriangleIcon,
+	CalendarClockIcon,
 	CheckCircle2Icon,
 	LightbulbIcon,
 	Loader2Icon,
+	PauseIcon,
+	PencilIcon,
 	PlayIcon,
+	RotateCwIcon,
 	SquareIcon,
+	Trash2Icon,
 	XCircleIcon,
 	XIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { trpc } from "@/utils/trpc";
 
@@ -120,6 +127,24 @@ export function ThreadView({ workflowId }: { workflowId: string }) {
 		...trpc.agent.stopWorkflow.mutationOptions(),
 		onSuccess: invalidate,
 	});
+	const edit = useMutation({
+		...trpc.agent.updateObjective.mutationOptions(),
+		onSuccess: invalidate,
+	});
+	const toggleSchedule = useMutation({
+		...trpc.agent.toggleSchedule.mutationOptions(),
+		onSuccess: invalidate,
+	});
+	const deleteSchedule = useMutation({
+		...trpc.agent.deleteSchedule.mutationOptions(),
+		onSuccess: invalidate,
+	});
+
+	const [editing, setEditing] = useState(false);
+	const [objectiveDraft, setObjectiveDraft] = useState("");
+	const [stopArmed, setStopArmed] = useState(false);
+	const [deleteArmedId, setDeleteArmedId] = useState<string | null>(null);
+	const [filter, setFilter] = useState<"all" | "tools" | "failures">("all");
 
 	const data = thread.data;
 	const active = data?.turns.some((turn) =>
@@ -161,7 +186,61 @@ export function ThreadView({ workflowId }: { workflowId: string }) {
 		<Card className="flex h-full min-h-0 flex-col overflow-hidden">
 			<CardHeader className="shrink-0">
 				<CardTitle className="flex items-center justify-between gap-2">
-					<span className="truncate">{label}</span>
+					{editing ? (
+						<form
+							className="flex min-w-0 flex-1 items-center gap-2"
+							onSubmit={(event) => {
+								event.preventDefault();
+								if (objectiveDraft.trim()) {
+									edit.mutate(
+										{
+											workflowId: data.workflow.id,
+											objective: objectiveDraft,
+										},
+										{
+											onSuccess: () => {
+												setEditing(false);
+												setObjectiveDraft("");
+											},
+										},
+									);
+								}
+							}}
+						>
+							<Input
+								aria-label="Edit objective"
+								autoFocus
+								value={objectiveDraft}
+								onChange={(event) => setObjectiveDraft(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key === "Escape") {
+										setEditing(false);
+										setObjectiveDraft("");
+									}
+								}}
+							/>
+							<Button
+								type="submit"
+								size="sm"
+								disabled={edit.isPending || !objectiveDraft.trim()}
+							>
+								{edit.isPending ? "Saving…" : "Save"}
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onClick={() => {
+									setEditing(false);
+									setObjectiveDraft("");
+								}}
+							>
+								Cancel
+							</Button>
+						</form>
+					) : (
+						<span className="truncate">{label}</span>
+					)}
 					<span className="flex shrink-0 items-center gap-2">
 						{isDraft ? (
 							<span className="font-medium text-muted-foreground text-xs uppercase">
@@ -169,6 +248,22 @@ export function ThreadView({ workflowId }: { workflowId: string }) {
 							</span>
 						) : null}
 						{active ? <Loader2Icon className="size-3 animate-spin" /> : null}
+						{!editing ? (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								aria-label="Edit objective"
+								title="Edit objective"
+								disabled={edit.isPending}
+								onClick={() => {
+									setObjectiveDraft(label);
+									setEditing(true);
+								}}
+							>
+								<PencilIcon className="size-3.5" />
+							</Button>
+						) : null}
 						{!isDraft ? (
 							<Button
 								type="button"
@@ -183,18 +278,32 @@ export function ThreadView({ workflowId }: { workflowId: string }) {
 						{active ? (
 							<Button
 								type="button"
-								variant="outline"
+								variant={stopArmed ? "destructive" : "outline"}
 								size="sm"
-								className="text-destructive"
 								disabled={stop.isPending}
-								onClick={() => stop.mutate({ workflowId: data.workflow.id })}
+								onClick={() => {
+									if (stopArmed) {
+										setStopArmed(false);
+										stop.mutate({ workflowId: data.workflow.id });
+									} else {
+										setStopArmed(true);
+										window.setTimeout(() => setStopArmed(false), 3000);
+									}
+								}}
 							>
 								<SquareIcon className="mr-1 size-3.5" />
-								{stop.isPending ? "Stopping…" : "Stop"}
+								{stop.isPending
+									? "Stopping…"
+									: stopArmed
+										? "Confirm stop"
+										: "Stop"}
 							</Button>
 						) : null}
 					</span>
 				</CardTitle>
+				{edit.error ? (
+					<p className="text-destructive text-xs">{edit.error.message}</p>
+				) : null}
 				<CardDescription className="truncate">
 					{isDraft
 						? "Planning thread — answers clarify the objective. No external work runs yet."
@@ -202,6 +311,22 @@ export function ThreadView({ workflowId }: { workflowId: string }) {
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="flex min-h-0 flex-1 flex-col">
+				{data.turns.length > 0 || (data.recoveryAttempts?.length ?? 0) > 0 ? (
+					<div className="mb-2 flex shrink-0 gap-1.5">
+						{(["all", "tools", "failures"] as const).map((value) => (
+							<Button
+								key={value}
+								type="button"
+								variant={filter === value ? "default" : "outline"}
+								size="sm"
+								aria-pressed={filter === value}
+								onClick={() => setFilter(value)}
+							>
+								{value}
+							</Button>
+						))}
+					</div>
+				) : null}
 				<div
 					ref={scrollRef}
 					className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1"
@@ -262,15 +387,17 @@ export function ThreadView({ workflowId }: { workflowId: string }) {
 
 						return (
 							<div key={turn.execution.id} className="flex flex-col gap-3">
-								<Message align="end">
-									<MessageContent>
-										<Bubble align="end">
-											<BubbleContent>{turn.prompt}</BubbleContent>
-										</Bubble>
-									</MessageContent>
-								</Message>
+								{filter !== "failures" || turnFailed || turnStopped ? (
+									<Message align="end">
+										<MessageContent>
+											<Bubble align="end">
+												<BubbleContent>{turn.prompt}</BubbleContent>
+											</Bubble>
+										</MessageContent>
+									</Message>
+								) : null}
 
-								{toolChips.length > 0 ? (
+								{filter !== "failures" && toolChips.length > 0 ? (
 									<Message align="start">
 										<MessageContent>
 											<div className="flex min-w-48 max-w-lg flex-col gap-1.5 rounded-lg border border-border bg-muted/30 px-3 py-2">
@@ -285,19 +412,21 @@ export function ThreadView({ workflowId }: { workflowId: string }) {
 
 								{orderedSteps.map((step, stepIndex) => (
 									<div key={step.id} className="flex flex-col gap-1.5">
-										<Message align="start">
-											<MessageContent>
-												<Bubble
-													variant={
-														isAnswer && stepIndex === orderedSteps.length - 1
-															? "tinted"
-															: "default"
-													}
-												>
-													<BubbleContent>{step.text}</BubbleContent>
-												</Bubble>
-											</MessageContent>
-										</Message>
+										{filter === "all" ? (
+											<Message align="start">
+												<MessageContent>
+													<Bubble
+														variant={
+															isAnswer && stepIndex === orderedSteps.length - 1
+																? "tinted"
+																: "default"
+														}
+													>
+														<BubbleContent>{step.text}</BubbleContent>
+													</Bubble>
+												</MessageContent>
+											</Message>
+										) : null}
 									</div>
 								))}
 
@@ -315,6 +444,46 @@ export function ThreadView({ workflowId }: { workflowId: string }) {
 									</Message>
 								) : null}
 
+								{(() => {
+									const attempts = (data.recoveryAttempts ?? []).filter(
+										(attempt) => attempt.executionId === turn.execution.id,
+									);
+									if (attempts.length === 0) {
+										return null;
+									}
+									return (
+										<details className="rounded-md border border-border bg-muted/30 px-3 py-2">
+											<summary className="cursor-pointer font-medium text-[10px] text-muted-foreground uppercase">
+												Recovery attempts · {attempts.length}
+											</summary>
+											<ul className="mt-1.5 flex flex-col gap-1.5">
+												{attempts.map((attempt) => (
+													<li
+														key={attempt.id}
+														className="flex items-center gap-1.5 text-xs"
+													>
+														{attempt.result === "completed" ? (
+															<CheckCircle2Icon className="size-3 shrink-0 text-emerald-500" />
+														) : attempt.result === "failed" ? (
+															<XCircleIcon className="size-3 shrink-0 text-destructive" />
+														) : (
+															<RotateCwIcon className="size-3 shrink-0 text-primary" />
+														)}
+														<span>
+															try {attempt.attempt} · {attempt.strategy}
+														</span>
+														{attempt.failureCode ? (
+															<span className="text-muted-foreground">
+																· {attempt.failureCode}
+															</span>
+														) : null}
+													</li>
+												))}
+											</ul>
+										</details>
+									);
+								})()}
+
 								{turnStopped ? (
 									<Message align="start">
 										<MessageContent>
@@ -330,6 +499,120 @@ export function ThreadView({ workflowId }: { workflowId: string }) {
 							</div>
 						);
 					})}
+
+					{(data.observations ?? []).length > 0 ? (
+						<details className="rounded-md border border-border bg-muted/30 px-3 py-2">
+							<summary className="cursor-pointer font-medium text-[10px] text-muted-foreground uppercase">
+								Observations · {(data.observations ?? []).length}
+							</summary>
+							<ul className="mt-1.5 flex flex-col gap-1.5">
+								{(data.observations ?? []).map((observation) => (
+									<li
+										key={observation.id}
+										className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+									>
+										<p className="flex items-center gap-1.5 font-medium">
+											<AlertTriangleIcon className="size-3 text-primary" />
+											{observation.type}
+											<span className="text-muted-foreground">
+												· {new Date(observation.observedAt).toLocaleString()}
+											</span>
+										</p>
+										<p className="line-clamp-2 text-muted-foreground">
+											{(observation.content as { text?: string })?.text ??
+												(observation.content as { source?: string })?.source ??
+												(observation.content as { url?: string })?.url ??
+												JSON.stringify(observation.content).slice(0, 300)}
+										</p>
+									</li>
+								))}
+							</ul>
+						</details>
+					) : null}
+
+					{(data.schedules ?? []).length > 0 ? (
+						<details
+							className="rounded-md border border-border bg-muted/30 px-3 py-2"
+							open
+						>
+							<summary className="cursor-pointer font-medium text-[10px] text-muted-foreground uppercase">
+								Schedules · {(data.schedules ?? []).length}
+							</summary>
+							<ul className="mt-1.5 flex flex-col gap-1.5">
+								{data.schedules.map((schedule) => (
+									<li
+										key={schedule.id}
+										className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-xs"
+									>
+										<CalendarClockIcon className="size-3.5 shrink-0 text-primary" />
+										<span className="font-medium">
+											{schedule.cron ?? `every ${schedule.intervalSeconds}s`}
+										</span>
+										{schedule.enabled ? (
+											<span className="text-emerald-500">enabled</span>
+										) : (
+											<span className="text-muted-foreground">paused</span>
+										)}
+										<span className="ml-auto flex items-center gap-1">
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												disabled={toggleSchedule.isPending}
+												onClick={() =>
+													toggleSchedule.mutate({
+														workflowId: data.workflow.id,
+														scheduleId: schedule.id,
+														enabled: !schedule.enabled,
+													})
+												}
+											>
+												{schedule.enabled ? (
+													<PauseIcon className="size-3" />
+												) : (
+													<PlayIcon className="size-3" />
+												)}
+												{schedule.enabled ? "Pause" : "Resume"}
+											</Button>
+											<Button
+												type="button"
+												variant={
+													deleteArmedId === schedule.id
+														? "destructive"
+														: "outline"
+												}
+												size="sm"
+												disabled={deleteSchedule.isPending}
+												onClick={() => {
+													if (deleteArmedId === schedule.id) {
+														setDeleteArmedId(null);
+														deleteSchedule.mutate({
+															workflowId: data.workflow.id,
+															scheduleId: schedule.id,
+														});
+													} else {
+														setDeleteArmedId(schedule.id);
+														window.setTimeout(
+															() =>
+																setDeleteArmedId((current) =>
+																	current === schedule.id ? null : current,
+																),
+															3000,
+														);
+													}
+												}}
+											>
+												<Trash2Icon className="size-3" />
+												{deleteArmedId === schedule.id
+													? "Confirm delete"
+													: "Delete"}
+											</Button>
+										</span>
+									</li>
+								))}
+							</ul>
+						</details>
+					) : null}
 
 					{active && !hasPlan ? (
 						<Message align="start">

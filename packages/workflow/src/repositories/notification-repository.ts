@@ -5,7 +5,7 @@ import {
 	type Notification,
 	notification,
 } from "@aevryn/db";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import type { DbClient } from "../types";
 
@@ -87,5 +87,47 @@ export class NotificationRepository {
 			.update(notification)
 			.set({ deliveredAt: new Date() })
 			.where(eq(notification.id, id));
+	}
+
+	async markRead(
+		id: string,
+		userId: string,
+		client: DbClient = db,
+	): Promise<void> {
+		await client
+			.update(notification)
+			.set({ readAt: new Date() })
+			.where(and(eq(notification.id, id), eq(notification.userId, userId)));
+	}
+
+	async markReadMany(
+		ids: string[],
+		userId: string,
+		client: DbClient = db,
+	): Promise<void> {
+		if (ids.length === 0) {
+			return;
+		}
+		await client
+			.update(notification)
+			.set({ readAt: new Date() })
+			.where(
+				and(inArray(notification.id, ids), eq(notification.userId, userId)),
+			);
+	}
+
+	async markAllRead(userId: string, client: DbClient = db): Promise<void> {
+		await client
+			.update(notification)
+			.set({ readAt: new Date() })
+			.where(and(eq(notification.userId, userId), isNull(notification.readAt)));
+	}
+
+	async countUnread(userId: string, client: DbClient = db): Promise<number> {
+		const rows = await client
+			.select({ value: count() })
+			.from(notification)
+			.where(and(eq(notification.userId, userId), isNull(notification.readAt)));
+		return rows[0]?.value ?? 0;
 	}
 }

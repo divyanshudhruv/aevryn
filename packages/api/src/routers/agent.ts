@@ -14,6 +14,24 @@ const sendMessageSchema = z.object({
 
 const workflowIdSchema = z.object({ workflowId: z.string().min(1) });
 
+const updateObjectiveSchema = z.object({
+	workflowId: z.string().min(1),
+	objective: z.string().min(1).max(2000),
+});
+
+const scheduleActionSchema = z.object({
+	workflowId: z.string().min(1),
+	scheduleId: z.string().min(1),
+});
+
+const scheduleToggleSchema = scheduleActionSchema.extend({
+	enabled: z.boolean(),
+});
+
+const markReadSchema = z.object({
+	notificationIds: z.array(z.string().min(1)).max(50).optional(),
+});
+
 const workflowService = new WorkflowService();
 const memoryStore = new Mem0MemoryStore(env.MEM0_API_KEY);
 
@@ -153,6 +171,42 @@ export const agentRouter = router({
 			await workflowService.discardPlan(input.workflowId);
 			return { discarded: true as const };
 		}),
+	updateObjective: protectedProcedure
+		.input(updateObjectiveSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			await workflowService.updateObjective(input.workflowId, input.objective);
+			const started = await workflowService.enqueueMessage(
+				input.workflowId,
+				input.objective,
+			);
+			try {
+				await inngest.send({
+					name: executionRunEvent,
+					data: {
+						workflowId: input.workflowId,
+						executionId: started.execution.id,
+						prompt: input.objective,
+					},
+				});
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : "Unknown error";
+				await workflowService.failExecution({
+					executionId: started.execution.id,
+					reason: message.slice(0, 500),
+				});
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Objective saved but its planning run could not be queued",
+				});
+			}
+			return {
+				workflowId: input.workflowId,
+				executionId: started.execution.id,
+				status: "queued" as const,
+			};
+		}),
 	getThread: protectedProcedure
 		.input(workflowIdSchema)
 		.query(async ({ input, ctx }) => {
@@ -206,9 +260,17 @@ export const agentRouter = router({
 					body: notification.body,
 					createdAt: notification.createdAt,
 					deliveredAt: notification.deliveredAt,
+					readAt: notification.readAt,
+				})),
+				observations: thread.observations.map((observation) => ({
+					id: observation.id,
+					type: observation.type,
+					content: observation.content,
+					observedAt: observation.observedAt,
 				})),
 				recoveryAttempts: thread.recoveryAttempts.map((attempt) => ({
 					id: attempt.id,
+					executionId: attempt.executionId,
 					failureClass: attempt.failureClass,
 					failureCode: attempt.failureCode,
 					attempt: attempt.attempt,
@@ -313,6 +375,39 @@ export const agentRouter = router({
 			);
 			return { stopped: true as const, cancelled };
 		}),
+	toggleSchedule: protectedProcedure
+		.input(scheduleToggleSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			const schedule = await workflowService.toggleSchedule(
+				input.workflowId,
+				input.scheduleId,
+				input.enabled,
+			);
+			return { id: schedule.id, enabled: schedule.enabled === 1 };
+		}),
+	deleteSchedule: protectedProcedure
+		.input(scheduleActionSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			await workflowService.deleteSchedule(input.scheduleId, input.workflowId);
+			return { deleted: true as const, id: input.scheduleId };
+		}),
+	markNotificationsRead: protectedProcedure
+		.input(markReadSchema)
+		.mutation(async ({ input, ctx }) => {
+			const result = await workflowService.markNotificationsRead(
+				ctx.session.user.id,
+				input.notificationIds,
+			);
+			return { marked: result.marked };
+		}),
+	unreadNotifications: protectedProcedure.query(async ({ ctx }) => {
+		const count = await workflowService.countUnreadNotifications(
+			ctx.session.user.id,
+		);
+		return { count };
+	}),
 	listRuns: protectedProcedure
 		.input(z.object({ limit: z.number().int().min(1).max(50).optional() }))
 		.query(async ({ input, ctx }) => {
@@ -339,11 +434,11 @@ export const agentRouter = router({
 			}));
 		}),
 	listNotifications: protectedProcedure
-		.input(z.object({ limit: z.number().int().min(1).max(100).optional() }))
+		.input(z.object({ limit: z.number().int().min(1).max(50).optional() }))
 		.query(async ({ input, ctx }) => {
 			const notifications = await workflowService.listNotificationsForUser(
 				ctx.session.user.id,
-				input.limit ?? 50,
+				input.limit ?? 20,
 			);
 			return notifications.map((notification) => ({
 				id: notification.id,
@@ -354,6 +449,7 @@ export const agentRouter = router({
 				body: notification.body,
 				createdAt: notification.createdAt,
 				deliveredAt: notification.deliveredAt,
+				readAt: notification.readAt,
 			}));
 		}),
 });

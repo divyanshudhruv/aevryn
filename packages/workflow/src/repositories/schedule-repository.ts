@@ -110,4 +110,8 @@ export class ScheduleRepository {
 	): Promise<Schedule> {
 		return this.update(id, { enabled: enabled ? 1 : 0 }, client);
 	}
+
+	async delete(id: string, client: DbClient = db): Promise<void> {
+		await client.delete(schedule).where(eq(schedule.id, id));
+	}
 }

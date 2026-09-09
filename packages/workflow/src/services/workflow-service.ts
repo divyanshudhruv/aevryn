@@ -412,6 +412,7 @@ export class WorkflowService {
 		activity: ActivitySnapshot | null;
 		schedules: Schedule[];
 		notifications: Notification[];
+		observations: Observation[];
 		recoveryAttempts: RecoveryAttempt[];
 		turns: Array<{
 			execution: WorkflowExecution;
@@ -437,6 +438,7 @@ export class WorkflowService {
 			activity: await this.getActivitySnapshot(workflowId),
 			schedules: await this.schedules.listByWorkflow(workflowId),
 			notifications: await this.notifications.listByWorkflow(workflowId, 50),
+			observations: await this.observations.listByWorkflow(workflowId),
 			recoveryAttempts: await this.recoveries.listByWorkflow(workflowId, 20),
 			turns,
 		};
@@ -447,6 +449,22 @@ export class WorkflowService {
 		limit = 50,
 	): Promise<Notification[]> {
 		return this.notifications.listByUser(userId, limit);
+	}
+
+	async markNotificationsRead(
+		userId: string,
+		ids?: string[],
+	): Promise<{ marked: number }> {
+		if (ids && ids.length > 0) {
+			await this.notifications.markReadMany(ids, userId);
+			return { marked: ids.length };
+		}
+		await this.notifications.markAllRead(userId);
+		return { marked: -1 };
+	}
+
+	async countUnreadNotifications(userId: string): Promise<number> {
+		return this.notifications.countUnread(userId);
 	}
 
 	/**
@@ -544,6 +562,57 @@ export class WorkflowService {
 	async discardPlan(workflowId: string): Promise<void> {
 		await this.workflows.requireById(workflowId);
 		await this.updatePlan(workflowId, null);
+	}
+
+	/**
+	 * Edit a workflow's objective in place. The workflow is returned to draft
+	 * (so the plan is regenerated on the next planning run) and the previously
+	 * stored plan is cleared. Live executions keep their own history.
+	 */
+	async updateObjective(
+		workflowId: string,
+		objective: string,
+	): Promise<Workflow> {
+		const trimmed = objective.trim();
+		if (!trimmed) {
+			throw new Error("Objective cannot be empty");
+		}
+		return db.transaction(async (tx) => {
+			const workflow = await this.workflows.requireById(workflowId, tx);
+			const updated = await this.workflows.setObjective(
+				workflowId,
+				trimmed,
+				tx,
+			);
+			if (workflow.status !== "draft") {
+				await this.workflows.setStatus(workflowId, "draft", tx);
+			}
+			const existing = await this.states.findByWorkflow(workflowId, tx);
+			await this.states.upsert(
+				workflowId,
+				{
+					phase: "planning",
+					data: {
+						...(existing?.data ?? {}),
+						phase: "planning",
+						data: {
+							...(existing?.data?.data ?? {}),
+							plan: null,
+						},
+					},
+				},
+				tx,
+			);
+			await this.events.insert(
+				{
+					workflowId,
+					type: "workflow.objective_updated",
+					data: { objective: trimmed },
+				},
+				tx,
+			);
+			return updated;
+		});
 	}
 
 	/**
@@ -672,6 +741,36 @@ export class WorkflowService {
 		enabled: boolean,
 	): Promise<Schedule> {
 		return this.schedules.setEnabled(scheduleId, enabled);
+	}
+
+	async toggleSchedule(
+		workflowId: string,
+		scheduleId: string,
+		enabled: boolean,
+	): Promise<Schedule> {
+		const existing = await this.schedules.findById(scheduleId);
+		if (!existing || existing.workflowId !== workflowId) {
+			throw new Error(`Schedule ${scheduleId} not found for workflow`);
+		}
+		return this.schedules.setEnabled(scheduleId, enabled);
+	}
+
+	async deleteSchedule(scheduleId: string, workflowId: string): Promise<void> {
+		await db.transaction(async (tx) => {
+			const existing = await this.schedules.findById(scheduleId, tx);
+			if (!existing || existing.workflowId !== workflowId) {
+				throw new Error(`Schedule ${scheduleId} not found for workflow`);
+			}
+			await this.schedules.delete(scheduleId, tx);
+			await this.events.insert(
+				{
+					workflowId,
+					type: "schedule.deleted",
+					data: { scheduleId },
+				},
+				tx,
+			);
+		});
 	}
 
 	async createNotification(input: CreateNotification): Promise<Notification> {

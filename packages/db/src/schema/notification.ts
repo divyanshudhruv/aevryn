@@ -28,6 +28,7 @@ export const notification = pgTable(
 		subject: text("subject"),
 		body: jsonb("body").$type<z.input<typeof eventDataSchema>>(),
 		deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+		readAt: timestamp("read_at", { withTimezone: true }),
 		schemaVersion: integer("schema_version").notNull().default(1),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
@@ -39,6 +40,7 @@ export const notification = pgTable(
 			table.userId,
 			table.deliveredAt,
 		),
+		index("notification_user_read_idx").on(table.userId, table.readAt),
 		index("notification_workflow_idx").on(table.workflowId),
 	],
 );
