@@ -14,7 +14,7 @@ export type ExecutionRunEventData = z.infer<typeof executionRunEventSchema>;
 export const executionRunResultSchema = z.object({
 	workflowId: z.string().min(1),
 	executionId: z.string().min(1),
-	status: z.enum(["completed", "skipped"]),
+	status: z.enum(["completed", "skipped", "failed"]),
 	summary: z.string(),
 	stepCount: z.number().int().nonnegative(),
 	toolCount: z.number().int().nonnegative(),

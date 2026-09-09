@@ -6,6 +6,7 @@ import {
 	PLANNING_SYSTEM_INSTRUCTIONS,
 	runAgent,
 } from "@aevryn/agent";
+import { env } from "@aevryn/env/server";
 import {
 	type ActivitySnapshot,
 	type Plan,
@@ -141,11 +142,49 @@ function createActivityAccumulator(workflowId: string, executionId: string) {
 	};
 }
 
+/**
+ * Idempotent gate: if the execution is already in a terminal state, or is
+ * sleeping (a durable sleep decision is pending), the run must be a no-op.
+ * Returning "skipped" prevents a retry or duplicate event from re-executing
+ * the same unit of work twice.
+ */
+export async function resolveExecutionState(data: unknown): Promise<{
+	workflowId: string;
+	executionId: string;
+	state: "run" | "skipped";
+	reason?: string;
+}> {
+	const parsed = executionRunEventSchema.parse(data);
+	const execution = await workflowService.getExecution(parsed.executionId);
+	if (!execution) {
+		throw new NonRetriableError(`Execution not found: ${parsed.executionId}`);
+	}
+	if (
+		execution.status === "completed" ||
+		execution.status === "failed" ||
+		execution.status === "cancelled" ||
+		execution.status === "sleeping"
+	) {
+		return {
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			state: "skipped",
+			reason: `execution already ${execution.status}`,
+		};
+	}
+	return {
+		workflowId: parsed.workflowId,
+		executionId: parsed.executionId,
+		state: "run",
+	};
+}
+
 export async function runAgentStep(data: unknown): Promise<{
 	workflowId: string;
 	executionId: string;
 	status: "running" | "skipped";
 	mode: "planning" | "run";
+	reason?: string;
 	result?: AgentResult;
 }> {
 	const parsed = executionRunEventSchema.parse(data);
@@ -163,6 +202,32 @@ export async function runAgentStep(data: unknown): Promise<{
 			executionId: parsed.executionId,
 			status: "skipped",
 			mode: "run",
+			reason: `execution already ${execution.status}`,
+		};
+	}
+	if (execution.status === "sleeping") {
+		return {
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			status: "skipped",
+			mode: "run",
+			reason: "execution sleeping",
+		};
+	}
+	const elapsedSeconds = execution.startedAt
+		? (Date.now() - execution.startedAt.getTime()) / 1000
+		: 0;
+	if (elapsedSeconds > env.EXECUTION_MAX_SECONDS) {
+		await workflowService.failExecution({
+			executionId: parsed.executionId,
+			reason: `execution exceeded the ${env.EXECUTION_MAX_SECONDS}s wall-clock budget`,
+		});
+		return {
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			status: "skipped",
+			mode: "run",
+			reason: "execution over time budget",
 		};
 	}
 	const workflow = await workflowService.getWorkflowById(execution.workflowId);
@@ -183,6 +248,7 @@ export async function runAgentStep(data: unknown): Promise<{
 					? createPlanningRegistry()
 					: createDefaultRegistry(),
 			objective: parsed.prompt,
+			maxSteps: env.AGENT_MAX_STEPS,
 			modelContextCapChars: parsed.modelContextCapChars,
 			instructions: await buildConversationInstructions(
 				workflow.id,
@@ -219,7 +285,8 @@ export async function persistAndCompleteStep(
 		execution &&
 		(execution.status === "completed" ||
 			execution.status === "failed" ||
-			execution.status === "cancelled")
+			execution.status === "cancelled" ||
+			execution.status === "sleeping")
 	) {
 		return {
 			workflowId: outcome.workflowId,
@@ -235,6 +302,24 @@ export async function persistAndCompleteStep(
 		throw new NonRetriableError(
 			`No agent result for execution: ${outcome.executionId}`,
 		);
+	}
+	const toolCallCount = result.steps.reduce(
+		(count, step) => count + step.toolCalls.length,
+		0,
+	);
+	if (toolCallCount > env.AGENT_MAX_TOOL_CALLS) {
+		await workflowService.failExecution({
+			executionId: outcome.executionId,
+			reason: `run exceeded the ${env.AGENT_MAX_TOOL_CALLS} tool-call budget`,
+		});
+		return {
+			workflowId: outcome.workflowId,
+			executionId: outcome.executionId,
+			status: "failed",
+			summary: `failed: tool-call budget exceeded (${toolCallCount})`,
+			stepCount: result.steps.length,
+			toolCount: toolCallCount,
+		};
 	}
 	await workflowService.recordSteps({
 		executionId: outcome.executionId,
@@ -326,9 +411,22 @@ export const executionRun = inngest.createFunction(
 		},
 	},
 	async ({ event, step }) => {
-		const outcome = await step.run("run-agent-and-persist", () =>
+		const resolved = await step.run("resolve-execution-state", () =>
+			resolveExecutionState(event.data),
+		);
+		if (resolved.state === "skipped") {
+			return {
+				workflowId: resolved.workflowId,
+				executionId: resolved.executionId,
+				status: "skipped" as const,
+				summary: resolved.reason ?? "skipped",
+				stepCount: 0,
+				toolCount: 0,
+			};
+		}
+		const finalized = await step.run("run-agent-and-persist", () =>
 			executeWorkflowRun(event.data),
 		);
-		return outcome;
+		return finalized;
 	},
 );

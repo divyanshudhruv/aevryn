@@ -34,6 +34,14 @@ export const env = createEnv({
 		GROQ_API_KEY: z.string().min(1).optional(),
 		GROQ_MODEL: z.string().min(1).default("openai/gpt-oss-20b"),
 		MEM0_API_KEY: z.string().min(1).default(""),
+		AGENT_MAX_STEPS: z.coerce.number().int().positive().default(5),
+		AGENT_MAX_TOOL_CALLS: z.coerce.number().int().positive().default(50),
+		EXECUTION_MAX_SECONDS: z.coerce.number().int().positive().default(900),
+		EXECUTION_MAX_SLEEP_SECONDS: z.coerce
+			.number()
+			.int()
+			.positive()
+			.default(604800),
 	},
 	runtimeEnv: runtimeEnv,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,
