@@ -24,6 +24,7 @@ export interface Message {
 interface MessageState {
 	messagesByThread: Record<string, Message[]>;
 	getMessages: (threadId: string) => Message[];
+	setMessages: (threadId: string, messages: Message[]) => void;
 	appendMessage: (threadId: string, message: Message) => void;
 	updateMessage: (
 		threadId: string,
@@ -49,6 +50,13 @@ export const useMessageStore = create<MessageState>()(
 		(set, get) => ({
 			messagesByThread: {},
 			getMessages: (threadId) => get().messagesByThread[threadId] ?? [],
+			setMessages: (threadId, messages) =>
+				set((state) => ({
+					messagesByThread: {
+						...state.messagesByThread,
+						[threadId]: messages,
+					},
+				})),
 			appendMessage: (threadId, message) =>
 				set((state) => ({
 					messagesByThread: {

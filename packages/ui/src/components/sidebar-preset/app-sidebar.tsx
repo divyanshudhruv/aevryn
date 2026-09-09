@@ -45,7 +45,7 @@ import {
   surfaceHoverClasses,
 } from "@aevryn/ui/lib/surface-classes";
 import { useSurface } from "@aevryn/ui/lib/surface-context";
-import { NAV_SECTIONS } from "@aevryn/ui/components/sidebar-preset/nav-data";
+import { NAV_SECTIONS, type NavItemStatus } from "@aevryn/ui/components/sidebar-preset/nav-data";
 import { SettingsDialog } from "../dialog/settings-dialog";
 import { PlayIcon } from "lucide-react";
 
@@ -53,7 +53,25 @@ const CALLOUTS = [
   { id: 1, title: "Aurora 2 is here", desc: "Longer context, faster agents" },
 ];
 
-export function AppSidebar(props: Omit<SidebarProps, "children">) {
+export interface SidebarThreadItem {
+  id: string;
+  label: string;
+  status: NavItemStatus;
+  badge?: string;
+}
+
+export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
+  /** Real thread list. When provided, the WORKFLOWS demo sections are
+   *  replaced by a single THREADS group driven by this data. */
+  threads?: SidebarThreadItem[];
+  activeThreadId?: string | null;
+  onNavigate?: (id: string) => void;
+  onNewThread?: () => void;
+}
+
+export function AppSidebar(props: AppSidebarProps) {
+  const { threads, activeThreadId, onNavigate, onNewThread, ...sidebarProps } =
+    props;
   const [active, setActive] = useState("New pricing page exploration");
   const [callouts, setCallouts] = useState(CALLOUTS);
   const dismiss = (id: number) =>
@@ -75,7 +93,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
   const DeleteIcon = useIcon("dustbin");
 
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar variant="inset" {...sidebarProps}>
       {" "}
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <SidebarHeader>
@@ -120,7 +138,10 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
               </SidebarMenuButton>
             </SidebarMenuItem>{" "}
             <SidebarMenuItem>
-              <SidebarMenuButton icon={PlusIcon}>
+              <SidebarMenuButton
+                icon={PlusIcon}
+                onClick={() => onNewThread?.()}
+              >
                 New
                 {/* shortcut chip, revealed on row hover */}
                 <span
@@ -137,94 +158,126 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {NAV_SECTIONS.map((section) => (
-          <SidebarGroup key={section.label} collapsible>
-            <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+        {threads ? (
+          <SidebarGroup collapsible>
+            <SidebarGroupLabel>THREADS</SidebarGroupLabel>
             <SidebarGroupActions>
               <Tooltip content="Add item" side="top">
-                <SidebarGroupAction aria-label="Add item">
+                <SidebarGroupAction
+                  aria-label="Add item"
+                  onClick={() => onNewThread?.()}
+                >
                   <PlusIcon />
-                </SidebarGroupAction>
-              </Tooltip>
-              <Tooltip content="Section settings" side="top">
-                <SidebarGroupAction aria-label="Section settings">
-                  <SlidersIcon />
                 </SidebarGroupAction>
               </Tooltip>
             </SidebarGroupActions>
             <SidebarMenu className="gap-px">
-              {section.items.map((item) => (
-                <SidebarMenuItem key={item.label}>
-                  {/* status drives the dot and the screen-reader "unread" text */}
+              {threads.map((item) => (
+                <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     status={item.status}
-                    isActive={item.label === active}
-                    onClick={() => setActive(item.label)}
+                    isActive={item.id === activeThreadId}
+                    onClick={() => onNavigate?.(item.id)}
                   >
                     {item.label}
                   </SidebarMenuButton>
                   {item.badge && (
                     <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
                   )}
-                  <SidebarMenuActions showOnHover>
-                    <Tooltip content="Run" side="top">
-                      <SidebarMenuAction aria-label="Run">
-                        <PlayIcon />
-                      </SidebarMenuAction>
-                    </Tooltip>
-                    <Tooltip content="Rename" side="top">
-                      <SidebarMenuAction aria-label="Rename">
-                        <PencilIcon />
-                      </SidebarMenuAction>
-                    </Tooltip>
-                    <DropdownMenu>
-                      <DropdownTrigger
-                        render={
-                          <SidebarMenuAction aria-label="More options">
-                            <MoreVerticalIcon />
-                          </SidebarMenuAction>
-                        }
-                      />
-                      {/* 240px — the header/footer trigger width */}
-                      <DropdownContent
-                        className="min-w-0 w-[240px]"
-                        align="start"
-                        sideOffset={4}
-                      >
-                        <MenuItem
-                          index={0}
-                          icon={PlayIcon}
-                          label="Run"
-                          onSelect={() => {}}
-                        />
-                        <MenuItem
-                          index={1}
-                          icon={PencilIcon}
-                          label="Rename"
-                          onSelect={() => {}}
-                        />
-                        <MenuItem
-                          index={2}
-                          icon={LinkIcon}
-                          label="Share"
-                          onSelect={() => {}}
-                        />
-                        <DropdownSeparator/>
-                        {/* a confirmation dialog to delete this thread permanently, includign cascade everything from database */}
-                        <MenuItem
-                          index={3}
-                          icon={DeleteIcon}
-                          label="Delete"
-                          onSelect={() => {}}
-                        />
-                      </DropdownContent>
-                    </DropdownMenu>
-                  </SidebarMenuActions>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
           </SidebarGroup>
-        ))}
+        ) : (
+          NAV_SECTIONS.map((section) => (
+            <SidebarGroup key={section.label} collapsible>
+              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+              <SidebarGroupActions>
+                <Tooltip content="Add item" side="top">
+                  <SidebarGroupAction aria-label="Add item">
+                    <PlusIcon />
+                  </SidebarGroupAction>
+                </Tooltip>
+                <Tooltip content="Section settings" side="top">
+                  <SidebarGroupAction aria-label="Section settings">
+                    <SlidersIcon />
+                  </SidebarGroupAction>
+                </Tooltip>
+              </SidebarGroupActions>
+              <SidebarMenu className="gap-px">
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.label}>
+                    {/* status drives the dot and the screen-reader "unread" text */}
+                    <SidebarMenuButton
+                      status={item.status}
+                      isActive={item.label === active}
+                      onClick={() => setActive(item.label)}
+                    >
+                      {item.label}
+                    </SidebarMenuButton>
+                    {item.badge && (
+                      <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                    )}
+                    <SidebarMenuActions showOnHover>
+                      <Tooltip content="Run" side="top">
+                        <SidebarMenuAction aria-label="Run">
+                          <PlayIcon />
+                        </SidebarMenuAction>
+                      </Tooltip>
+                      <Tooltip content="Rename" side="top">
+                        <SidebarMenuAction aria-label="Rename">
+                          <PencilIcon />
+                        </SidebarMenuAction>
+                      </Tooltip>
+                      <DropdownMenu>
+                        <DropdownTrigger
+                          render={
+                            <SidebarMenuAction aria-label="More options">
+                              <MoreVerticalIcon />
+                            </SidebarMenuAction>
+                          }
+                        />
+                        {/* 240px — the header/footer trigger width */}
+                        <DropdownContent
+                          className="min-w-0 w-[240px]"
+                          align="start"
+                          sideOffset={4}
+                        >
+                          <MenuItem
+                            index={0}
+                            icon={PlayIcon}
+                            label="Run"
+                            onSelect={() => {}}
+                          />
+                          <MenuItem
+                            index={1}
+                            icon={PencilIcon}
+                            label="Rename"
+                            onSelect={() => {}}
+                          />
+                          <MenuItem
+                            index={2}
+                            icon={LinkIcon}
+                            label="Share"
+                            onSelect={() => {}}
+                          />
+                          <DropdownSeparator/>
+                          {/* a confirmation dialog to delete this thread permanently, includign cascade everything from database */}
+                          <MenuItem
+                            index={3}
+                            icon={DeleteIcon}
+                            label="Delete"
+                            onSelect={() => {}}
+                          />
+                        </DropdownContent>
+                      </DropdownMenu>
+                    </SidebarMenuActions>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))
+        )}
       </SidebarContent>
       <SidebarFooter>
         {callouts.length > 0 && (

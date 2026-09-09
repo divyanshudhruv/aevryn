@@ -38,25 +38,41 @@ interface Message {
   files: File[];
 }
 
-export function ChatComposer() {
+export interface ChatComposerProps {
+  /** Fired for a fresh user submit (not queued dispatches). Lets the host
+   *  wire sendMessage/thread-creation without touching the internal demo
+   *  transcript. */
+  onSubmitMessage?: (text: string) => void;
+  /** Demo mode: seeds a fake transcript and simulates streaming replies.
+   *  Set false for the real workspace surfaces. */
+  demo?: boolean;
+}
+
+export function ChatComposer({ onSubmitMessage, demo = true }: ChatComposerProps) {
   const shape = useShape();
   const PlusIcon = useIcon("plus");
   const ChevronDownIcon = useIcon("chevron-down");
   const cardH = useQueueCardHeight();
   const [value, setValue] = useState("");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "seed",
-      from: "user",
-      text: "Make my input box feel less stiff",
-      files: [],
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(
+    demo
+      ? [
+          {
+            id: "seed",
+            from: "user",
+            text: "Make my input box feel less stiff",
+            files: [],
+          },
+        ]
+      : [],
+  );
   const [files, setFiles] = useState<File[]>([]);
   const [queue, setQueue] = useState<QueuedMessage[]>([]);
   // Seeded mid-stream (the preset's configuration): sends enqueue
   // immediately; Stop flips to idle and dispatches the head.
-  const [status, setStatus] = useState<"idle" | "streaming">("streaming");
+  const [status, setStatus] = useState<"idle" | "streaming">(
+    demo ? "streaming" : "idle",
+  );
   const qualityLabels = ["Free", "Low", "Medium", "High", "Ultra", "God"];
   const [quality, setQuality] = useState(30000);
   const [displayQuality, setDisplayQuality] = useState(30000);
@@ -227,9 +243,10 @@ export function ChatComposer() {
         onValueChange={setValue}
         onSend={(text, sent, meta) => {
           if (text || sent.length) {
+            if (text && !meta?.queuedId) onSubmitMessage?.(text);
             const id = meta?.queuedId ?? crypto.randomUUID();
             setMessages((m) => [...m, { id, from: "user", text, files: sent }]);
-            if (text) respond(text);
+            if (demo) respond(text);
             // A dispatched (from-queue) text message morphs from its stack
             // card; attachment cards fade instead (their layouts differ).
             if (meta?.queuedId && sent.length === 0) {
