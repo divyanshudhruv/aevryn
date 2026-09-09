@@ -1,6 +1,6 @@
 import { env } from "@aevryn/env/server";
 import { executionRunEvent, inngest } from "@aevryn/inngest";
-import { WorkflowService } from "@aevryn/workflow";
+import { Mem0MemoryStore, WorkflowService } from "@aevryn/workflow";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -15,6 +15,7 @@ const sendMessageSchema = z.object({
 const workflowIdSchema = z.object({ workflowId: z.string().min(1) });
 
 const workflowService = new WorkflowService();
+const memoryStore = new Mem0MemoryStore(env.MEM0_API_KEY);
 
 async function requireEnv() {
 	if (!env.GROQ_API_KEY) {
@@ -162,6 +163,24 @@ export const agentRouter = router({
 					message: "Workflow does not belong to the current user",
 				});
 			}
+			let memorySummary: Array<{
+				category: string;
+				text: string;
+				createdAt: string;
+			}> | null = null;
+			try {
+				const entries = await memoryStore.listForUser({
+					userId: ctx.session.user.id,
+					limit: 5,
+				});
+				memorySummary = entries.map((entry) => ({
+					category: entry.category,
+					text: entry.text,
+					createdAt: entry.createdAt,
+				}));
+			} catch {
+				memorySummary = null;
+			}
 			return {
 				workflow: {
 					id: thread.workflow.id,
@@ -171,6 +190,33 @@ export const agentRouter = router({
 				},
 				plan: thread.plan,
 				activity: thread.activity,
+				schedules: thread.schedules.map((schedule) => ({
+					id: schedule.id,
+					cron: schedule.cron,
+					intervalSeconds: schedule.intervalSeconds,
+					enabled: schedule.enabled === 1,
+					nextRunAt: schedule.nextRunAt,
+					lastRunAt: schedule.lastRunAt,
+				})),
+				notifications: thread.notifications.map((notification) => ({
+					id: notification.id,
+					type: notification.type,
+					channel: notification.channel,
+					subject: notification.subject,
+					body: notification.body,
+					createdAt: notification.createdAt,
+					deliveredAt: notification.deliveredAt,
+				})),
+				recoveryAttempts: thread.recoveryAttempts.map((attempt) => ({
+					id: attempt.id,
+					failureClass: attempt.failureClass,
+					failureCode: attempt.failureCode,
+					attempt: attempt.attempt,
+					strategy: attempt.strategy,
+					result: attempt.result,
+					createdAt: attempt.createdAt,
+				})),
+				memorySummary,
 				turns: thread.turns.map((turn) => ({
 					execution: {
 						id: turn.execution.id,
@@ -290,6 +336,24 @@ export const agentRouter = router({
 							completedAt: execution.completedAt,
 						}
 					: null,
+			}));
+		}),
+	listNotifications: protectedProcedure
+		.input(z.object({ limit: z.number().int().min(1).max(100).optional() }))
+		.query(async ({ input, ctx }) => {
+			const notifications = await workflowService.listNotificationsForUser(
+				ctx.session.user.id,
+				input.limit ?? 50,
+			);
+			return notifications.map((notification) => ({
+				id: notification.id,
+				workflowId: notification.workflowId,
+				type: notification.type,
+				channel: notification.channel,
+				subject: notification.subject,
+				body: notification.body,
+				createdAt: notification.createdAt,
+				deliveredAt: notification.deliveredAt,
 			}));
 		}),
 });

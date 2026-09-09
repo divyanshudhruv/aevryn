@@ -406,6 +406,9 @@ export class WorkflowService {
 		workflow: Workflow;
 		plan: Plan | null;
 		activity: ActivitySnapshot | null;
+		schedules: Schedule[];
+		notifications: Notification[];
+		recoveryAttempts: RecoveryAttempt[];
 		turns: Array<{
 			execution: WorkflowExecution;
 			steps: WorkflowStep[];
@@ -428,8 +431,18 @@ export class WorkflowService {
 			workflow,
 			plan: await this.getPlan(workflowId),
 			activity: await this.getActivitySnapshot(workflowId),
+			schedules: await this.schedules.listByWorkflow(workflowId),
+			notifications: await this.notifications.listByWorkflow(workflowId, 50),
+			recoveryAttempts: await this.recoveries.listByWorkflow(workflowId, 20),
 			turns,
 		};
+	}
+
+	async listNotificationsForUser(
+		userId: string,
+		limit = 50,
+	): Promise<Notification[]> {
+		return this.notifications.listByUser(userId, limit);
 	}
 
 	/**
