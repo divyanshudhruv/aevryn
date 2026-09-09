@@ -2,6 +2,7 @@ import {
 	db,
 	type Notification,
 	type Observation,
+	type RecoveryAttempt,
 	type Schedule,
 	type ToolExecution,
 	type Workflow,
@@ -13,6 +14,7 @@ import { EventRepository } from "../repositories/event-repository";
 import { ExecutionRepository } from "../repositories/execution-repository";
 import { NotificationRepository } from "../repositories/notification-repository";
 import { ObservationRepository } from "../repositories/observation-repository";
+import { RecoveryRepository } from "../repositories/recovery-repository";
 import { ScheduleRepository } from "../repositories/schedule-repository";
 import { StateRepository } from "../repositories/state-repository";
 import { StepRepository } from "../repositories/step-repository";
@@ -26,11 +28,13 @@ import {
 	type CompleteExecution,
 	type CreateNotification,
 	type CreateObservation,
+	type CreateRecoveryAttempt,
 	type CreateSchedule,
 	type CreateWorkflow,
 	completeExecutionSchema,
 	createNotificationSchema,
 	createObservationSchema,
+	createRecoveryAttemptSchema,
 	createScheduleSchema,
 	createWorkflowSchema,
 	decisionSchema,
@@ -75,6 +79,7 @@ export class WorkflowService {
 		private readonly schedules = new ScheduleRepository(),
 		private readonly notifications = new NotificationRepository(),
 		private readonly observations = new ObservationRepository(),
+		private readonly recoveries = new RecoveryRepository(),
 	) {}
 
 	async createWorkflow(input: CreateWorkflow): Promise<CreateWorkflowOutcome> {
@@ -128,6 +133,56 @@ export class WorkflowService {
 
 	async getWorkflowById(workflowId: string): Promise<Workflow | null> {
 		return this.workflows.findById(workflowId);
+	}
+
+	/**
+	 * Record a durable recovery attempt. Idempotent per (execution, attempt):
+	 * re-runs of a failed function must not duplicate rows.
+	 */
+	async recordRecoveryAttempt(
+		input: CreateRecoveryAttempt,
+	): Promise<RecoveryAttempt | null> {
+		const parsed = createRecoveryAttemptSchema.parse(input);
+		const exists = await this.recoveries.existsByExecutionAttempt(
+			parsed.executionId,
+			parsed.attempt,
+		);
+		if (exists) {
+			return null;
+		}
+		const attempt = await this.recoveries.insert({
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			stepId: parsed.stepId,
+			failureClass: parsed.failureClass,
+			failureCode: parsed.failureCode,
+			attempt: parsed.attempt,
+			strategy: parsed.strategy,
+			result: parsed.result,
+			detail: parsed.detail,
+		});
+		await this.events.insert({
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			type: "recovery.started",
+			data: {
+				attempt: attempt.attempt,
+				failureClass: attempt.failureClass,
+				failureCode: attempt.failureCode ?? null,
+			},
+		});
+		return attempt;
+	}
+
+	async countRecoveryAttempts(executionId: string): Promise<number> {
+		return this.recoveries.countByExecution(executionId);
+	}
+
+	async listRecoveryAttemptsByWorkflow(
+		workflowId: string,
+		limit = 50,
+	): Promise<RecoveryAttempt[]> {
+		return this.recoveries.listByWorkflow(workflowId, limit);
 	}
 
 	async getExecution(executionId: string): Promise<WorkflowExecution | null> {

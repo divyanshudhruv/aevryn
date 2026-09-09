@@ -1,6 +1,8 @@
 import { agentStateSchema, observationContentSchema } from "@aevryn/db";
 import { z } from "zod";
 
+import { failureClassSchema, recoveryStatusSchema } from "./recovery";
+
 export const createWorkflowSchema = z.object({
 	userId: z.string().min(1),
 	objective: z.string().min(1).max(2000),
@@ -171,6 +173,20 @@ export const createObservationSchema = z.object({
 });
 
 export type CreateObservation = z.infer<typeof createObservationSchema>;
+
+export const createRecoveryAttemptSchema = z.object({
+	workflowId: z.string().min(1),
+	executionId: z.string().min(1),
+	stepId: z.string().min(1).optional(),
+	failureClass: failureClassSchema,
+	failureCode: z.string().min(1).max(200).optional(),
+	attempt: z.number().int().positive(),
+	strategy: z.string().max(200).optional(),
+	result: recoveryStatusSchema,
+	detail: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type CreateRecoveryAttempt = z.infer<typeof createRecoveryAttemptSchema>;
 
 export const decisionSchema = z.object({
 	action: z.enum(["complete", "sleep", "notify", "stop"]),

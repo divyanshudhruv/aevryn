@@ -10,6 +10,7 @@ import {
 import { env } from "@aevryn/env/server";
 import {
 	type ActivitySnapshot,
+	classifyFailure,
 	type Decision,
 	decisionSchema,
 	Mem0MemoryStore,
@@ -34,7 +35,12 @@ const failureEventSchema = z.object({
 		event: z.object({
 			data: executionRunEventSchema,
 		}),
-		error: z.object({ message: z.string().optional() }).optional(),
+		error: z
+			.object({
+				message: z.string().optional(),
+				code: z.string().optional(),
+			})
+			.optional(),
 	}),
 });
 
@@ -521,10 +527,42 @@ export const executionRun = inngest.createFunction(
 				error.message ??
 				"execution failed unexpectedly"
 			).slice(0, 500);
+			const workflowId = parsed.data.data.event.data.workflowId;
+			const classification = classifyFailure({
+				code: parsed.data.data.error?.code,
+			});
 			await workflowService.failExecution({ executionId, reason });
-			const activity = await workflowService.getActivitySnapshot(
-				parsed.data.data.event.data.workflowId,
-			);
+			await workflowService.recordRecoveryAttempt({
+				workflowId,
+				executionId,
+				failureClass: classification.failureClass,
+				failureCode: classification.failureCode,
+				attempt: (await workflowService.countRecoveryAttempts(executionId)) + 1,
+				strategy:
+					classification.failureClass === "transient"
+						? "retry-later"
+						: classification.failureClass === "structural"
+							? "inspect-and-replan"
+							: "fail-safe",
+				result: "failed",
+				detail: { reason },
+			});
+			const workflow = await workflowService.getWorkflowById(workflowId);
+			if (workflow) {
+				await workflowService.createNotification({
+					userId: workflow.userId,
+					workflowId,
+					channel: "in-app",
+					type: "workflow.failed",
+					subject: "Workflow run failed",
+					body: {
+						failureClass: classification.failureClass,
+						failureCode: classification.failureCode,
+						reason,
+					},
+				});
+			}
+			const activity = await workflowService.getActivitySnapshot(workflowId);
 			if (activity) {
 				await workflowService.updateActivitySnapshot(
 					parsed.data.data.event.data.workflowId,

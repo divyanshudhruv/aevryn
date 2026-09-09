@@ -42,6 +42,7 @@ export const env = createEnv({
 			.int()
 			.positive()
 			.default(604800),
+		RECOVERY_MAX_ATTEMPTS: z.coerce.number().int().min(0).default(2),
 	},
 	runtimeEnv: runtimeEnv,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,
