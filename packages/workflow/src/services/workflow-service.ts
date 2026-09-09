@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
+	type Approval,
 	db,
 	type Notification,
 	type Observation,
@@ -12,6 +13,7 @@ import {
 } from "@aevryn/db";
 import { env } from "@aevryn/env/server";
 import type { z } from "zod";
+import { ApprovalRepository } from "../repositories/approval-repository";
 import { EventRepository } from "../repositories/event-repository";
 import { ExecutionRepository } from "../repositories/execution-repository";
 import { NotificationRepository } from "../repositories/notification-repository";
@@ -44,9 +46,13 @@ import {
 	type FailExecution,
 	failExecutionSchema,
 	type Plan,
+	type PlanProgress,
+	planProgressSchema,
 	planSchema,
 	type RecordSteps,
+	type ResolveApproval,
 	recordStepsSchema,
+	resolveApprovalSchema,
 	type StartExecution,
 	startExecutionSchema,
 	type statePatchSchema,
@@ -83,6 +89,7 @@ export class WorkflowService {
 		private readonly notifications = new NotificationRepository(),
 		private readonly observations = new ObservationRepository(),
 		private readonly recoveries = new RecoveryRepository(),
+		private readonly approvals = new ApprovalRepository(),
 		private readonly webhooks = new WebhookRepository(),
 	) {}
 
@@ -409,11 +416,13 @@ export class WorkflowService {
 	async getThread(workflowId: string): Promise<{
 		workflow: Workflow;
 		plan: Plan | null;
+		planProgress: PlanProgress | null;
 		activity: ActivitySnapshot | null;
 		schedules: Schedule[];
 		notifications: Notification[];
 		observations: Observation[];
 		recoveryAttempts: RecoveryAttempt[];
+		approvals: Approval[];
 		turns: Array<{
 			execution: WorkflowExecution;
 			steps: WorkflowStep[];
@@ -435,11 +444,13 @@ export class WorkflowService {
 		return {
 			workflow,
 			plan: await this.getPlan(workflowId),
+			planProgress: await this.getPlanProgress(workflowId),
 			activity: await this.getActivitySnapshot(workflowId),
 			schedules: await this.schedules.listByWorkflow(workflowId),
 			notifications: await this.notifications.listByWorkflow(workflowId, 50),
 			observations: await this.observations.listByWorkflow(workflowId),
 			recoveryAttempts: await this.recoveries.listByWorkflow(workflowId, 20),
+			approvals: await this.approvals.listByWorkflow(workflowId, 50),
 			turns,
 		};
 	}
@@ -463,6 +474,14 @@ export class WorkflowService {
 		return { marked: -1 };
 	}
 
+	async getNotification(notificationId: string): Promise<Notification | null> {
+		return this.notifications.findById(notificationId);
+	}
+
+	async markNotificationDelivered(notificationId: string): Promise<void> {
+		await this.notifications.markDelivered(notificationId);
+	}
+
 	async countUnreadNotifications(userId: string): Promise<number> {
 		return this.notifications.countUnread(userId);
 	}
@@ -470,8 +489,10 @@ export class WorkflowService {
 	/**
 	 * Assemble the prior conversation in a thread as replay context for the
 	 * current run. History is bounded by maxChars (the same context-cap the
-	 * user controls); oldest messages are dropped first. Only turns that have
-	 * a persisted assistant answer are included.
+	 * user controls). Content is compacted: the MOST RECENT turns are kept,
+	 * long answers are trimmed, and the oldest omitted turns are reduced to a
+	 * single count line so the model knows history exists without paying its
+	 * full token cost.
 	 */
 	async getConversationContext(
 		workflowId: string,
@@ -483,8 +504,7 @@ export class WorkflowService {
 			workflowId,
 			50,
 		);
-		const blocks: string[] = [];
-		let used = 0;
+		const turns: Array<{ prompt: string; answer: string }> = [];
 		for (const execution of executions) {
 			if (execution.id === excludeExecutionId || !execution.prompt) {
 				continue;
@@ -494,17 +514,34 @@ export class WorkflowService {
 			if (!answer) {
 				continue;
 			}
-			const block = `user: ${execution.prompt}\nassistant: ${answer}`;
+			turns.push({
+				prompt: execution.prompt,
+				answer: answer.length > 1200 ? `${answer.slice(0, 1200)}…` : answer,
+			});
+		}
+		if (turns.length === 0) {
+			return null;
+		}
+		const blocks: string[] = [];
+		let used = 0;
+		let omitted = 0;
+		for (const turn of turns.reverse()) {
+			const block = `user: ${turn.prompt}\nassistant: ${turn.answer}`;
 			if (used + block.length > budget) {
-				break;
+				omitted += 1;
+				continue;
 			}
-			blocks.unshift(block);
+			blocks.push(block);
 			used += block.length;
 		}
 		if (blocks.length === 0) {
 			return null;
 		}
-		return `Prior messages in this thread:\n${blocks.join("\n\n")}`;
+		const header =
+			omitted > 0
+				? `Prior messages in this thread (${omitted} older message${omitted === 1 ? "" : "s"} summarized and omitted for space):`
+				: "Prior messages in this thread:";
+		return `${header}\n${blocks.join("\n\n")}`;
 	}
 
 	async updatePlan(workflowId: string, plan: Plan | null): Promise<void> {
@@ -529,6 +566,34 @@ export class WorkflowService {
 			return null;
 		}
 		const parsed = planSchema.safeParse(candidate);
+		return parsed.success ? parsed.data : null;
+	}
+
+	async setPlanProgress(
+		workflowId: string,
+		progress: PlanProgress,
+	): Promise<void> {
+		const parsed = planProgressSchema.parse(progress);
+		const existing = await this.states.findByWorkflow(workflowId);
+		await this.states.upsert(workflowId, {
+			phase: "executing",
+			data: {
+				...(existing?.data ?? {}),
+				data: {
+					...(existing?.data?.data ?? {}),
+					planProgress: parsed,
+				},
+			},
+		});
+	}
+
+	async getPlanProgress(workflowId: string): Promise<PlanProgress | null> {
+		const state = await this.states.findByWorkflow(workflowId);
+		const candidate = state?.data?.data?.planProgress;
+		if (!candidate) {
+			return null;
+		}
+		const parsed = planProgressSchema.safeParse(candidate);
 		return parsed.success ? parsed.data : null;
 	}
 
@@ -771,6 +836,240 @@ export class WorkflowService {
 				tx,
 			);
 		});
+	}
+
+	/**
+	 * Persist durable approval requests raised by an agent run. Idempotent:
+	 * a retried run must not duplicate an already-pending request for the same
+	 * write action on the same execution.
+	 */
+	async recordApprovalRequests(
+		workflowId: string,
+		executionId: string,
+		requests: Array<{ toolName: string; input: unknown }>,
+	): Promise<Approval[]> {
+		const workflow = await this.workflows.requireById(workflowId);
+		const created: Approval[] = [];
+		for (const request of requests) {
+			const exists = await this.approvals.existsPendingForExecution(
+				executionId,
+				request.toolName,
+			);
+			if (exists) {
+				continue;
+			}
+			const row = await this.approvals.insert({
+				workflowId,
+				executionId,
+				userId: workflow.userId,
+				toolName: request.toolName,
+				input: (request.input ?? {}) as Record<string, unknown>,
+			});
+			await this.events.insert({
+				workflowId,
+				executionId,
+				type: "approval.requested",
+				data: { approvalId: row.id, toolName: row.toolName },
+			});
+			created.push(row);
+		}
+		return created;
+	}
+
+	async listApprovalsByWorkflow(
+		workflowId: string,
+		limit = 50,
+	): Promise<Approval[]> {
+		return this.approvals.listByWorkflow(workflowId, limit);
+	}
+
+	async countPendingApprovals(workflowId: string): Promise<number> {
+		return this.approvals.countPendingByWorkflow(workflowId);
+	}
+
+	async getPendingApprovalsForExecution(
+		executionId: string,
+	): Promise<Approval[]> {
+		return this.approvals.listPendingByExecution(executionId);
+	}
+
+	/**
+	 * Resolve a single approval request. Ownership is enforced inside the
+	 * transaction: the acting user must own the owning workflow. Returns
+	 * enough to let the API resume (or fail) the held execution.
+	 */
+	async resolveApproval(
+		input: ResolveApproval,
+		userId: string,
+	): Promise<{
+		resolution: "approved" | "denied";
+		remainingPending: number;
+		onlyApproved: Approval[];
+		execution: WorkflowExecution | null;
+		workflow: Workflow;
+	}> {
+		const parsed = resolveApprovalSchema.parse(input);
+		const approval = await this.approvals.findById(parsed.approvalId);
+		if (!approval) {
+			throw new Error(`Approval ${parsed.approvalId} not found`);
+		}
+		const workflow = await this.workflows.requireById(parsed.workflowId);
+		if (workflow.userId !== userId || approval.workflowId !== workflow.id) {
+			throw new Error("Approval does not belong to the current user");
+		}
+		if (approval.status !== "pending") {
+			throw new Error(`Approval is already ${approval.status}`);
+		}
+		const status = parsed.resolve === "approve" ? "approved" : "denied";
+		await this.approvals.setStatus(approval.id, status, parsed.reason);
+		await this.events.insert({
+			workflowId: workflow.id,
+			executionId: approval.executionId ?? undefined,
+			type:
+				parsed.resolve === "approve" ? "approval.approved" : "approval.denied",
+			data: { approvalId: approval.id, toolName: approval.toolName },
+		});
+		const remainingPending = approval.executionId
+			? await this.approvals.countPendingByExecution(approval.executionId)
+			: 0;
+		const onlyApproved = approval.executionId
+			? await this.approvals.listApprovedByExecution(approval.executionId)
+			: [];
+		const execution = approval.executionId
+			? await this.executions.findById(approval.executionId)
+			: null;
+		return {
+			resolution: status,
+			remainingPending,
+			onlyApproved,
+			execution,
+			workflow,
+		};
+	}
+
+	/**
+	 * Put an execution (and its workflow) into the durable awaiting_approval
+	 * state. The run must not proceed until every pending approval is resolved.
+	 */
+	async holdExecutionForApproval(
+		executionId: string,
+		reason = "Awaiting user approval for a consequential action",
+	): Promise<void> {
+		await db.transaction(async (tx) => {
+			const execution = await this.executions.update(
+				executionId,
+				{ status: "awaiting_approval", reason },
+				tx,
+			);
+			await this.workflows.setStatus(
+				execution.workflowId,
+				"awaiting_approval",
+				tx,
+			);
+			await this.events.insert(
+				{
+					workflowId: execution.workflowId,
+					executionId: execution.id,
+					type: "execution.approval_pending",
+					data: {},
+				},
+				tx,
+			);
+		});
+	}
+
+	/**
+	 * Pause a workflow: no scheduled fires or wakes while paused, and any live
+	 * run is cancelled. The user can Resume (or Run) manually afterwards.
+	 */
+	async pauseWorkflow(workflowId: string): Promise<{ cancelled: number }> {
+		const workflow = await this.workflows.requireById(workflowId);
+		if (workflow.status === "draft") {
+			throw new Error("Draft workflows cannot be paused");
+		}
+		const executions = await this.executions.listByWorkflow(workflowId, 50);
+		const live = executions.filter((execution) =>
+			["pending", "running"].includes(execution.status),
+		);
+		await db.transaction(async (tx) => {
+			await this.workflows.setStatus(workflowId, "paused", tx);
+			await this.events.insert(
+				{ workflowId, type: "workflow.paused", data: {} },
+				tx,
+			);
+			for (const execution of live) {
+				await this.executions.update(
+					execution.id,
+					{
+						status: "cancelled",
+						reason: "paused by user",
+						completedAt: new Date(),
+					},
+					tx,
+				);
+				await this.events.insert(
+					{
+						workflowId,
+						executionId: execution.id,
+						type: "execution.cancelled",
+						data: { reason: "paused by user" },
+					},
+					tx,
+				);
+			}
+		});
+		return { cancelled: live.length };
+	}
+
+	async resumeWorkflow(workflowId: string): Promise<void> {
+		const workflow = await this.workflows.requireById(workflowId);
+		if (workflow.status !== "paused") {
+			throw new Error(`Workflow is ${workflow.status}, not paused`);
+		}
+		await db.transaction(async (tx) => {
+			await this.workflows.setStatus(workflowId, "active", tx);
+			await this.events.insert(
+				{ workflowId, type: "workflow.resumed", data: {} },
+				tx,
+			);
+		});
+	}
+
+	/**
+	 * Persist token/cost usage for an execution. Cheap enough to also fire on
+	 * the failure path; never throws into the caller.
+	 */
+	async recordUsage(
+		executionId: string,
+		usage: { tokenCount: number; costUsd: number },
+	): Promise<void> {
+		await this.executions.update(executionId, {
+			status: "running",
+			tokenCount: usage.tokenCount,
+			costUsd: usage.costUsd,
+		});
+	}
+
+	/**
+	 * Replay map for a same-execution retry: previously COMPLETED tool outputs
+	 * are replayed from persistence instead of re-invoking the provider, so a
+	 * bounded recovery pass can never double a write side effect. The map is
+	 * keyed by tool name; the runtime consumes each entry once per run.
+	 */
+	async listReplayableToolOutputs(
+		executionId: string,
+	): Promise<Record<string, unknown>> {
+		const tools = await this.toolExecutions.listByExecution(executionId);
+		const replay: Record<string, unknown> = {};
+		for (const tool of tools) {
+			if (tool.status !== "completed" || tool.output == null) {
+				continue;
+			}
+			if (!(tool.tool in replay)) {
+				replay[tool.tool] = tool.output;
+			}
+		}
+		return replay;
 	}
 
 	async createNotification(input: CreateNotification): Promise<Notification> {
@@ -1049,18 +1348,38 @@ export class WorkflowService {
 		workflowId: string;
 		executionId: string;
 		decision: z.infer<typeof decisionSchema>;
-	}): Promise<{ action: string }> {
+	}): Promise<{
+		action: string;
+		deliverables: Array<{ notificationId: string; channel: string }>;
+	}> {
 		const decision = decisionSchema.parse(input.decision);
 		const workflow = await this.workflows.requireById(input.workflowId);
+		const deliverables: Array<{
+			notificationId: string;
+			channel: string;
+		}> = [];
 		if (decision.action !== "wait" && decision.notification) {
-			await this.createNotification({
+			const channel = decision.notification.channel ?? "in-app";
+			if (channel === "webhook") {
+				const body = (decision.notification.body ?? {}) as Record<
+					string,
+					unknown
+				>;
+				if (typeof body.url !== "string" || !/^https?:\/\//.test(body.url)) {
+					throw new Error(
+						"A webhook notification requires a body.url (http/https) destination",
+					);
+				}
+			}
+			const notification = await this.createNotification({
 				userId: workflow.userId,
 				workflowId: workflow.id,
 				type: decision.notification.type,
-				channel: "in-app",
+				channel,
 				subject: decision.notification.subject,
 				body: decision.notification.body,
 			});
+			deliverables.push({ notificationId: notification.id, channel });
 		}
 		if (decision.observation) {
 			await this.createObservation({
@@ -1072,6 +1391,9 @@ export class WorkflowService {
 		if (decision.statePatch) {
 			await this.applyStatePatch(workflow.id, decision.statePatch);
 		}
+		if (decision.planProgress) {
+			await this.setPlanProgress(workflow.id, decision.planProgress);
+		}
 		await this.events.insert({
 			workflowId: workflow.id,
 			executionId: input.executionId,
@@ -1080,6 +1402,7 @@ export class WorkflowService {
 				action: decision.action,
 				reason: decision.reason ?? null,
 				sleepUntil: decision.sleepUntil?.toISOString() ?? null,
+				planProgress: decision.planProgress ?? null,
 			},
 		});
 		switch (decision.action) {
@@ -1128,7 +1451,7 @@ export class WorkflowService {
 				await this.completeExecution({ executionId: input.executionId });
 				break;
 		}
-		return { action: decision.action };
+		return { action: decision.action, deliverables };
 	}
 
 	private mergeState(

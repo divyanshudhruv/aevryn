@@ -2,6 +2,7 @@ export * from "./errors";
 export * from "./memory/mem0-store";
 export * from "./memory/types";
 export * from "./recovery";
+export * from "./repositories/approval-repository";
 export * from "./repositories/event-repository";
 export * from "./repositories/execution-repository";
 export * from "./repositories/notification-repository";

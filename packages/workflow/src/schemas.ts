@@ -86,7 +86,15 @@ export const applyStateSchema = z.object({
 export type ApplyState = z.infer<typeof applyStateSchema>;
 
 export const activitySnapshotSchema = z.object({
-	status: z.enum(["running", "completed", "failed", "sleeping", "waiting"]),
+	status: z.enum([
+		"running",
+		"completed",
+		"failed",
+		"sleeping",
+		"waiting",
+		"awaiting_approval",
+		"paused",
+	]),
 	currentActivity: z.string().optional(),
 	executionId: z.string().optional(),
 	steps: z.array(
@@ -133,6 +141,14 @@ export const planSchema = z.object({
 });
 
 export type Plan = z.infer<typeof planSchema>;
+
+export const planProgressSchema = z.object({
+	currentStep: z.number().int().min(0),
+	status: z.enum(["in_progress", "completed"]),
+	note: z.string().max(500).optional(),
+});
+
+export type PlanProgress = z.infer<typeof planProgressSchema>;
 
 export const createScheduleSchema = z
 	.object({
@@ -223,10 +239,21 @@ export const decisionSchema = z.object({
 	notification: z
 		.object({
 			type: z.string().min(1).max(100),
+			channel: z.enum(["in-app", "webhook"]).default("in-app"),
 			subject: z.string().min(1).max(500).optional(),
 			body: z.record(z.string(), z.unknown()).optional(),
 		})
 		.optional(),
+	planProgress: planProgressSchema.optional(),
 });
 
 export type Decision = z.infer<typeof decisionSchema>;
+
+export const resolveApprovalSchema = z.object({
+	approvalId: z.string().min(1),
+	workflowId: z.string().min(1),
+	resolve: z.enum(["approve", "deny"]),
+	reason: z.string().max(500).optional(),
+});
+
+export type ResolveApproval = z.infer<typeof resolveApprovalSchema>;

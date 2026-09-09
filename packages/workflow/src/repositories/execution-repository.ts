@@ -23,6 +23,8 @@ export interface UpdateExecutionParams {
 	reason?: string;
 	startedAt?: Date;
 	completedAt?: Date;
+	costUsd?: number;
+	tokenCount?: number;
 }
 
 export class ExecutionRepository {
@@ -82,6 +84,8 @@ export class ExecutionRepository {
 				reason: params.reason,
 				startedAt: params.startedAt,
 				completedAt: params.completedAt,
+				costUsd: params.costUsd,
+				tokenCount: params.tokenCount,
 			})
 			.where(eq(workflowExecution.id, id))
 			.returning();

@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import { agentState } from "./agent-state";
+import { approval } from "./approval";
 import { account, session, user } from "./auth";
 import { event } from "./event";
 import { notification } from "./notification";
@@ -26,6 +27,7 @@ export const workflowRelations = relations(workflow, ({ one, many }) => ({
 	schedules: many(schedule),
 	notifications: many(notification),
 	webhooks: many(webhookBoard),
+	approvals: many(approval),
 }));
 
 export const webhookBoardRelations = relations(webhookBoard, ({ one }) => ({
@@ -51,6 +53,7 @@ export const workflowExecutionRelations = relations(
 		recoveryAttempts: many(recoveryAttempt),
 		events: many(event),
 		webhooks: many(webhookBoard),
+		approvals: many(approval),
 	}),
 );
 
@@ -145,6 +148,22 @@ export const notificationRelations = relations(notification, ({ one }) => ({
 export const userRelations = relations(user, ({ many }) => ({
 	workflows: many(workflow),
 	notifications: many(notification),
+	approvals: many(approval),
+}));
+
+export const approvalRelations = relations(approval, ({ one }) => ({
+	workflow: one(workflow, {
+		fields: [approval.workflowId],
+		references: [workflow.id],
+	}),
+	execution: one(workflowExecution, {
+		fields: [approval.executionId],
+		references: [workflowExecution.id],
+	}),
+	user: one(user, {
+		fields: [approval.userId],
+		references: [user.id],
+	}),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({

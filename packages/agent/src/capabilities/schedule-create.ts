@@ -29,10 +29,13 @@ const createScheduleInputSchema = z
 			.describe(
 				"Specific instruction to run at each fire. Defaults to the workflow objective.",
 			),
-		startAt: z.coerce
-			.date()
+		startAt: z
+			.string()
+			.datetime({ offset: true })
 			.optional()
-			.describe("Optional first run time; defaults to now."),
+			.describe(
+				"Optional first run time as an ISO-8601 timestamp (e.g. '2026-09-15T09:00:00Z'); defaults to now.",
+			),
 	})
 	.superRefine((value, ctx) => {
 		if (!value.cron && !value.intervalSeconds) {
@@ -72,17 +75,20 @@ export function createScheduleCapability(
 				};
 			}
 			try {
+				const startDate = parsed.data.startAt
+					? new Date(parsed.data.startAt)
+					: undefined;
 				const nextRunAt = computeNextRun(
 					parsed.data.cron,
 					parsed.data.intervalSeconds,
-					parsed.data.startAt,
+					startDate,
 				);
 				const schedule = await service.createSchedule({
 					userId,
 					workflowId,
 					cron: parsed.data.cron,
 					intervalSeconds: parsed.data.intervalSeconds,
-					startAt: parsed.data.startAt,
+					startAt: startDate,
 					config: { prompt: parsed.data.prompt },
 				});
 				return {

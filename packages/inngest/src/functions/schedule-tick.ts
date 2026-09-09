@@ -46,9 +46,12 @@ export const scheduleTick = inngest.createFunction(
 				if (
 					workflow.status === "cancelled" ||
 					workflow.status === "failed" ||
-					workflow.status === "completed"
+					workflow.status === "completed" ||
+					workflow.status === "paused"
 				) {
-					await workflowService.setScheduleEnabled(schedule.id, false);
+					if (workflow.status !== "paused") {
+						await workflowService.setScheduleEnabled(schedule.id, false);
+					}
 					return {
 						scheduleId: schedule.id,
 						skipped: `workflow ${workflow.status}`,
@@ -101,6 +104,12 @@ export const scheduleTick = inngest.createFunction(
 					return {
 						executionId: execution.id,
 						skipped: "workflow unavailable",
+					} satisfies WakeOutcome;
+				}
+				if (workflow.status === "paused") {
+					return {
+						executionId: execution.id,
+						skipped: "workflow paused",
 					} satisfies WakeOutcome;
 				}
 				const prompt =

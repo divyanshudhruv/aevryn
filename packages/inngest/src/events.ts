@@ -14,9 +14,20 @@ export const executionRunEventSchema = z.object({
 			attempt: z.number().int().positive(),
 		})
 		.optional(),
+	approvedToolNames: z.array(z.string().min(1)).max(20).optional(),
 });
 
 export type ExecutionRunEventData = z.infer<typeof executionRunEventSchema>;
+
+export const notificationPublishEvent = "notification/publish" as const;
+
+export const notificationPublishEventSchema = z.object({
+	notificationId: z.string().min(1),
+});
+
+export type NotificationPublishEventData = z.infer<
+	typeof notificationPublishEventSchema
+>;
 
 export const executionRunResultSchema = z.object({
 	workflowId: z.string().min(1),
@@ -28,6 +39,7 @@ export const executionRunResultSchema = z.object({
 		"sleeping",
 		"waiting",
 		"cancelled",
+		"awaiting_approval",
 	]),
 	summary: z.string(),
 	stepCount: z.number().int().nonnegative(),

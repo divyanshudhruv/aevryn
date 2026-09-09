@@ -82,6 +82,18 @@ export class NotificationRepository {
 			.limit(50);
 	}
 
+	async findById(
+		id: string,
+		client: DbClient = db,
+	): Promise<Notification | null> {
+		const rows = await client
+			.select()
+			.from(notification)
+			.where(eq(notification.id, id))
+			.limit(1);
+		return rows[0] ?? null;
+	}
+
 	async markDelivered(id: string, client: DbClient = db): Promise<void> {
 		await client
 			.update(notification)

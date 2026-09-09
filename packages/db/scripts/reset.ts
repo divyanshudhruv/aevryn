@@ -19,6 +19,7 @@ const DOMAIN_TABLES = [
 	"recovery_attempt",
 	"schedule",
 	"notification",
+	"approval",
 ];
 
 const dbClient = db as unknown as {
@@ -28,15 +29,27 @@ const dbClient = db as unknown as {
 };
 
 for (const table of DOMAIN_TABLES) {
-	const rows = await dbClient.execute(
-		sql.raw(`SELECT count(*) AS n FROM ${table}`),
-	);
-	const first = rows.rows[0] as { n: string | number } | undefined;
-	const count = first?.n ?? 0;
-	console.log(`${table}: ${count} rows`);
+	try {
+		const rows = await dbClient.execute(
+			sql.raw(`SELECT count(*) AS n FROM ${table}`),
+		);
+		const first = rows.rows[0] as { n: string | number } | undefined;
+		const count = first?.n ?? 0;
+		console.log(`${table}: ${count} rows`);
+	} catch {
+		console.log(`${table}: (not present)`);
+	}
 }
 
-await dbClient.execute(
-	sql.raw(`TRUNCATE TABLE ${DOMAIN_TABLES.join(", ")} CASCADE`),
+let truncated = 0;
+for (const table of DOMAIN_TABLES) {
+	try {
+		await dbClient.execute(sql.raw(`TRUNCATE TABLE ${table} CASCADE`));
+		truncated += 1;
+	} catch {
+		// Table not present in the remote schema (yet).
+	}
+}
+console.log(
+	`RESET: ${truncated}/${DOMAIN_TABLES.length} domain tables truncated`,
 );
-console.log("RESET: domain tables truncated");

@@ -42,5 +42,6 @@ export interface MemoryStore {
 		userId: string;
 		limit?: number;
 	}): Promise<MemoryEntry[]>;
+	deleteByIds(userId: string, ids: string[]): Promise<void>;
 	deleteAllForUser(userId: string): Promise<void>;
 }

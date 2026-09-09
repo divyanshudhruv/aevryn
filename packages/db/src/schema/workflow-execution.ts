@@ -1,4 +1,11 @@
-import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+	doublePrecision,
+	index,
+	integer,
+	pgTable,
+	text,
+	timestamp,
+} from "drizzle-orm/pg-core";
 
 import { EXECUTION_STATUSES } from "../domain";
 import { workflow } from "./workflow";
@@ -15,6 +22,8 @@ export const workflowExecution = pgTable(
 			.default("pending"),
 		reason: text("reason"),
 		prompt: text("prompt").notNull().default(""),
+		costUsd: doublePrecision("cost_usd").notNull().default(0),
+		tokenCount: integer("token_count").notNull().default(0),
 		schemaVersion: integer("schema_version").notNull().default(1),
 		startedAt: timestamp("started_at", { withTimezone: true }),
 		completedAt: timestamp("completed_at", { withTimezone: true }),

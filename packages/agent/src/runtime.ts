@@ -2,7 +2,7 @@ import { env } from "@aevryn/env/server";
 import { createGroq } from "@ai-sdk/groq";
 import { generateText, isStepCount, tool } from "ai";
 
-import type { CapabilityRegistry } from "./capability";
+import type { CapabilityRegistry, CapabilityResult } from "./capability";
 
 export interface AgentRuntimeOptions {
 	registry: CapabilityRegistry;
@@ -25,6 +25,18 @@ export interface AgentRuntimeOptions {
 	 * instructions. Useful for per-objective constraints.
 	 */
 	instructions?: string;
+	/**
+	 * Persisted outputs of tools that already COMPLETED in a previous pass of
+	 * the same execution. On a bounded recovery retry these are returned from
+	 * storage instead of re-invoking the provider, so a write side effect can
+	 * never execute twice. Each entry is consumed once per run.
+	 */
+	replayedToolOutputs?: Record<string, unknown>;
+	/**
+	 * Tool names a user has explicitly approved for a resume execution. These
+	 * tools are removed from the approval gate so the model may execute them.
+	 */
+	approvedToolNames?: string[];
 }
 
 export type AgentActivity =
@@ -75,6 +87,28 @@ export interface AgentResult {
 	toolsCalled: string[];
 	pendingApprovals: PendingApproval[];
 	steps: AgentStepLog[];
+	usage: {
+		promptTokens: number;
+		completionTokens: number;
+		totalTokens: number;
+		costUsd: number;
+	};
+}
+
+/**
+ * Fallback pricing when the provider reports no cost: a conservative blended
+ * rate (input+output) so budget guards never under-count badly. Today the
+ * Groq path exposes only token usage, so this estimate is what feeds the cost
+ * budget. Keep it deterministic for tests.
+ */
+export const ESTIMATED_USD_PER_1K_TOKENS = 0.0005;
+
+export function estimateCostUsd(usage: {
+	promptTokens: number;
+	completionTokens: number;
+}): number {
+	const total = usage.promptTokens + usage.completionTokens;
+	return (total / 1000) * ESTIMATED_USD_PER_1K_TOKENS;
 }
 
 const now = () => new Date();
@@ -123,6 +157,19 @@ export async function runAgent(
 	const groq = createGroq({ apiKey: env.GROQ_API_KEY });
 
 	const executionRecords = new Map<string, CallExecutionRecord>();
+	const replay = { ...(options.replayedToolOutputs ?? {}) };
+	const replayTool = (toolName: string): CapabilityResult | null => {
+		if (!(toolName in replay)) {
+			return null;
+		}
+		const output = replay[toolName];
+		delete replay[toolName];
+		return {
+			ok: true,
+			data: output,
+			provider: { id: "replay", operation: "persisted", durationMs: 0 },
+		};
+	};
 
 	const emit = (activity: AgentActivity) => options.onActivity?.(activity);
 
@@ -147,6 +194,25 @@ export async function runAgent(
 						tool: capability.name,
 						input,
 					});
+					const replayResult = replayTool(capability.name);
+					if (replayResult) {
+						const data = (replayResult as { ok: true; data: unknown }).data;
+						const elapsedMs = 0.01;
+						record.completedAt = now();
+						record.status = "completed";
+						record.output = data;
+						record.provider = {
+							id: "replay",
+							operation: "persisted",
+							durationMs: elapsedMs,
+						};
+						await emit({
+							type: "tool-end",
+							tool: capability.name,
+							status: "completed",
+						});
+						return capModelOutput(data, options.modelContextCapChars);
+					}
 					const startedPerf = performance.now();
 					const result = await capability.execute(input);
 					const elapsedMs =
@@ -186,14 +252,19 @@ export async function runAgent(
 		]),
 	);
 
+	const approved = new Set(options.approvedToolNames ?? []);
 	const toolApproval = Object.fromEntries(
 		registry
 			.list()
-			.filter((c) => c.requiresApproval)
+			.filter((c) => c.requiresApproval && !approved.has(c.name))
 			.map((c) => [c.name, "user-approval" as const]),
 	);
 
-	const { text, steps: rawSteps } = await generateText({
+	const {
+		text,
+		steps: rawSteps,
+		usage,
+	} = await generateText({
 		model: groq.languageModel(model),
 		system: buildSystemPrompt(options.instructions),
 		tools,
@@ -253,5 +324,19 @@ export async function runAgent(
 		createdAt: now(),
 	}));
 
-	return { text, toolsCalled, pendingApprovals, steps };
+	return {
+		text,
+		toolsCalled,
+		pendingApprovals,
+		steps,
+		usage: {
+			promptTokens: usage.inputTokens ?? 0,
+			completionTokens: usage.outputTokens ?? 0,
+			totalTokens: usage.totalTokens ?? 0,
+			costUsd: estimateCostUsd({
+				promptTokens: usage.inputTokens ?? 0,
+				completionTokens: usage.outputTokens ?? 0,
+			}),
+		},
+	};
 }

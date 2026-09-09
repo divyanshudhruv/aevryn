@@ -48,3 +48,6 @@ export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
 
 export const RECOVERY_STATUSES = ["started", "completed", "failed"] as const;
 export type RecoveryStatus = (typeof RECOVERY_STATUSES)[number];
+
+export const APPROVAL_STATUSES = ["pending", "approved", "denied"] as const;
+export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];

@@ -25,6 +25,7 @@ import {
 	type ExecutionRunResult,
 	executionRunEvent,
 	executionRunEventSchema,
+	notificationPublishEvent,
 } from "../events";
 
 const workflowService = new WorkflowService();
@@ -70,18 +71,59 @@ function extractDecision(text: string): Decision | null {
 
 const RUN_DECISION_INSTRUCTIONS = `You may end your reply with a fenced JSON decision block to control the workflow runtime. Use it ONLY when needed:
 - {"action":"sleep","sleepUntil":"<ISO-8601>","reason":"..."} to pause this run and wake it up at that moment (e.g. check again later), then continue on wake.
-- {"action":"notify","notification":{"type":"alert","subject":"...","body":{...}},"reason":"..."} to send the user an in-app notification and finish.
+- {"action":"notify","notification":{"type":"alert","subject":"...","body":{...}},"reason":"..."} to send the user a notification and finish. To deliver OUTSIDE the app, set "channel":"webhook" and put the destination in "body":{"url":"https://..."} (the payload is POSTed to that URL; the user's notification bell also records it).
 - {"action":"stop","reason":"..."} to cancel this run.
 - {"action":"wait","waitFor":{"description":"<what external event this run waits for>","expiresInSeconds":<optional, 60..2592000>},"notification":{"type":"webhook","subject":"...","body":{...}}} to pause this run on a durable webhook. The user is told the webhook URL; when they POST to it, this run resumes with the payload handed back as instruction context.
-If no block is needed (the normal case, e.g. objective finished), emit none and the run is marked complete. Keep your visible answer plain text.`;
+- {"action":"complete","reason":"<concise evidence of what was accomplished>","observation":{"type":"...","content":{...}},"planProgress":{"currentStep":<index+1>,"status":"completed"}} to finish.
+
+Plan progress: when a stored plan exists, a decision block may include "planProgress":{"currentStep":<number of steps fully done, 0 or more>,"status":"in_progress"|"completed"}. Emit it whenever a step finishes; the final complete must set "status":"completed". The UI renders this as live progress against the stored plan.
+
+Verification: before emitting complete for an objective that depends on the outside world, make one verification tool call (re-check the page/price/status) and include the observation evidence in the reason. Do not claim completion you did not verify.
+
+If no decision block is needed (the normal case, e.g. objective finished), emit none and the run is marked complete. Keep your visible answer plain text.`;
+
+const RECOVERY_HINTS: Record<string, string> = {
+	ANAKIN_JOB_FAILED:
+		"The provider ran the job but reported failure. Retry once with a different, simpler input format (fewer URLs, shorter query, plain format instead of structured).",
+	ANAKIN_JOB_REJECTED:
+		"The call was rejected before running. Check the request shape and re-issue with a corrected parameter set.",
+	ANAKIN_NOT_FOUND:
+		"The URL or resource no longer exists. Find the new location (search first) and point the next call at the updated target.",
+	ANAKIN_AUTHENTICATION_FAILED:
+		"An authenticated session is invalid or missing. List browser sessions; if none fits, create one and have the user complete the login flow before continuing.",
+	ANAKIN_FORBIDDEN:
+		"Permissions block this action. Do not retry blindly; adjust scope, switch to a read-only capability, or stop.",
+	ANAKIN_INVALID_REQUEST:
+		"The request was malformed for the provider. Change the input shape, then retry.",
+	ANAKIN_UNSUPPORTED_PAGE:
+		"The page blocks this capability (JS-heavy, PDF, video). Switch approach: jsRender/HTML format, summary format, or research instead.",
+	ANAKIN_WIRE_AUTH_REQUIRED:
+		"The destination service needs a login/authorization. Either proceed read-only, or create a browser session and have the user log in.",
+	ANAKIN_WIRE_ACTION_REJECTED:
+		"The destination rejected the write action. Do not auto-retry a mutation; verify the state and ask the user before re-proposing.",
+	SCRAPE_EMPTY_CONTENT:
+		"The page returned no readable content. Re-scrape with jsRender=1 or the HTML/summary format, or use a different URL (search result vs canonical page).",
+	CRAWL_NO_URLS:
+		"No crawlable links. The site may gate content or need a session; fall back to scrapeUrl on the specific pages you need.",
+	SEARCH_NO_RESULTS:
+		"The query returned nothing. Reword, widen, or switch provider perspective before retrying.",
+	EXECUTION_TIME_BUDGET_EXCEEDED:
+		"The previous pass ran out of wall-clock time. Tighten the approach: fewer, more targeted tool calls and immediate decision emission.",
+	EXECUTION_TOOL_BUDGET_EXCEEDED:
+		"The previous pass used too many tool calls. Consolidate steps and make each call count.",
+};
 
 function recoveryBlock(context: {
 	attempt: number;
 	failureCode?: string;
 	failureMessage?: string;
 }): string {
+	const hint = context.failureCode
+		? RECOVERY_HINTS[context.failureCode]
+		: undefined;
 	return `This run is a bounded recovery attempt (attempt ${context.attempt}) after a previous failure: ${context.failureMessage ?? context.failureCode ?? "unknown error"}.
-Treat any retrieval from procedural memory as the proven way forward and reuse it. Otherwise diagnose, adjust your approach, and continue the original objective. Do not start new consequential side effects speculatively.`;
+${hint ? `Targeted guidance for ${context.failureCode}: ${hint}` : "Diagnose, adjust your approach, and continue the original objective."}
+Treat any retrieval from procedural memory as the proven way forward and reuse it. Do not start new consequential side effects speculatively. Successfully completed tool results from the previous attempt are replayed to you instead of being re-invoked — do not re-run them.`;
 }
 
 async function buildConversationInstructions(
@@ -469,6 +511,15 @@ export async function runAgentStep(data: unknown): Promise<{
 			reason: "execution waiting on webhook",
 		};
 	}
+	if (execution.status === "awaiting_approval") {
+		return {
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			status: "skipped",
+			mode: "run",
+			reason: "execution awaiting user approval",
+		};
+	}
 	const elapsedSeconds = execution.startedAt
 		? (Date.now() - execution.startedAt.getTime()) / 1000
 		: 0;
@@ -495,6 +546,10 @@ export async function runAgentStep(data: unknown): Promise<{
 	const mode: "planning" | "run" =
 		workflow.status === "draft" ? "planning" : "run";
 	const activity = createActivityAccumulator(workflow.id, parsed.executionId);
+	const replay =
+		parsed.recoveryContext !== undefined
+			? await workflowService.listReplayableToolOutputs(parsed.executionId)
+			: undefined;
 	const result = await runAgent({
 		registry:
 			mode === "planning"
@@ -521,11 +576,38 @@ export async function runAgentStep(data: unknown): Promise<{
 				activity.snapshot(),
 			);
 		},
+		replayedToolOutputs: replay,
+		approvedToolNames: parsed.approvedToolNames,
 	});
 	const toolCallCount = result.steps.reduce(
 		(count, step) => count + step.toolCalls.length,
 		0,
 	);
+	try {
+		await workflowService.recordUsage(parsed.executionId, {
+			tokenCount: result.usage.totalTokens,
+			costUsd: result.usage.costUsd,
+		});
+	} catch {
+		// Usage persistence is best-effort and never fails a run.
+	}
+	if (result.usage.costUsd > env.EXECUTION_MAX_COST_USD) {
+		const reason = `run exceeded the $${env.EXECUTION_MAX_COST_USD} cost budget ($${result.usage.costUsd.toFixed(6)})`;
+		const scheduled = await maybeScheduleRecovery(parsed, {
+			code: "EXECUTION_COST_BUDGET_EXCEEDED",
+			reason,
+		});
+		return {
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			status: "skipped",
+			mode,
+			recoveryContext: parsed.recoveryContext,
+			reason: scheduled
+				? "recovery scheduled after cost budget exceeded"
+				: reason,
+		};
+	}
 	if (toolCallCount > env.AGENT_MAX_TOOL_CALLS) {
 		const reason = `run exceeded the ${env.AGENT_MAX_TOOL_CALLS} tool-call budget (${toolCallCount})`;
 		const scheduled = await maybeScheduleRecovery(parsed, {
@@ -604,7 +686,8 @@ export async function persistAndCompleteStep(
 		| "sleeping"
 		| "waiting"
 		| "cancelled"
-		| "failed" = "completed";
+		| "failed"
+		| "awaiting_approval" = "completed";
 	if (outcome.mode === "planning") {
 		const plan = extractPlan(result.text);
 		if (plan) {
@@ -616,8 +699,31 @@ export async function persistAndCompleteStep(
 		});
 	} else {
 		const execution = await workflowService.getExecution(outcome.executionId);
+		const requiredApprovals = execution
+			? result.pendingApprovals.filter(
+					(p) => p.input !== undefined && p.input !== null,
+				)
+			: [];
+		let heldForApproval = false;
+		if (execution && requiredApprovals.length > 0) {
+			const created = await workflowService.recordApprovalRequests(
+				outcome.workflowId,
+				outcome.executionId,
+				requiredApprovals.map((p) => ({
+					toolName: p.toolName,
+					input: p.input,
+				})),
+			);
+			if (created.length > 0) {
+				await workflowService.holdExecutionForApproval(
+					outcome.executionId,
+					`Awaiting approval for: ${[...new Set(created.map((a) => a.toolName))].join(", ")}`,
+				);
+				heldForApproval = true;
+			}
+		}
 		const decision = extractDecision(result.text);
-		if (decision && execution) {
+		if (decision && execution && !heldForApproval) {
 			const maxSleepMs = env.EXECUTION_MAX_SLEEP_SECONDS * 1000;
 			if (
 				decision.action === "sleep" &&
@@ -652,6 +758,14 @@ export async function persistAndCompleteStep(
 					});
 				}
 			}
+			if (applied.action === "notify" && applied.deliverables.length > 0) {
+				for (const deliverable of applied.deliverables) {
+					await inngest.send({
+						name: notificationPublishEvent,
+						data: { notificationId: deliverable.notificationId },
+					});
+				}
+			}
 			if (applied.action === "wait") {
 				const activity = await workflowService.getActivitySnapshot(
 					outcome.workflowId,
@@ -664,6 +778,19 @@ export async function persistAndCompleteStep(
 						updatedAt: new Date(),
 					});
 				}
+			}
+		} else if (heldForApproval) {
+			finalizedStatus = "awaiting_approval";
+			const heldActivity = await workflowService.getActivitySnapshot(
+				outcome.workflowId,
+			);
+			if (heldActivity) {
+				await workflowService.updateActivitySnapshot(outcome.workflowId, {
+					...heldActivity,
+					status: "awaiting_approval",
+					currentActivity: "waiting for user approval",
+					updatedAt: new Date(),
+				});
 			}
 		} else {
 			await workflowService.completeExecution({
@@ -682,8 +809,13 @@ export async function persistAndCompleteStep(
 					? "sleeping"
 					: finalizedStatus === "waiting"
 						? "waiting"
-						: "completed",
-			currentActivity: undefined,
+						: finalizedStatus === "awaiting_approval"
+							? "awaiting_approval"
+							: "completed",
+			currentActivity:
+				finalizedStatus === "awaiting_approval"
+					? "waiting for user approval"
+					: undefined,
 			updatedAt: new Date(),
 		});
 	}

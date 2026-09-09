@@ -94,6 +94,25 @@ export class Mem0MemoryStore implements MemoryStore {
 		return results.map(toMemoryEntry).slice(0, input.limit ?? 20);
 	}
 
+	async deleteByIds(userId: string, ids: string[]): Promise<void> {
+		if (!this.client || ids.length === 0) {
+			return;
+		}
+		const owned = new Set(
+			(await this.listForUser({ userId, limit: 200 })).map((entry) => entry.id),
+		);
+		for (const id of ids) {
+			if (!owned.has(id)) {
+				continue;
+			}
+			try {
+				await this.client.delete(id);
+			} catch {
+				// A missing/already-deleted memory is a no-op, never a hard error.
+			}
+		}
+	}
+
 	async deleteAllForUser(userId: string): Promise<void> {
 		if (!this.client) {
 			return;

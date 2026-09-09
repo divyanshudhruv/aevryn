@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { auth } from "@aevryn/auth";
 import type { NextRequest } from "next/server";
 
@@ -8,6 +10,7 @@ export async function createContext(req: NextRequest) {
 	return {
 		auth: null,
 		session,
+		requestId: randomUUID(),
 	};
 }
 

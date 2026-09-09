@@ -37,6 +37,7 @@ export const env = createEnv({
 		AGENT_MAX_STEPS: z.coerce.number().int().positive().default(5),
 		AGENT_MAX_TOOL_CALLS: z.coerce.number().int().positive().default(50),
 		EXECUTION_MAX_SECONDS: z.coerce.number().int().positive().default(900),
+		EXECUTION_MAX_COST_USD: z.coerce.number().nonnegative().default(1),
 		EXECUTION_MAX_SLEEP_SECONDS: z.coerce
 			.number()
 			.int()

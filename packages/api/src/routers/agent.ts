@@ -1,6 +1,10 @@
 import { env } from "@aevryn/env/server";
 import { executionRunEvent, inngest } from "@aevryn/inngest";
-import { Mem0MemoryStore, WorkflowService } from "@aevryn/workflow";
+import {
+	Mem0MemoryStore,
+	resolveApprovalSchema,
+	WorkflowService,
+} from "@aevryn/workflow";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -30,6 +34,10 @@ const scheduleToggleSchema = scheduleActionSchema.extend({
 
 const markReadSchema = z.object({
 	notificationIds: z.array(z.string().min(1)).max(50).optional(),
+});
+
+const memoryIdsSchema = z.object({
+	ids: z.array(z.string().min(1)).max(100),
 });
 
 const workflowService = new WorkflowService();
@@ -243,6 +251,17 @@ export const agentRouter = router({
 					createdAt: thread.workflow.createdAt,
 				},
 				plan: thread.plan,
+				planProgress: thread.planProgress,
+				approvals: thread.approvals.map((approval) => ({
+					id: approval.id,
+					executionId: approval.executionId,
+					toolName: approval.toolName,
+					status: approval.status,
+					input: approval.input,
+					reason: approval.reason,
+					createdAt: approval.createdAt,
+					decidedAt: approval.decidedAt,
+				})),
 				activity: thread.activity,
 				schedules: thread.schedules.map((schedule) => ({
 					id: schedule.id,
@@ -286,6 +305,8 @@ export const agentRouter = router({
 						reason: turn.execution.reason,
 						startedAt: turn.execution.startedAt,
 						completedAt: turn.execution.completedAt,
+						costUsd: turn.execution.costUsd,
+						tokenCount: turn.execution.tokenCount,
 					},
 					prompt: turn.execution.prompt,
 					steps: [...turn.steps]
@@ -452,4 +473,158 @@ export const agentRouter = router({
 				readAt: notification.readAt,
 			}));
 		}),
+	resolveApproval: protectedProcedure
+		.input(resolveApprovalSchema)
+		.mutation(async ({ input, ctx }) => {
+			const userId = ctx.session.user.id;
+			const resolved = await workflowService.resolveApproval(input, userId);
+			if (resolved.remainingPending > 0) {
+				return {
+					approvalId: input.approvalId,
+					resolution: resolved.resolution,
+					remainingPending: resolved.remainingPending,
+					executionId: resolved.execution?.id ?? null,
+					resumedAt: null,
+				};
+			}
+			const execution = resolved.execution;
+			if (!execution) {
+				return {
+					approvalId: input.approvalId,
+					resolution: resolved.resolution,
+					remainingPending: 0,
+					executionId: null,
+					resumedAt: null,
+				};
+			}
+			if (resolved.resolution === "approved") {
+				const approvedToolNames = resolved.onlyApproved.map((a) => a.toolName);
+				const started = await workflowService.enqueueMessage(
+					resolved.workflow.id,
+					resolved.workflow.objective,
+				);
+				try {
+					await inngest.send({
+						name: executionRunEvent,
+						data: {
+							workflowId: resolved.workflow.id,
+							executionId: started.execution.id,
+							prompt: resolved.workflow.objective,
+							approvedToolNames,
+						},
+					});
+					await workflowService.completeSupersededExecution(execution.id);
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : "Unknown error";
+					await workflowService.failExecution({
+						executionId: started.execution.id,
+						reason: message.slice(0, 500),
+					});
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: "Approved but the resume run could not be queued",
+					});
+				}
+				return {
+					approvalId: input.approvalId,
+					resolution: resolved.resolution,
+					remainingPending: 0,
+					executionId: started.execution.id,
+					resumedAt: started.execution.startedAt,
+				};
+			}
+			await workflowService.failExecution({
+				executionId: execution.id,
+				reason: input.reason ?? "Approval denied",
+			});
+			await workflowService.createNotification({
+				userId: resolved.workflow.userId,
+				workflowId: resolved.workflow.id,
+				channel: "in-app",
+				type: "workflow.failed",
+				subject: "Workflow stopped — action was denied",
+				body: {
+					toolName: execution.reason,
+					reason: input.reason ?? null,
+				},
+			});
+			return {
+				approvalId: input.approvalId,
+				resolution: resolved.resolution,
+				remainingPending: 0,
+				executionId: execution.id,
+				resumedAt: null,
+			};
+		}),
+	listApprovals: protectedProcedure
+		.input(
+			z.object({
+				workflowId: z.string().min(1),
+				limit: z.number().int().min(1).max(100).optional(),
+			}),
+		)
+		.query(async ({ input, ctx }) => {
+			const workflow = await requireOwnedWorkflow(
+				input.workflowId,
+				ctx.session.user.id,
+			);
+			const approvals = await workflowService.listApprovalsByWorkflow(
+				workflow.id,
+				input.limit ?? 50,
+			);
+			return approvals.map((approval) => ({
+				id: approval.id,
+				executionId: approval.executionId,
+				toolName: approval.toolName,
+				status: approval.status,
+				input: approval.input,
+				reason: approval.reason,
+				createdAt: approval.createdAt,
+				decidedAt: approval.decidedAt,
+			}));
+		}),
+	pauseWorkflow: protectedProcedure
+		.input(workflowIdSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			const { cancelled } = await workflowService.pauseWorkflow(
+				input.workflowId,
+			);
+			return { paused: true as const, cancelled };
+		}),
+	resumeWorkflow: protectedProcedure
+		.input(workflowIdSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			await workflowService.resumeWorkflow(input.workflowId);
+			return { resumed: true as const };
+		}),
+	listMemories: protectedProcedure.query(async ({ ctx }) => {
+		try {
+			const entries = await memoryStore.listForUser({
+				userId: ctx.session.user.id,
+				limit: 100,
+			});
+			return entries.map((entry) => ({
+				id: entry.id,
+				text: entry.text,
+				category: entry.category,
+				score: entry.score ?? null,
+				createdAt: entry.createdAt,
+			}));
+		} catch {
+			return [];
+		}
+	}),
+	deleteMemories: protectedProcedure
+		.input(memoryIdsSchema)
+		.mutation(async ({ input, ctx }) => {
+			await memoryStore.deleteByIds(ctx.session.user.id, input.ids);
+			return { deleted: input.ids.length };
+		}),
+	deleteAllMemories: protectedProcedure.mutation(async ({ ctx }) => {
+		await memoryStore.deleteAllForUser(ctx.session.user.id);
+		return { deleted: true as const };
+	}),
 });
