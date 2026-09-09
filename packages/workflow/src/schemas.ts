@@ -1,4 +1,4 @@
-import { agentStateSchema } from "@aevryn/db";
+import { agentStateSchema, observationContentSchema } from "@aevryn/db";
 import { z } from "zod";
 
 export const createWorkflowSchema = z.object({
@@ -131,3 +131,43 @@ export const planSchema = z.object({
 });
 
 export type Plan = z.infer<typeof planSchema>;
+
+export const createScheduleSchema = z
+	.object({
+		userId: z.string().min(1),
+		workflowId: z.string().min(1),
+		cron: z.string().min(1).max(100).optional(),
+		intervalSeconds: z.number().int().positive().max(86400).optional(),
+		startAt: z.coerce.date().optional(),
+		config: z.record(z.string(), z.unknown()).optional(),
+	})
+	.superRefine((value, ctx) => {
+		if (!value.cron && !value.intervalSeconds) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message:
+					"schedule requires either a cron expression or intervalSeconds",
+			});
+		}
+	});
+
+export type CreateSchedule = z.infer<typeof createScheduleSchema>;
+
+export const createNotificationSchema = z.object({
+	userId: z.string().min(1),
+	workflowId: z.string().min(1).optional(),
+	type: z.string().min(1).max(100),
+	channel: z.string().min(1).max(50).default("in-app"),
+	subject: z.string().min(1).max(500).optional(),
+	body: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type CreateNotification = z.infer<typeof createNotificationSchema>;
+
+export const createObservationSchema = z.object({
+	workflowId: z.string().min(1),
+	type: z.string().min(1).max(100),
+	content: observationContentSchema,
+});
+
+export type CreateObservation = z.infer<typeof createObservationSchema>;

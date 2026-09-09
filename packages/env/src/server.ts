@@ -33,6 +33,7 @@ export const env = createEnv({
 		INNGEST_APP_ID: z.string().min(1).optional(),
 		GROQ_API_KEY: z.string().min(1).optional(),
 		GROQ_MODEL: z.string().min(1).default("openai/gpt-oss-20b"),
+		MEM0_API_KEY: z.string().min(1).default(""),
 	},
 	runtimeEnv: runtimeEnv,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,

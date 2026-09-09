@@ -1,5 +1,8 @@
 import {
 	db,
+	type Notification,
+	type Observation,
+	type Schedule,
 	type ToolExecution,
 	type Workflow,
 	type WorkflowExecution,
@@ -8,6 +11,9 @@ import {
 import type { z } from "zod";
 import { EventRepository } from "../repositories/event-repository";
 import { ExecutionRepository } from "../repositories/execution-repository";
+import { NotificationRepository } from "../repositories/notification-repository";
+import { ObservationRepository } from "../repositories/observation-repository";
+import { ScheduleRepository } from "../repositories/schedule-repository";
 import { StateRepository } from "../repositories/state-repository";
 import { StepRepository } from "../repositories/step-repository";
 import { ToolExecutionRepository } from "../repositories/tool-execution-repository";
@@ -18,8 +24,14 @@ import {
 	activitySnapshotSchema,
 	applyStateSchema,
 	type CompleteExecution,
+	type CreateNotification,
+	type CreateObservation,
+	type CreateSchedule,
 	type CreateWorkflow,
 	completeExecutionSchema,
+	createNotificationSchema,
+	createObservationSchema,
+	createScheduleSchema,
 	createWorkflowSchema,
 	type FailExecution,
 	failExecutionSchema,
@@ -59,6 +71,9 @@ export class WorkflowService {
 		private readonly toolExecutions = new ToolExecutionRepository(),
 		private readonly states = new StateRepository(),
 		private readonly events = new EventRepository(),
+		private readonly schedules = new ScheduleRepository(),
+		private readonly notifications = new NotificationRepository(),
+		private readonly observations = new ObservationRepository(),
 	) {}
 
 	async createWorkflow(input: CreateWorkflow): Promise<CreateWorkflowOutcome> {
@@ -505,6 +520,122 @@ export class WorkflowService {
 				return { workflow, execution: executions[0] ?? null };
 			}),
 		);
+	}
+
+	async createObservation(input: CreateObservation): Promise<Observation> {
+		const parsed = createObservationSchema.parse(input);
+		return db.transaction(async (tx) => {
+			await this.workflows.requireById(parsed.workflowId, tx);
+			const row = await this.observations.insert(parsed, tx);
+			await this.events.insert(
+				{
+					workflowId: parsed.workflowId,
+					type: "observation.created",
+					data: { type: parsed.type },
+				},
+				tx,
+			);
+			return row;
+		});
+	}
+
+	async listObservations(workflowId: string): Promise<Observation[]> {
+		return this.observations.listByWorkflow(workflowId);
+	}
+
+	async createSchedule(input: CreateSchedule): Promise<Schedule> {
+		const parsed = createScheduleSchema.parse(input);
+		return db.transaction(async (tx) => {
+			const workflow = await this.workflows.requireById(parsed.workflowId, tx);
+			if (workflow.userId !== parsed.userId) {
+				throw new Error(
+					`Schedule access denied for workflow ${parsed.workflowId}`,
+				);
+			}
+			const row = await this.schedules.insert(
+				{
+					workflowId: parsed.workflowId,
+					cron: parsed.cron,
+					intervalSeconds: parsed.intervalSeconds,
+					nextRunAt: parsed.startAt ?? new Date(),
+					config: parsed.config,
+				},
+				tx,
+			);
+			await this.events.insert(
+				{
+					workflowId: parsed.workflowId,
+					type: "schedule.created",
+					data: {
+						scheduleId: row.id,
+						cron: parsed.cron ?? null,
+						intervalSeconds: parsed.intervalSeconds ?? null,
+					},
+				},
+				tx,
+			);
+			return row;
+		});
+	}
+
+	async listSchedules(workflowId: string): Promise<Schedule[]> {
+		return this.schedules.listByWorkflow(workflowId);
+	}
+
+	async listDueSchedules(now: Date): Promise<Schedule[]> {
+		return this.schedules.findDue(now);
+	}
+
+	async markScheduleRan(
+		scheduleId: string,
+		nextRunAt: Date,
+		lastRunAt = new Date(),
+	): Promise<Schedule> {
+		return this.schedules.update(scheduleId, { nextRunAt, lastRunAt });
+	}
+
+	async setScheduleEnabled(
+		scheduleId: string,
+		enabled: boolean,
+	): Promise<Schedule> {
+		return this.schedules.setEnabled(scheduleId, enabled);
+	}
+
+	async createNotification(input: CreateNotification): Promise<Notification> {
+		const parsed = createNotificationSchema.parse(input);
+		return db.transaction(async (tx) => {
+			if (parsed.workflowId) {
+				await this.workflows.requireById(parsed.workflowId, tx);
+			}
+			const row = await this.notifications.insert(
+				{
+					userId: parsed.userId,
+					workflowId: parsed.workflowId,
+					type: parsed.type,
+					channel: parsed.channel,
+					subject: parsed.subject,
+					body: parsed.body,
+				},
+				tx,
+			);
+			await this.events.insert(
+				{
+					workflowId: parsed.workflowId,
+					type: "notification.created",
+					data: {
+						notificationId: row.id,
+						type: parsed.type,
+						channel: parsed.channel,
+					},
+				},
+				tx,
+			);
+			return row;
+		});
+	}
+
+	async listNotifications(workflowId: string): Promise<Notification[]> {
+		return this.notifications.listByWorkflow(workflowId);
 	}
 
 	private mergeState(

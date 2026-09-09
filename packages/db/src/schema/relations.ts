@@ -2,7 +2,6 @@ import { relations } from "drizzle-orm";
 import { agentState } from "./agent-state";
 import { account, session, user } from "./auth";
 import { event } from "./event";
-import { memory } from "./memory";
 import { notification } from "./notification";
 import { observation } from "./observation";
 import { recoveryAttempt } from "./recovery-attempt";
@@ -22,7 +21,6 @@ export const workflowRelations = relations(workflow, ({ one, many }) => ({
 	observations: many(observation),
 	toolExecutions: many(toolExecution),
 	recoveryAttempts: many(recoveryAttempt),
-	memories: many(memory),
 	events: many(event),
 	schedules: many(schedule),
 	notifications: many(notification),
@@ -101,17 +99,6 @@ export const recoveryAttemptRelations = relations(
 	}),
 );
 
-export const memoryRelations = relations(memory, ({ one }) => ({
-	workflow: one(workflow, {
-		fields: [memory.workflowId],
-		references: [workflow.id],
-	}),
-	user: one(user, {
-		fields: [memory.userId],
-		references: [user.id],
-	}),
-}));
-
 export const eventRelations = relations(event, ({ one }) => ({
 	workflow: one(workflow, {
 		fields: [event.workflowId],
@@ -143,7 +130,6 @@ export const notificationRelations = relations(notification, ({ one }) => ({
 
 export const userRelations = relations(user, ({ many }) => ({
 	workflows: many(workflow),
-	memories: many(memory),
 	notifications: many(notification),
 }));
 

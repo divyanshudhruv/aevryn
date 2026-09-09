@@ -15,7 +15,6 @@ const DOMAIN_TABLES = [
 	"agent_state",
 	"event",
 	"observation",
-	"memory",
 	"recovery_attempt",
 	"schedule",
 	"notification",

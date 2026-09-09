@@ -1,7 +1,6 @@
 export * from "./agent-state";
 export * from "./auth";
 export * from "./event";
-export * from "./memory";
 export * from "./notification";
 export * from "./observation";
 export * from "./recovery-attempt";

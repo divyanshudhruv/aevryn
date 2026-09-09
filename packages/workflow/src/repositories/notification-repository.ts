@@ -1,0 +1,91 @@
+import {
+	db,
+	type EventData,
+	ids,
+	type Notification,
+	notification,
+} from "@aevryn/db";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
+
+import type { DbClient } from "../types";
+
+export interface CreateNotificationParams {
+	userId: string;
+	workflowId?: string;
+	type: string;
+	channel: string;
+	subject?: string;
+	body?: EventData;
+}
+
+export class NotificationRepository {
+	async insert(
+		params: CreateNotificationParams,
+		client: DbClient = db,
+	): Promise<Notification> {
+		const rows = await client
+			.insert(notification)
+			.values({
+				id: ids.notification(),
+				userId: params.userId,
+				workflowId: params.workflowId,
+				type: params.type,
+				channel: params.channel,
+				subject: params.subject,
+				body: params.body,
+			})
+			.returning();
+		const row = rows[0];
+		if (!row) {
+			throw new Error("Notification insert returned no row");
+		}
+		return row;
+	}
+
+	async listByWorkflow(
+		workflowId: string,
+		limit = 50,
+		client: DbClient = db,
+	): Promise<Notification[]> {
+		return client
+			.select()
+			.from(notification)
+			.where(eq(notification.workflowId, workflowId))
+			.orderBy(desc(notification.createdAt))
+			.limit(limit);
+	}
+
+	async listByUser(
+		userId: string,
+		limit = 50,
+		client: DbClient = db,
+	): Promise<Notification[]> {
+		return client
+			.select()
+			.from(notification)
+			.where(eq(notification.userId, userId))
+			.orderBy(desc(notification.createdAt))
+			.limit(limit);
+	}
+
+	async listUndelivered(
+		userId: string,
+		client: DbClient = db,
+	): Promise<Notification[]> {
+		return client
+			.select()
+			.from(notification)
+			.where(
+				and(eq(notification.userId, userId), isNull(notification.deliveredAt)),
+			)
+			.orderBy(asc(notification.createdAt))
+			.limit(50);
+	}
+
+	async markDelivered(id: string, client: DbClient = db): Promise<void> {
+		await client
+			.update(notification)
+			.set({ deliveredAt: new Date() })
+			.where(eq(notification.id, id));
+	}
+}
