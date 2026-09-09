@@ -96,7 +96,7 @@ function valueToPixel(
 function nearestStepIndex(v: number, steps: number[]): number {
   let idx = 0;
   for (let i = 1; i < steps.length; i++) {
-    if (Math.abs(steps[i] - v) < Math.abs(steps[idx] - v)) idx = i;
+    if (Math.abs(steps[i]! - v) < Math.abs(steps[idx]! - v)) idx = i;
   }
   return idx;
 }
@@ -112,7 +112,7 @@ function pixelToValue(
   const usable = trackWidth - THUMB_SIZE;
   if (usable <= 0) return min;
   const raw = (px / usable) * (max - min) + min;
-  if (stepValues) return stepValues[nearestStepIndex(raw, stepValues)];
+  if (stepValues) return stepValues[nearestStepIndex(raw, stepValues)]!;
   const snapped = Math.round((raw - min) / step) * step + min;
   return Math.max(min, Math.min(max, snapped));
 }
@@ -173,7 +173,7 @@ function ValueDisplay({
       if (!isNaN(parsed)) {
         const clamped = Math.max(min, Math.min(max, parsed));
         const snapped = stepValues
-          ? stepValues[nearestStepIndex(clamped, stepValues)]
+          ? stepValues[nearestStepIndex(clamped, stepValues)]!
           : Math.round((clamped - min) / step) * step + min;
         onCommitEdit(index, snapped);
       } else {
@@ -230,7 +230,7 @@ function ValueDisplay({
         className="cursor-text select-none"
         onClick={() => onStartEdit(index)}
       >
-        {formatValue(values[index])}
+        {formatValue(values[index]!)}
       </span>
     );
   };
@@ -358,8 +358,8 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
       );
       return parsed.length > 1 ? parsed : null;
     }, [stepsKey]);
-    const min = stepValues ? stepValues[0] : minProp;
-    const max = stepValues ? stepValues[stepValues.length - 1] : maxProp;
+    const min = stepValues ? stepValues[0]! : minProp;
+    const max = stepValues ? stepValues[stepValues.length - 1]! : maxProp;
 
     // --- Refs ---
     const trackRef = useRef<HTMLDivElement>(null);
@@ -442,7 +442,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
         const clampedPx = Math.max(0, Math.min(usable, rawPx));
         const rawVal = usable > 0 ? (clampedPx / usable) * (max - min) + min : min;
         const snappedVal = stepValues
-          ? stepValues[nearestStepIndex(rawVal, stepValues)]
+          ? stepValues[nearestStepIndex(rawVal, stepValues)]!
           : Math.max(
               min,
               Math.min(max, Math.round((rawVal - min) / step) * step + min)
@@ -475,10 +475,10 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
       if (!el || initialSyncDone.current) return;
       const w = el.offsetWidth;
       trackWidthRef.current = w;
-      const px0 = valueToPixel(values[0], min, max, w);
+      const px0 = valueToPixel(values[0]!, min, max, w);
       motionX0.set(px0);
       if (isRange && values[1] !== undefined) {
-        const px1 = valueToPixel(values[1], min, max, w);
+        const px1 = valueToPixel(values[1]!, min, max, w);
         motionX1.set(px1);
       }
       initialSyncDone.current = true;
@@ -490,16 +490,16 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
       const el = trackRef.current;
       if (!el) return;
       const ro = new ResizeObserver(([entry]) => {
-        const w = entry.contentRect.width;
+        const w = entry!.contentRect.width;
         trackWidthRef.current = w;
         if (!dragging.current && initialSyncDone.current) {
           const v = valuesRef.current;
           const mn = minRef.current;
           const mx = maxRef.current;
-          const px0 = valueToPixel(v[0], mn, mx, w);
+          const px0 = valueToPixel(v[0]!, mn, mx, w);
           animate(motionX0, px0, spring.moderate);
           if (isRange && v[1] !== undefined) {
-            const px1 = valueToPixel(v[1], mn, mx, w);
+            const px1 = valueToPixel(v[1]!, mn, mx, w);
             animate(motionX1, px1, spring.moderate);
           }
         }
@@ -519,10 +519,10 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
       const tw = trackWidthRef.current;
       if (tw <= 0) return;
       const v = valuesRef.current;
-      const px0 = valueToPixel(v[0], min, max, tw);
+      const px0 = valueToPixel(v[0]!, min, max, tw);
       animate(motionX0, px0, spring.moderate);
       if (isRange && v[1] !== undefined) {
-        const px1 = valueToPixel(v[1], min, max, tw);
+        const px1 = valueToPixel(v[1]!, min, max, tw);
         animate(motionX1, px1, spring.moderate);
       }
     }, [valuesKey, min, max, isRange, motionX0, motionX1]);
@@ -702,7 +702,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
         if (isRange) {
           onChange(mapped as [number, number]);
         } else {
-          onChange(mapped[0]);
+          onChange(mapped[0]!);
         }
       },
       [isRange, onChange, stepValues]
@@ -877,7 +877,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
               {isInteracting && (
                 <TooltipValue
                   key="tooltip-0"
-                  value={values[0]}
+                  value={values[0]!}
                   formatValue={formatValue}
                   motionX={motionX0}
                 />
@@ -916,7 +916,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
                 index={0}
                 aria-label={thumbAriaLabel(0)}
                 getAriaValueText={
-                  stepValues ? () => formatValue(values[0]) : undefined
+                  stepValues ? () => formatValue(values[0]!) : undefined
                 }
                 className="block outline-none"
                 style={{ width: THUMB_SIZE, height: THUMB_SIZE }}
@@ -928,7 +928,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
                   index={1}
                   aria-label={thumbAriaLabel(1)}
                   getAriaValueText={
-                    stepValues ? () => formatValue(values[1]) : undefined
+                    stepValues ? () => formatValue(values[1]!) : undefined
                   }
                   className="block outline-none"
                   style={{ width: THUMB_SIZE, height: THUMB_SIZE }}
@@ -1225,7 +1225,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
         if (variant === "pips") {
           if (pipCount <= 1) return;
           const index = Math.max(0, Math.min(pipCount - 1, Math.round((clamped / w) * (pipCount - 1))));
-          snappedVal = pipSteps[index];
+          snappedVal = pipSteps[index]!;
         } else {
           const raw = min + (clamped / w) * (max - min);
           snappedVal = Math.max(min, Math.min(max, Math.round((raw - min) / step) * step + min));
@@ -1272,7 +1272,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
             0,
             Math.min(pipCount - 1, Math.round((clamped / rect.width) * (pipCount - 1)))
           );
-          return pipSteps[index];
+          return pipSteps[index]!;
         } else {
           const raw = min + (clamped / rect.width) * (max - min);
           const snapped = Math.round((raw - min) / step) * step + min;
@@ -1358,7 +1358,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 
     const handleRadixChange = useCallback(
       (newValues: number[]) => {
-        onChange(newValues[0]);
+        onChange(newValues[0]!);
       },
       [onChange]
     );

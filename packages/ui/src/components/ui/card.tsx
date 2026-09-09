@@ -349,7 +349,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     const overlay = clickable && !disabled ? (
       href ? (
         <Link
-          href={href}
+          href={href as never}
           onClick={onClick}
           target={external ? "_blank" : undefined}
           rel={external ? "noopener noreferrer" : undefined}
@@ -971,7 +971,7 @@ function CardButton({
   if (href) {
     return (
       <Link
-        href={href}
+        href={href as never}
         onClick={onClick}
         target={external ? "_blank" : undefined}
         rel={external ? "noopener noreferrer" : undefined}

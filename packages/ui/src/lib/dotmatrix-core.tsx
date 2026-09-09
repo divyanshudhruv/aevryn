@@ -828,7 +828,7 @@ export function DotMatrixBase({
           animation: "none" as const
         }
         : {})
-    } as CSSProperties;
+    } as CSSProperties & Record<`--dmx-${string}`, string | number>;
 
     return (
       <span

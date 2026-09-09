@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { ChatComposer } from "@aevryn/ui/components/chat-composer";
-import { ChatMessage } from "@aevryn/ui/components/ui/chat-message";
+import { MessageThread } from "@aevryn/ui/components/message-thread";
 import {
   SidebarInset,
   SidebarProvider,
@@ -16,6 +16,7 @@ import { WorkspaceHeader } from "@/components/workspace-header";
 import { trpc, queryClient } from "@/utils/trpc";
 import { useThreadStore } from "@/stores/thread-store";
 import { useWorkflowStore } from "@/stores/workflow-store";
+import { useUIStore } from "@/stores/ui-store";
 import {
   useMessageStore,
   type Message,
@@ -29,6 +30,7 @@ export default function ThreadPage() {
   const { updateThread } = useThreadStore();
   const { setWorkflow } = useWorkflowStore();
   const { setMessages } = useMessageStore();
+  const composerDisabled = useUIStore((s) => s.composerDisabled);
 
   const { data, isLoading } = useQuery(
     trpc.agent.getThread.queryOptions({ workflowId: threadId }),
@@ -121,7 +123,7 @@ export default function ThreadPage() {
                     Loading thread…
                   </p>
                 ) : (
-                  <ThreadMessages threadId={threadId} />
+                  <ViewThread threadId={threadId} />
                 )}
               </div>
             </div>
@@ -130,6 +132,7 @@ export default function ThreadPage() {
             <div className="mx-auto max-w-3xl">
               <ChatComposer
                 demo={false}
+                disabled={composerDisabled}
                 onSubmitMessage={(text) =>
                   sendMessage.mutate({ workflowId: threadId, message: text })
                 }
@@ -142,7 +145,7 @@ export default function ThreadPage() {
   );
 }
 
-function ThreadMessages({ threadId }: { threadId: string }) {
+function ViewThread({ threadId }: { threadId: string }) {
   const messages = useMessageStore((s) => s.messagesByThread[threadId] ?? []);
 
   if (messages.length === 0) {
@@ -153,34 +156,9 @@ function ThreadMessages({ threadId }: { threadId: string }) {
     );
   }
 
-  return (
-    <div className="flex flex-col gap-2">
-      {messages.map((message) => (
-        <ChatMessage
-          key={message.id}
-          from={message.role === "user" ? "user" : "assistant"}
-          time={formatTime(message.createdAt)}
-        >
-          <span className="whitespace-pre-wrap break-words">
-            {message.content || "…"}
-          </span>
-        </ChatMessage>
-      ))}
-    </div>
-  );
+  return <MessageThread messages={messages} />;
 }
 
 function toIsoOrNow(value: string | null | undefined): string {
   return value ?? new Date().toISOString();
-}
-
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }

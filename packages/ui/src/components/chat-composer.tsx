@@ -46,9 +46,16 @@ export interface ChatComposerProps {
   /** Demo mode: seeds a fake transcript and simulates streaming replies.
    *  Set false for the real workspace surfaces. */
   demo?: boolean;
+  /** Disables sends while true. Host wires this to UI state (e.g. an
+   *  approval waiting on the user). */
+  disabled?: boolean;
 }
 
-export function ChatComposer({ onSubmitMessage, demo = true }: ChatComposerProps) {
+export function ChatComposer({
+  onSubmitMessage,
+  demo = true,
+  disabled = false,
+}: ChatComposerProps) {
   const shape = useShape();
   const PlusIcon = useIcon("plus");
   const ChevronDownIcon = useIcon("chevron-down");
@@ -320,6 +327,7 @@ export function ChatComposer({ onSubmitMessage, demo = true }: ChatComposerProps
         // While streaming, submits enqueue; flipping back to idle
         // dispatches the head of the queue through onSend.
         status={status}
+        disabled={disabled}
         queue={queue}
         onQueueChange={setQueue}
         onStop={() => {

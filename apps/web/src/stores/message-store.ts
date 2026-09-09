@@ -1,25 +1,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type {
+	ThreadMessage,
+	StepCall,
+} from "@aevryn/ui/lib/chat-types";
 
-export interface StepCall {
-	id: string;
-	toolName: string;
-	input: Record<string, unknown>;
-	status: "running" | "completed" | "failed";
-	output?: string;
-	startedAt: string;
-	completedAt?: string;
-}
+export type Message = ThreadMessage;
 
-export interface Message {
-	id: string;
-	threadId: string;
-	role: "user" | "assistant" | "system";
-	content: string;
-	createdAt: string;
-	toolCalls?: StepCall[];
-	approvalPending?: boolean;
-}
+export type { StepCall };
 
 interface MessageState {
 	messagesByThread: Record<string, Message[]>;
