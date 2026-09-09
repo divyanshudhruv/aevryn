@@ -7,6 +7,7 @@ import { observation } from "./observation";
 import { recoveryAttempt } from "./recovery-attempt";
 import { schedule } from "./schedule";
 import { toolExecution } from "./tool-execution";
+import { webhookBoard } from "./webhook-board";
 import { workflow } from "./workflow";
 import { workflowExecution } from "./workflow-execution";
 import { workflowStep } from "./workflow-step";
@@ -24,6 +25,18 @@ export const workflowRelations = relations(workflow, ({ one, many }) => ({
 	events: many(event),
 	schedules: many(schedule),
 	notifications: many(notification),
+	webhooks: many(webhookBoard),
+}));
+
+export const webhookBoardRelations = relations(webhookBoard, ({ one }) => ({
+	workflow: one(workflow, {
+		fields: [webhookBoard.workflowId],
+		references: [workflow.id],
+	}),
+	execution: one(workflowExecution, {
+		fields: [webhookBoard.executionId],
+		references: [workflowExecution.id],
+	}),
 }));
 
 export const workflowExecutionRelations = relations(
@@ -37,6 +50,7 @@ export const workflowExecutionRelations = relations(
 		toolExecutions: many(toolExecution),
 		recoveryAttempts: many(recoveryAttempt),
 		events: many(event),
+		webhooks: many(webhookBoard),
 	}),
 );
 

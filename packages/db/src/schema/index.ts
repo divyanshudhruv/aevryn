@@ -7,6 +7,7 @@ export * from "./recovery-attempt";
 export * from "./relations";
 export * from "./schedule";
 export * from "./tool-execution";
+export * from "./webhook-board";
 export * from "./workflow";
 export * from "./workflow-execution";
 export * from "./workflow-step";

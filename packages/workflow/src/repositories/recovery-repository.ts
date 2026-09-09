@@ -60,6 +60,24 @@ export class RecoveryRepository {
 		return rows[0]?.value ?? 0;
 	}
 
+	async updateResult(
+		executionId: string,
+		attempt: number,
+		result: "completed" | "failed",
+		detail?: Record<string, unknown>,
+		client: DbClient = db,
+	): Promise<void> {
+		await client
+			.update(recoveryAttempt)
+			.set({ result, detail })
+			.where(
+				and(
+					eq(recoveryAttempt.executionId, executionId),
+					eq(recoveryAttempt.attempt, attempt),
+				),
+			);
+	}
+
 	async existsByExecutionAttempt(
 		executionId: string,
 		attempt: number,

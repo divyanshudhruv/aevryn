@@ -14,6 +14,7 @@ export const ID_PREFIXES = {
 	agentState: "agent_state_",
 	schedule: "sched_",
 	notification: "ntf_",
+	webhook: "whk_",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIXES)[keyof typeof ID_PREFIXES];
@@ -39,4 +40,5 @@ export const ids = {
 	agentState: () => makeId(ID_PREFIXES.agentState),
 	schedule: () => makeId(ID_PREFIXES.schedule),
 	notification: () => makeId(ID_PREFIXES.notification),
+	webhook: () => makeId(ID_PREFIXES.webhook),
 } as const;

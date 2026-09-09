@@ -5,6 +5,7 @@ dotenv.config({
 });
 
 const { db } = await import("@aevryn/db");
+
 import { sql } from "drizzle-orm";
 
 const DOMAIN_TABLES = [
@@ -27,11 +28,15 @@ const dbClient = db as unknown as {
 };
 
 for (const table of DOMAIN_TABLES) {
-	const rows = await dbClient.execute(sql.raw(`SELECT count(*) AS n FROM ${table}`));
+	const rows = await dbClient.execute(
+		sql.raw(`SELECT count(*) AS n FROM ${table}`),
+	);
 	const first = rows.rows[0] as { n: string | number } | undefined;
 	const count = first?.n ?? 0;
 	console.log(`${table}: ${count} rows`);
 }
 
-await dbClient.execute(sql.raw(`TRUNCATE TABLE ${DOMAIN_TABLES.join(", ")} CASCADE`));
+await dbClient.execute(
+	sql.raw(`TRUNCATE TABLE ${DOMAIN_TABLES.join(", ")} CASCADE`),
+);
 console.log("RESET: domain tables truncated");

@@ -7,6 +7,13 @@ export const executionRunEventSchema = z.object({
 	executionId: z.string().min(1),
 	prompt: z.string().min(1).max(2000),
 	modelContextCapChars: z.number().int().positive().max(2_000_000).optional(),
+	recoveryContext: z
+		.object({
+			failureCode: z.string().optional(),
+			failureMessage: z.string().optional(),
+			attempt: z.number().int().positive(),
+		})
+		.optional(),
 });
 
 export type ExecutionRunEventData = z.infer<typeof executionRunEventSchema>;
@@ -14,7 +21,14 @@ export type ExecutionRunEventData = z.infer<typeof executionRunEventSchema>;
 export const executionRunResultSchema = z.object({
 	workflowId: z.string().min(1),
 	executionId: z.string().min(1),
-	status: z.enum(["completed", "skipped", "failed", "sleeping", "cancelled"]),
+	status: z.enum([
+		"completed",
+		"skipped",
+		"failed",
+		"sleeping",
+		"waiting",
+		"cancelled",
+	]),
 	summary: z.string(),
 	stepCount: z.number().int().nonnegative(),
 	toolCount: z.number().int().nonnegative(),

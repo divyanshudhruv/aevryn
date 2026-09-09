@@ -86,7 +86,7 @@ export const applyStateSchema = z.object({
 export type ApplyState = z.infer<typeof applyStateSchema>;
 
 export const activitySnapshotSchema = z.object({
-	status: z.enum(["running", "completed", "failed", "sleeping"]),
+	status: z.enum(["running", "completed", "failed", "sleeping", "waiting"]),
 	currentActivity: z.string().optional(),
 	executionId: z.string().optional(),
 	steps: z.array(
@@ -188,11 +188,32 @@ export const createRecoveryAttemptSchema = z.object({
 
 export type CreateRecoveryAttempt = z.infer<typeof createRecoveryAttemptSchema>;
 
+export const createWebhookSchema = z.object({
+	workflowId: z.string().min(1),
+	executionId: z.string().min(1).optional(),
+	instruction: z.string().min(1).max(2000),
+	expiresInSeconds: z.number().int().min(60).max(2_592_000).optional(),
+});
+
+export type CreateWebhook = z.infer<typeof createWebhookSchema>;
+
+export const webhookFireSchema = z
+	.unknown()
+	.refine((value) => value !== undefined, {
+		message: "Request body must not be empty",
+	});
+
 export const decisionSchema = z.object({
-	action: z.enum(["complete", "sleep", "notify", "stop"]),
+	action: z.enum(["complete", "sleep", "notify", "stop", "wait"]),
 	reason: z.string().max(1000).optional(),
 	statePatch: statePatchSchema.optional(),
 	sleepUntil: z.coerce.date().optional(),
+	waitFor: z
+		.object({
+			description: z.string().min(1).max(500),
+			expiresInSeconds: z.number().int().min(60).max(2_592_000).optional(),
+		})
+		.optional(),
 	observation: z
 		.object({
 			type: z.string().min(1).max(100),

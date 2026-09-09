@@ -72,13 +72,28 @@ const RUN_DECISION_INSTRUCTIONS = `You may end your reply with a fenced JSON dec
 - {"action":"sleep","sleepUntil":"<ISO-8601>","reason":"..."} to pause this run and wake it up at that moment (e.g. check again later), then continue on wake.
 - {"action":"notify","notification":{"type":"alert","subject":"...","body":{...}},"reason":"..."} to send the user an in-app notification and finish.
 - {"action":"stop","reason":"..."} to cancel this run.
+- {"action":"wait","waitFor":{"description":"<what external event this run waits for>","expiresInSeconds":<optional, 60..2592000>},"notification":{"type":"webhook","subject":"...","body":{...}}} to pause this run on a durable webhook. The user is told the webhook URL; when they POST to it, this run resumes with the payload handed back as instruction context.
 If no block is needed (the normal case, e.g. objective finished), emit none and the run is marked complete. Keep your visible answer plain text.`;
+
+function recoveryBlock(context: {
+	attempt: number;
+	failureCode?: string;
+	failureMessage?: string;
+}): string {
+	return `This run is a bounded recovery attempt (attempt ${context.attempt}) after a previous failure: ${context.failureMessage ?? context.failureCode ?? "unknown error"}.
+Treat any retrieval from procedural memory as the proven way forward and reuse it. Otherwise diagnose, adjust your approach, and continue the original objective. Do not start new consequential side effects speculatively.`;
+}
 
 async function buildConversationInstructions(
 	workflowId: string,
 	executionId: string,
 	maxChars: number | undefined,
 	mode: "planning" | "run",
+	recoveryContext?: {
+		attempt: number;
+		failureCode?: string;
+		failureMessage?: string;
+	},
 ): Promise<string | undefined> {
 	const context = await workflowService.getConversationContext(
 		workflowId,
@@ -90,7 +105,13 @@ async function buildConversationInstructions(
 		return context ? `${base}\n\n${context}` : base;
 	}
 	let base = RUN_DECISION_INSTRUCTIONS;
-	const memory = await retrieveRelevantMemory(workflowId);
+	if (recoveryContext) {
+		base = `${base}\n\n${recoveryBlock(recoveryContext)}`;
+	}
+	const memory = await retrieveRelevantMemory(
+		workflowId,
+		recoveryContext !== undefined,
+	);
 	if (memory) {
 		base = `${base}\n\n${memory}`;
 	}
@@ -99,6 +120,7 @@ async function buildConversationInstructions(
 
 async function retrieveRelevantMemory(
 	workflowId: string,
+	preferProcedural = false,
 ): Promise<string | null> {
 	try {
 		const workflow = await workflowService.getWorkflowById(workflowId);
@@ -109,6 +131,7 @@ async function retrieveRelevantMemory(
 			userId: workflow.userId,
 			query: workflow.objective,
 			limit: 3,
+			...(preferProcedural ? { categories: ["procedural"] } : {}),
 		});
 		if (entries.length === 0) {
 			return null;
@@ -144,6 +167,140 @@ async function storeEpisodicMemory(
 	} catch {
 		// Memory persistence must never fail a run.
 	}
+}
+
+async function storeProceduralMemory(
+	workflowId: string,
+	executionId: string,
+	context: { attempt: number; failureCode?: string; failureMessage?: string },
+): Promise<void> {
+	try {
+		const workflow = await workflowService.getWorkflowById(workflowId);
+		if (!workflow) {
+			return;
+		}
+		await memoryStore.store({
+			userId: workflow.userId,
+			workflowId,
+			executionId,
+			category: "procedural",
+			text: `Recovery (attempt ${context.attempt}) for "${workflow.objective}" succeeded after ${context.failureCode ?? "a failure"}: ${context.failureMessage ?? "unknown error"}. The resumed run completed successfully.`.slice(
+				0,
+				4000,
+			),
+			metadata: {
+				failureCode: context.failureCode,
+				workflowObjective: workflow.objective,
+			},
+		});
+	} catch {
+		// Memory persistence must never fail a run.
+	}
+}
+
+async function notifyFailure(
+	workflowId: string,
+	failureClass: string,
+	failureCode: string | undefined,
+	reason: string,
+): Promise<void> {
+	const workflow = await workflowService.getWorkflowById(workflowId);
+	if (workflow) {
+		await workflowService.createNotification({
+			userId: workflow.userId,
+			workflowId,
+			channel: "in-app",
+			type: "workflow.failed",
+			subject: "Workflow run failed",
+			body: { failureClass, failureCode, reason },
+		});
+	}
+	try {
+		const activity = await workflowService.getActivitySnapshot(workflowId);
+		if (activity) {
+			await workflowService.updateActivitySnapshot(workflowId, {
+				...activity,
+				status: "failed",
+				currentActivity: undefined,
+				updatedAt: new Date(),
+			});
+		}
+	} catch {
+		// Activity snapshot is best-effort on the failure path.
+	}
+}
+
+/**
+ * Bounded recovery: classify the failure, record the attempt (idempotent per
+ * (executionId, attempt)), and re-enqueue the same execution with a
+ * recoveryContext the next run can see. Re-enqueues only when THIS call was
+ * the one that recorded the attempt, so concurrent failure handlers cannot
+ * double-schedule. Fatal failures or attempts past RECOVERY_MAX_ATTEMPTS fall
+ * through to a durable fail.
+ */
+async function maybeScheduleRecovery(
+	parsed: z.infer<typeof executionRunEventSchema>,
+	failure: { code: string; reason: string },
+): Promise<boolean> {
+	const classification = classifyFailure({ code: failure.code });
+	const attempts = await workflowService.countRecoveryAttempts(
+		parsed.executionId,
+	);
+	const attempt = attempts + 1;
+	if (
+		classification.failureClass === "fatal" ||
+		attempt > env.RECOVERY_MAX_ATTEMPTS
+	) {
+		await workflowService.recordRecoveryAttempt({
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			failureClass: classification.failureClass,
+			failureCode: classification.failureCode,
+			attempt,
+			strategy: "fail-safe",
+			result: "failed",
+			detail: { reason: failure.reason },
+		});
+		await workflowService.failExecution({
+			executionId: parsed.executionId,
+			reason: failure.reason,
+		});
+		await notifyFailure(
+			parsed.workflowId,
+			classification.failureClass,
+			classification.failureCode,
+			failure.reason,
+		);
+		return false;
+	}
+	const recorded = await workflowService.recordRecoveryAttempt({
+		workflowId: parsed.workflowId,
+		executionId: parsed.executionId,
+		failureClass: classification.failureClass,
+		failureCode: classification.failureCode,
+		attempt,
+		strategy: "bounded-retry",
+		result: "started",
+		detail: { reason: failure.reason },
+	});
+	if (!recorded) {
+		return true;
+	}
+	await inngest.send({
+		name: executionRunEvent,
+		data: {
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			prompt: parsed.prompt,
+			modelContextCapChars: parsed.modelContextCapChars,
+			recoveryContext: {
+				failureCode: classification.failureCode,
+				failureMessage: failure.reason,
+				attempt,
+			},
+		},
+	});
+	return true;
 }
 
 function createActivityAccumulator(workflowId: string, executionId: string) {
@@ -246,7 +403,8 @@ export async function resolveExecutionState(data: unknown): Promise<{
 		execution.status === "completed" ||
 		execution.status === "failed" ||
 		execution.status === "cancelled" ||
-		execution.status === "sleeping"
+		execution.status === "sleeping" ||
+		execution.status === "waiting"
 	) {
 		return {
 			workflowId: parsed.workflowId,
@@ -269,6 +427,11 @@ export async function runAgentStep(data: unknown): Promise<{
 	mode: "planning" | "run";
 	reason?: string;
 	result?: AgentResult;
+	recoveryContext?: {
+		failureCode?: string;
+		failureMessage?: string;
+		attempt: number;
+	};
 }> {
 	const parsed = executionRunEventSchema.parse(data);
 	const execution = await workflowService.getExecution(parsed.executionId);
@@ -297,20 +460,32 @@ export async function runAgentStep(data: unknown): Promise<{
 			reason: "execution sleeping",
 		};
 	}
+	if (execution.status === "waiting") {
+		return {
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			status: "skipped",
+			mode: "run",
+			reason: "execution waiting on webhook",
+		};
+	}
 	const elapsedSeconds = execution.startedAt
 		? (Date.now() - execution.startedAt.getTime()) / 1000
 		: 0;
 	if (elapsedSeconds > env.EXECUTION_MAX_SECONDS) {
-		await workflowService.failExecution({
-			executionId: parsed.executionId,
-			reason: `execution exceeded the ${env.EXECUTION_MAX_SECONDS}s wall-clock budget`,
+		const reason = `execution exceeded the ${env.EXECUTION_MAX_SECONDS}s wall-clock budget`;
+		const scheduled = await maybeScheduleRecovery(parsed, {
+			code: "EXECUTION_TIME_BUDGET_EXCEEDED",
+			reason,
 		});
 		return {
 			workflowId: parsed.workflowId,
 			executionId: parsed.executionId,
 			status: "skipped",
 			mode: "run",
-			reason: "execution over time budget",
+			reason: scheduled
+				? "recovery scheduled after time budget exceeded"
+				: reason,
 		};
 	}
 	const workflow = await workflowService.getWorkflowById(execution.workflowId);
@@ -320,37 +495,61 @@ export async function runAgentStep(data: unknown): Promise<{
 	const mode: "planning" | "run" =
 		workflow.status === "draft" ? "planning" : "run";
 	const activity = createActivityAccumulator(workflow.id, parsed.executionId);
+	const result = await runAgent({
+		registry:
+			mode === "planning"
+				? createPlanningRegistry()
+				: withExecutionCapabilities(
+						createDefaultRegistry(),
+						workflow.id,
+						workflow.userId,
+					),
+		objective: parsed.prompt,
+		maxSteps: env.AGENT_MAX_STEPS,
+		modelContextCapChars: parsed.modelContextCapChars,
+		instructions: await buildConversationInstructions(
+			workflow.id,
+			parsed.executionId,
+			parsed.modelContextCapChars,
+			mode,
+			parsed.recoveryContext,
+		),
+		onActivity: async (next) => {
+			activity.apply(next);
+			await workflowService.updateActivitySnapshot(
+				parsed.workflowId,
+				activity.snapshot(),
+			);
+		},
+	});
+	const toolCallCount = result.steps.reduce(
+		(count, step) => count + step.toolCalls.length,
+		0,
+	);
+	if (toolCallCount > env.AGENT_MAX_TOOL_CALLS) {
+		const reason = `run exceeded the ${env.AGENT_MAX_TOOL_CALLS} tool-call budget (${toolCallCount})`;
+		const scheduled = await maybeScheduleRecovery(parsed, {
+			code: "EXECUTION_TOOL_BUDGET_EXCEEDED",
+			reason,
+		});
+		return {
+			workflowId: parsed.workflowId,
+			executionId: parsed.executionId,
+			status: "skipped",
+			mode,
+			recoveryContext: parsed.recoveryContext,
+			reason: scheduled
+				? "recovery scheduled after tool-call budget exceeded"
+				: reason,
+		};
+	}
 	return {
 		workflowId: parsed.workflowId,
 		executionId: parsed.executionId,
 		status: "running",
 		mode,
-		result: await runAgent({
-			registry:
-				mode === "planning"
-					? createPlanningRegistry()
-					: withExecutionCapabilities(
-							createDefaultRegistry(),
-							workflow.id,
-							workflow.userId,
-						),
-			objective: parsed.prompt,
-			maxSteps: env.AGENT_MAX_STEPS,
-			modelContextCapChars: parsed.modelContextCapChars,
-			instructions: await buildConversationInstructions(
-				workflow.id,
-				parsed.executionId,
-				parsed.modelContextCapChars,
-				mode,
-			),
-			onActivity: async (next) => {
-				activity.apply(next);
-				await workflowService.updateActivitySnapshot(
-					parsed.workflowId,
-					activity.snapshot(),
-				);
-			},
-		}),
+		recoveryContext: parsed.recoveryContext,
+		result,
 	};
 }
 
@@ -373,7 +572,8 @@ export async function persistAndCompleteStep(
 		(execution.status === "completed" ||
 			execution.status === "failed" ||
 			execution.status === "cancelled" ||
-			execution.status === "sleeping")
+			execution.status === "sleeping" ||
+			execution.status === "waiting")
 	) {
 		return {
 			workflowId: outcome.workflowId,
@@ -394,27 +594,17 @@ export async function persistAndCompleteStep(
 		(count, step) => count + step.toolCalls.length,
 		0,
 	);
-	if (toolCallCount > env.AGENT_MAX_TOOL_CALLS) {
-		await workflowService.failExecution({
-			executionId: outcome.executionId,
-			reason: `run exceeded the ${env.AGENT_MAX_TOOL_CALLS} tool-call budget`,
-		});
-		return {
-			workflowId: outcome.workflowId,
-			executionId: outcome.executionId,
-			status: "failed",
-			summary: `failed: tool-call budget exceeded (${toolCallCount})`,
-			stepCount: result.steps.length,
-			toolCount: toolCallCount,
-		};
-	}
 	await workflowService.recordSteps({
 		executionId: outcome.executionId,
 		steps: result.steps,
 	});
 	let planEmitted = false;
-	let finalizedStatus: "completed" | "sleeping" | "cancelled" | "failed" =
-		"completed";
+	let finalizedStatus:
+		| "completed"
+		| "sleeping"
+		| "waiting"
+		| "cancelled"
+		| "failed" = "completed";
 	if (outcome.mode === "planning") {
 		const plan = extractPlan(result.text);
 		if (plan) {
@@ -446,7 +636,9 @@ export async function persistAndCompleteStep(
 					? "sleeping"
 					: applied.action === "stop"
 						? "cancelled"
-						: "completed";
+						: applied.action === "wait"
+							? "waiting"
+							: "completed";
 			if (applied.action === "sleep") {
 				const activity = await workflowService.getActivitySnapshot(
 					outcome.workflowId,
@@ -456,6 +648,19 @@ export async function persistAndCompleteStep(
 						...activity,
 						status: "sleeping",
 						currentActivity: `sleeping until ${decision.sleepUntil?.toISOString()}`,
+						updatedAt: new Date(),
+					});
+				}
+			}
+			if (applied.action === "wait") {
+				const activity = await workflowService.getActivitySnapshot(
+					outcome.workflowId,
+				);
+				if (activity) {
+					await workflowService.updateActivitySnapshot(outcome.workflowId, {
+						...activity,
+						status: "waiting",
+						currentActivity: `waiting on webhook: ${decision.waitFor?.description}`,
 						updatedAt: new Date(),
 					});
 				}
@@ -472,12 +677,30 @@ export async function persistAndCompleteStep(
 	if (activity) {
 		await workflowService.updateActivitySnapshot(outcome.workflowId, {
 			...activity,
-			status: finalizedStatus === "sleeping" ? "sleeping" : "completed",
+			status:
+				finalizedStatus === "sleeping"
+					? "sleeping"
+					: finalizedStatus === "waiting"
+						? "waiting"
+						: "completed",
 			currentActivity: undefined,
 			updatedAt: new Date(),
 		});
 	}
 	const summary = result.text.slice(0, 500);
+	if (finalizedStatus === "completed" && outcome.recoveryContext) {
+		await workflowService.updateRecoveryResult(
+			outcome.executionId,
+			outcome.recoveryContext.attempt,
+			"completed",
+			{ failureCode: outcome.recoveryContext.failureCode },
+		);
+		await storeProceduralMemory(
+			outcome.workflowId,
+			outcome.executionId,
+			outcome.recoveryContext,
+		);
+	}
 	if (finalizedStatus === "completed") {
 		await storeEpisodicMemory(outcome.workflowId, outcome.executionId, summary);
 	}
@@ -487,10 +710,7 @@ export async function persistAndCompleteStep(
 		status: finalizedStatus,
 		summary,
 		stepCount: result.steps.length,
-		toolCount: result.steps.reduce(
-			(count, step) => count + step.toolCalls.length,
-			0,
-		),
+		toolCount: toolCallCount,
 		planEmitted,
 	};
 }
@@ -527,53 +747,17 @@ export const executionRun = inngest.createFunction(
 				error.message ??
 				"execution failed unexpectedly"
 			).slice(0, 500);
-			const workflowId = parsed.data.data.event.data.workflowId;
 			const classification = classifyFailure({
 				code: parsed.data.data.error?.code,
 			});
-			await workflowService.failExecution({ executionId, reason });
-			await workflowService.recordRecoveryAttempt({
-				workflowId,
-				executionId,
-				failureClass: classification.failureClass,
-				failureCode: classification.failureCode,
-				attempt: (await workflowService.countRecoveryAttempts(executionId)) + 1,
-				strategy:
-					classification.failureClass === "transient"
-						? "retry-later"
-						: classification.failureClass === "structural"
-							? "inspect-and-replan"
-							: "fail-safe",
-				result: "failed",
-				detail: { reason },
-			});
-			const workflow = await workflowService.getWorkflowById(workflowId);
-			if (workflow) {
-				await workflowService.createNotification({
-					userId: workflow.userId,
-					workflowId,
-					channel: "in-app",
-					type: "workflow.failed",
-					subject: "Workflow run failed",
-					body: {
-						failureClass: classification.failureClass,
-						failureCode: classification.failureCode,
-						reason,
-					},
-				});
-			}
-			const activity = await workflowService.getActivitySnapshot(workflowId);
-			if (activity) {
-				await workflowService.updateActivitySnapshot(
-					parsed.data.data.event.data.workflowId,
-					{
-						...activity,
-						status: "failed",
-						currentActivity: undefined,
-						updatedAt: new Date(),
-					},
-				);
-			}
+			const scheduled = await maybeScheduleRecovery(
+				parsed.data.data.event.data,
+				{
+					code: classification.failureCode ?? "EXECUTION_FAILED",
+					reason,
+				},
+			);
+			void scheduled;
 		},
 	},
 	async ({ event, step }) => {

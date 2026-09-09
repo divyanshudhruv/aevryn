@@ -43,6 +43,7 @@ export const env = createEnv({
 			.positive()
 			.default(604800),
 		RECOVERY_MAX_ATTEMPTS: z.coerce.number().int().min(0).default(2),
+		WEBHOOK_BASE_URL: z.string().url().default("http://localhost:3000"),
 	},
 	runtimeEnv: runtimeEnv,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,

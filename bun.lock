@@ -34,6 +34,7 @@
         "@aevryn/env": "workspace:*",
         "@aevryn/inngest": "workspace:*",
         "@aevryn/ui": "workspace:*",
+        "@aevryn/workflow": "workspace:*",
         "@swc/helpers": "^0.5.23",
         "@tanstack/react-form": "^1.33.2",
         "@tanstack/react-query": "^5.101.4",

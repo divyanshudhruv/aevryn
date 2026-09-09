@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import {
 	db,
 	type Notification,
@@ -9,6 +10,7 @@ import {
 	type WorkflowExecution,
 	type WorkflowStep,
 } from "@aevryn/db";
+import { env } from "@aevryn/env/server";
 import type { z } from "zod";
 import { EventRepository } from "../repositories/event-repository";
 import { ExecutionRepository } from "../repositories/execution-repository";
@@ -19,6 +21,7 @@ import { ScheduleRepository } from "../repositories/schedule-repository";
 import { StateRepository } from "../repositories/state-repository";
 import { StepRepository } from "../repositories/step-repository";
 import { ToolExecutionRepository } from "../repositories/tool-execution-repository";
+import { WebhookRepository } from "../repositories/webhook-repository";
 import { WorkflowRepository } from "../repositories/workflow-repository";
 import {
 	type ActivitySnapshot,
@@ -80,6 +83,7 @@ export class WorkflowService {
 		private readonly notifications = new NotificationRepository(),
 		private readonly observations = new ObservationRepository(),
 		private readonly recoveries = new RecoveryRepository(),
+		private readonly webhooks = new WebhookRepository(),
 	) {}
 
 	async createWorkflow(input: CreateWorkflow): Promise<CreateWorkflowOutcome> {
@@ -843,6 +847,101 @@ export class WorkflowService {
 	}
 
 	/**
+	 * Transition an execution into a durable waiting state, minting a secret
+	 * webhook token. Only the SHA-256 hash is persisted; the plaintext token is
+	 * returned once so it can be shown to the user without being stored.
+	 */
+	async waitForWebhook(input: {
+		workflowId: string;
+		executionId: string;
+		instruction: string;
+		expiresInSeconds?: number;
+		reason?: string;
+	}): Promise<{ token: string; url: string }> {
+		const token = randomBytes(24).toString("base64url");
+		const tokenHash = createHash("sha256").update(token).digest("hex");
+		const expiresAt = input.expiresInSeconds
+			? new Date(Date.now() + input.expiresInSeconds * 1000)
+			: undefined;
+		await db.transaction(async (tx) => {
+			const execution = await this.executions.update(
+				input.executionId,
+				{ status: "waiting", reason: input.reason ?? input.instruction },
+				tx,
+			);
+			await this.webhooks.insert(
+				{
+					workflowId: input.workflowId,
+					executionId: execution.id,
+					tokenHash,
+					instruction: input.instruction,
+					expiresAt,
+				},
+				tx,
+			);
+			await this.events.insert(
+				{
+					workflowId: input.workflowId,
+					executionId: execution.id,
+					type: "execution.waiting",
+					data: { expiresAt: expiresAt?.toISOString() ?? null },
+				},
+				tx,
+			);
+		});
+		return {
+			token,
+			url: `${env.WEBHOOK_BASE_URL}/api/v1/hooks/${token}`,
+		};
+	}
+
+	/**
+	 * Resolve an incoming webhook by its plaintext token. The token is never
+	 * stored or logged; only its hash is looked up. Expired or consumed
+	 * webhooks resolve to null, causing the caller to return a 410/404.
+	 */
+	async fireWebhook(input: { token: string; payload: unknown }): Promise<{
+		ok: boolean;
+		workflowId?: string;
+		executionId?: string;
+		instruction?: string;
+	}> {
+		const tokenHash = createHash("sha256").update(input.token).digest("hex");
+		const row = await this.webhooks.findByTokenHash(tokenHash);
+		if (!row) {
+			return { ok: false };
+		}
+		if (row.status !== "active") {
+			return { ok: false };
+		}
+		if (row.expiresAt && row.expiresAt.getTime() < Date.now()) {
+			await this.webhooks.updateStatus(row.id, "expired");
+			return { ok: false };
+		}
+		await this.webhooks.updateStatus(row.id, "used", new Date());
+		const excerpt = JSON.stringify(input.payload);
+		const instruction =
+			excerpt && excerpt.length > 0
+				? `${row.instruction}\nWebhook payload: ${excerpt.slice(0, 2000)}`
+				: row.instruction;
+		return {
+			ok: true,
+			workflowId: row.workflowId,
+			executionId: row.executionId ?? undefined,
+			instruction,
+		};
+	}
+
+	async updateRecoveryResult(
+		executionId: string,
+		attempt: number,
+		result: "completed" | "failed",
+		detail?: Record<string, unknown>,
+	): Promise<void> {
+		await this.recoveries.updateResult(executionId, attempt, result, detail);
+	}
+
+	/**
 	 * Apply a fully validated LLM decision. The runtime is authoritative:
 	 * the model proposes, this method verifies and persists. Persists a
 	 * concise decision event (never chain-of-thought).
@@ -854,7 +953,7 @@ export class WorkflowService {
 	}): Promise<{ action: string }> {
 		const decision = decisionSchema.parse(input.decision);
 		const workflow = await this.workflows.requireById(input.workflowId);
-		if (decision.notification) {
+		if (decision.action !== "wait" && decision.notification) {
 			await this.createNotification({
 				userId: workflow.userId,
 				workflowId: workflow.id,
@@ -895,6 +994,33 @@ export class WorkflowService {
 					decision.reason,
 				);
 				break;
+			case "wait": {
+				if (!decision.waitFor) {
+					throw new Error("wait decision requires waitFor");
+				}
+				const webhook = await this.waitForWebhook({
+					workflowId: workflow.id,
+					executionId: input.executionId,
+					instruction: decision.waitFor.description,
+					expiresInSeconds: decision.waitFor.expiresInSeconds,
+					reason: decision.reason,
+				});
+				if (decision.notification) {
+					await this.createNotification({
+						userId: workflow.userId,
+						workflowId: workflow.id,
+						type: decision.notification.type,
+						channel: "in-app",
+						subject: decision.notification.subject,
+						body: {
+							...(decision.notification.body ?? {}),
+							webhookUrl: webhook.url,
+							instruction: decision.waitFor.description,
+						},
+					});
+				}
+				break;
+			}
 			case "stop":
 				await this.cancelExecution(input.executionId, decision.reason);
 				break;
