@@ -33,6 +33,7 @@ import {
 	createObservationSchema,
 	createScheduleSchema,
 	createWorkflowSchema,
+	decisionSchema,
 	type FailExecution,
 	failExecutionSchema,
 	type Plan,
@@ -636,6 +637,149 @@ export class WorkflowService {
 
 	async listNotifications(workflowId: string): Promise<Notification[]> {
 		return this.notifications.listByWorkflow(workflowId);
+	}
+
+	/**
+	 * Optimistically apply a validated state patch. Reads the current
+	 * version and retries on conflict (a single writer owns each workflow,
+	 * so contention is rare); the state row is created on first write.
+	 */
+	async applyStatePatch(
+		workflowId: string,
+		patch: AgentStateValue,
+	): Promise<{ version: number }> {
+		for (let attempt = 0; attempt < 3; attempt++) {
+			const existing = await this.states.findByWorkflow(workflowId);
+			const next = this.mergeState(existing?.data, patch);
+			if (!existing) {
+				await this.states.insert({
+					workflowId,
+					phase: next.phase,
+					data: next,
+				});
+				return { version: 1 };
+			}
+			try {
+				const updated = await this.states.updateIfVersion(
+					workflowId,
+					existing.version,
+					{ phase: next.phase, data: next },
+				);
+				return { version: updated.version };
+			} catch (error) {
+				if (attempt === 2) throw error;
+			}
+		}
+		throw new Error("applyStatePatch: optimistic concurrency exhausted");
+	}
+
+	async sleepExecution(
+		executionId: string,
+		sleepUntil: Date,
+		reason?: string,
+	): Promise<void> {
+		return db.transaction(async (tx) => {
+			const execution = await this.executions.update(
+				executionId,
+				{ status: "sleeping", reason },
+				tx,
+			);
+			await this.events.insert(
+				{
+					workflowId: execution.workflowId,
+					executionId: execution.id,
+					type: "execution.sleeping",
+					data: { sleepUntil: sleepUntil.toISOString() },
+				},
+				tx,
+			);
+		});
+	}
+
+	async cancelExecution(
+		executionId: string,
+		reason = "cancelled by decision",
+	): Promise<void> {
+		return db.transaction(async (tx) => {
+			const execution = await this.executions.update(
+				executionId,
+				{ status: "cancelled", completedAt: new Date(), reason },
+				tx,
+			);
+			await this.events.insert(
+				{
+					workflowId: execution.workflowId,
+					executionId: execution.id,
+					type: "execution.cancelled",
+					data: { reason },
+				},
+				tx,
+			);
+		});
+	}
+
+	/**
+	 * Apply a fully validated LLM decision. The runtime is authoritative:
+	 * the model proposes, this method verifies and persists. Persists a
+	 * concise decision event (never chain-of-thought).
+	 */
+	async applyDecision(input: {
+		workflowId: string;
+		executionId: string;
+		decision: z.infer<typeof decisionSchema>;
+	}): Promise<{ action: string }> {
+		const decision = decisionSchema.parse(input.decision);
+		const workflow = await this.workflows.requireById(input.workflowId);
+		if (decision.notification) {
+			await this.createNotification({
+				userId: workflow.userId,
+				workflowId: workflow.id,
+				type: decision.notification.type,
+				channel: "in-app",
+				subject: decision.notification.subject,
+				body: decision.notification.body,
+			});
+		}
+		if (decision.observation) {
+			await this.createObservation({
+				workflowId: workflow.id,
+				type: decision.observation.type,
+				content: decision.observation.content,
+			});
+		}
+		if (decision.statePatch) {
+			await this.applyStatePatch(workflow.id, decision.statePatch);
+		}
+		await this.events.insert({
+			workflowId: workflow.id,
+			executionId: input.executionId,
+			type: "execution.decision",
+			data: {
+				action: decision.action,
+				reason: decision.reason ?? null,
+				sleepUntil: decision.sleepUntil?.toISOString() ?? null,
+			},
+		});
+		switch (decision.action) {
+			case "sleep":
+				if (!decision.sleepUntil) {
+					throw new Error("sleep decision requires sleepUntil");
+				}
+				await this.sleepExecution(
+					input.executionId,
+					decision.sleepUntil,
+					decision.reason,
+				);
+				break;
+			case "stop":
+				await this.cancelExecution(input.executionId, decision.reason);
+				break;
+			case "complete":
+			case "notify":
+				await this.completeExecution({ executionId: input.executionId });
+				break;
+		}
+		return { action: decision.action };
 	}
 
 	private mergeState(

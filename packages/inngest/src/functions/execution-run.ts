@@ -9,6 +9,8 @@ import {
 import { env } from "@aevryn/env/server";
 import {
 	type ActivitySnapshot,
+	type Decision,
+	decisionSchema,
 	type Plan,
 	planSchema,
 	WorkflowService,
@@ -45,6 +47,24 @@ function extractPlan(text: string): Plan | null {
 	}
 }
 
+function extractDecision(text: string): Decision | null {
+	const match = text.match(/```json\s*([\s\S]*?)```/);
+	if (!match?.[1]) {
+		return null;
+	}
+	try {
+		return decisionSchema.parse(JSON.parse(match[1]));
+	} catch {
+		return null;
+	}
+}
+
+const RUN_DECISION_INSTRUCTIONS = `You may end your reply with a fenced JSON decision block to control the workflow runtime. Use it ONLY when needed:
+- {"action":"sleep","sleepUntil":"<ISO-8601>","reason":"..."} to pause this run and wake it up at that moment (e.g. check again later), then continue on wake.
+- {"action":"notify","notification":{"type":"alert","subject":"...","body":{...}},"reason":"..."} to send the user an in-app notification and finish.
+- {"action":"stop","reason":"..."} to cancel this run.
+If no block is needed (the normal case, e.g. objective finished), emit none and the run is marked complete. Keep your visible answer plain text.`;
+
 async function buildConversationInstructions(
 	workflowId: string,
 	executionId: string,
@@ -60,7 +80,8 @@ async function buildConversationInstructions(
 		const base = PLANNING_SYSTEM_INSTRUCTIONS;
 		return context ? `${base}\n\n${context}` : base;
 	}
-	return context ?? undefined;
+	const base = RUN_DECISION_INSTRUCTIONS;
+	return context ? `${base}\n\n${context}` : base;
 }
 
 function createActivityAccumulator(workflowId: string, executionId: string) {
@@ -326,23 +347,66 @@ export async function persistAndCompleteStep(
 		steps: result.steps,
 	});
 	let planEmitted = false;
+	let finalizedStatus: "completed" | "sleeping" | "cancelled" | "failed" =
+		"completed";
 	if (outcome.mode === "planning") {
 		const plan = extractPlan(result.text);
 		if (plan) {
 			await workflowService.updatePlan(outcome.workflowId, plan);
 			planEmitted = true;
 		}
+		await workflowService.completeExecution({
+			executionId: outcome.executionId,
+		});
+	} else {
+		const execution = await workflowService.getExecution(outcome.executionId);
+		const decision = extractDecision(result.text);
+		if (decision && execution) {
+			const maxSleepMs = env.EXECUTION_MAX_SLEEP_SECONDS * 1000;
+			if (
+				decision.action === "sleep" &&
+				decision.sleepUntil &&
+				decision.sleepUntil.getTime() - Date.now() > maxSleepMs
+			) {
+				decision.sleepUntil = new Date(Date.now() + maxSleepMs);
+			}
+			const applied = await workflowService.applyDecision({
+				workflowId: outcome.workflowId,
+				executionId: outcome.executionId,
+				decision,
+			});
+			finalizedStatus =
+				applied.action === "sleep"
+					? "sleeping"
+					: applied.action === "stop"
+						? "cancelled"
+						: "completed";
+			if (applied.action === "sleep") {
+				const activity = await workflowService.getActivitySnapshot(
+					outcome.workflowId,
+				);
+				if (activity) {
+					await workflowService.updateActivitySnapshot(outcome.workflowId, {
+						...activity,
+						status: "sleeping",
+						currentActivity: `sleeping until ${decision.sleepUntil?.toISOString()}`,
+						updatedAt: new Date(),
+					});
+				}
+			}
+		} else {
+			await workflowService.completeExecution({
+				executionId: outcome.executionId,
+			});
+		}
 	}
-	await workflowService.completeExecution({
-		executionId: outcome.executionId,
-	});
 	const activity = await workflowService.getActivitySnapshot(
 		outcome.workflowId,
 	);
 	if (activity) {
 		await workflowService.updateActivitySnapshot(outcome.workflowId, {
 			...activity,
-			status: "completed",
+			status: finalizedStatus === "sleeping" ? "sleeping" : "completed",
 			currentActivity: undefined,
 			updatedAt: new Date(),
 		});
@@ -350,7 +414,7 @@ export async function persistAndCompleteStep(
 	return {
 		workflowId: outcome.workflowId,
 		executionId: outcome.executionId,
-		status: "completed",
+		status: finalizedStatus,
 		summary: result.text.slice(0, 500),
 		stepCount: result.steps.length,
 		toolCount: result.steps.reduce(

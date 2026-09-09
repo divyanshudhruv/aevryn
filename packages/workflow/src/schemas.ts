@@ -84,7 +84,7 @@ export const applyStateSchema = z.object({
 export type ApplyState = z.infer<typeof applyStateSchema>;
 
 export const activitySnapshotSchema = z.object({
-	status: z.enum(["running", "completed", "failed"]),
+	status: z.enum(["running", "completed", "failed", "sleeping"]),
 	currentActivity: z.string().optional(),
 	executionId: z.string().optional(),
 	steps: z.array(
@@ -171,3 +171,25 @@ export const createObservationSchema = z.object({
 });
 
 export type CreateObservation = z.infer<typeof createObservationSchema>;
+
+export const decisionSchema = z.object({
+	action: z.enum(["complete", "sleep", "notify", "stop"]),
+	reason: z.string().max(1000).optional(),
+	statePatch: statePatchSchema.optional(),
+	sleepUntil: z.coerce.date().optional(),
+	observation: z
+		.object({
+			type: z.string().min(1).max(100),
+			content: observationContentSchema,
+		})
+		.optional(),
+	notification: z
+		.object({
+			type: z.string().min(1).max(100),
+			subject: z.string().min(1).max(500).optional(),
+			body: z.record(z.string(), z.unknown()).optional(),
+		})
+		.optional(),
+});
+
+export type Decision = z.infer<typeof decisionSchema>;
