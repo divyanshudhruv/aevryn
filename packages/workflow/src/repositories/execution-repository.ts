@@ -15,6 +15,7 @@ export interface CreateExecutionParams {
 	workflowId: string;
 	status?: NewWorkflowExecution["status"];
 	startedAt?: Date;
+	reason?: string;
 	prompt?: string;
 }
 
@@ -39,6 +40,7 @@ export class ExecutionRepository {
 				workflowId: params.workflowId,
 				status: params.status,
 				startedAt: params.startedAt,
+				reason: params.reason,
 				prompt: params.prompt ?? "",
 			})
 			.returning();

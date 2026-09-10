@@ -49,12 +49,19 @@ export interface ChatComposerProps {
   /** Disables sends while true. Host wires this to UI state (e.g. an
    *  approval waiting on the user). */
   disabled?: boolean;
+  /** Stream state driven externally (live LLM streaming); when set it
+   *  overrides the internal demo status. Leave undefined for demo mode. */
+  externalStatus?: "idle" | "streaming";
+  /** Called when the user presses Stop while externalStatus is streaming. */
+  onAbort?: () => void;
 }
 
 export function ChatComposer({
   onSubmitMessage,
   demo = true,
   disabled = false,
+  externalStatus,
+  onAbort,
 }: ChatComposerProps) {
   const shape = useShape();
   const PlusIcon = useIcon("plus");
@@ -80,6 +87,8 @@ export function ChatComposer({
   const [status, setStatus] = useState<"idle" | "streaming">(
     demo ? "streaming" : "idle",
   );
+  // Live (non-demo) streaming status comes from the host when provided.
+  const effectiveStatus = externalStatus ?? status;
   const qualityLabels = ["Free", "Low", "Medium", "High", "Ultra", "God"];
   const [quality, setQuality] = useState(30000);
   const [displayQuality, setDisplayQuality] = useState(30000);
@@ -326,11 +335,15 @@ export function ChatComposer({
         }
         // While streaming, submits enqueue; flipping back to idle
         // dispatches the head of the queue through onSend.
-        status={status}
+        status={effectiveStatus}
         disabled={disabled}
         queue={queue}
         onQueueChange={setQueue}
         onStop={() => {
+          if (externalStatus !== undefined) {
+            onAbort?.();
+            return;
+          }
           if (replyTimerRef.current) clearTimeout(replyTimerRef.current);
           setStatus("idle");
         }}

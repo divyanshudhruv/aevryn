@@ -544,6 +544,192 @@ export class WorkflowService {
 		return `${header}\n${blocks.join("\n\n")}`;
 	}
 
+	private async requireOwnedWorkflow(
+		workflowId: string,
+		userId: string,
+	): Promise<Workflow> {
+		const workflow = await this.workflows.findOwnedByUser(userId, workflowId);
+		if (!workflow) {
+			throw new Error(`Workflow ${workflowId} not found for user`);
+		}
+		return workflow;
+	}
+
+	/**
+	 * The single thread execution backing a chat thread: the latest
+	 * non-cancelled chat_thread/run execution for the workflow, or a fresh
+	 * `running`/`chat_thread` row. Chat turns never mint a new execution.
+	 */
+	async getOrCreateChatExecution(
+		workflowId: string,
+		userId: string,
+	): Promise<WorkflowExecution> {
+		await this.requireOwnedWorkflow(workflowId, userId);
+		const executions = await this.executions.listByWorkflow(workflowId, 50);
+		const existing = executions.find(
+			(execution) =>
+				execution.reason === "chat_thread" ||
+				(execution.reason === "run" &&
+					!["cancelled", "completed"].includes(execution.status)),
+		);
+		if (existing) {
+			return existing;
+		}
+		return this.executions.insert({
+			workflowId,
+			status: "running",
+			reason: "chat_thread",
+			prompt: "",
+		});
+	}
+
+	/** Append one persisted chat turn to the thread execution. */
+	async appendChatStep(
+		workflowId: string,
+		userId: string,
+		input: { role: "user" | "assistant" | "system"; text: string; refId?: string },
+	): Promise<WorkflowStep> {
+		const execution = await this.getOrCreateChatExecution(workflowId, userId);
+		const order = (await this.steps.maxOrderByExecution(execution.id)) + 1;
+		return this.steps.insertOne({
+			executionId: execution.id,
+			kind: input.role,
+			assistantText: input.text,
+			status: "completed",
+			order,
+			idempotencyKey: input.refId ?? `${execution.id}-${order}`,
+		});
+	}
+
+	/** Append a tool-invocation record to the thread execution. */
+	async appendToolEvent(
+		workflowId: string,
+		userId: string,
+		toolName: string,
+		input: unknown,
+		output: unknown,
+	): Promise<boolean> {
+		const execution = await this.getOrCreateChatExecution(workflowId, userId);
+		const order = (await this.steps.maxOrderByExecution(execution.id)) + 1;
+		return this.toolExecutions.upsertByOrder({
+			workflowId,
+			executionId: execution.id,
+			order,
+			tool: toolName,
+			input: (input ?? {}) as Record<string, unknown>,
+			output: (output ?? {}) as Record<string, unknown>,
+			status: "completed",
+		});
+	}
+
+	/** Persist a draft plan on the workflow (objective + plan), keeping it
+	 *  draft until the user approves. Identified by the workflow id — the
+	 *  plan lives in workflow state, so `planId` echoes the workflow id. */
+	async saveDraftPlan(
+		workflowId: string,
+		userId: string,
+		plan: {
+			title: string;
+			objective: string;
+			summary: string;
+			steps: string[];
+			notes?: string[];
+		},
+	): Promise<{ planId: string }> {
+		await this.requireOwnedWorkflow(workflowId, userId);
+		await this.updatePlan(workflowId, {
+			title: plan.title,
+			objective: plan.objective,
+			summary: plan.summary,
+			steps: plan.steps,
+			kind: "plan",
+		});
+		return { planId: workflowId };
+	}
+
+	/** Bind an approved draft plan: workflow becomes active, objective
+	 *  syncs from the plan. No-op-safe for already-bound workflows. */
+	async bindApprovedWorkflow(workflowId: string, userId: string): Promise<void> {
+		await this.requireOwnedWorkflow(workflowId, userId);
+		const workflow = await this.workflows.requireById(workflowId);
+		if (workflow.status !== "draft") {
+			return;
+		}
+		await this.bindWorkflow(workflowId);
+	}
+
+	/** Mint the durable run for an approved plan. Returns the execution ids;
+	 *  the caller fires the inngest event. */
+	async enqueueApprovedRun(
+		workflowId: string,
+		userId: string,
+		prompt: string,
+	): Promise<{ workflowId: string; executionId: string }> {
+		await this.requireOwnedWorkflow(workflowId, userId);
+		const execution = await this.executions.insert({
+			workflowId,
+			status: "running",
+			reason: "run",
+			prompt,
+		});
+		await this.observations.insert({
+			workflowId,
+			type: "plan_confirm",
+			content: { data: { executionId: execution.id } },
+		});
+		return { workflowId, executionId: execution.id };
+	}
+
+	/**
+	 * Prior conversation in the thread as a langchain-style message list for
+	 * streamText. Chat executions map their role-encoded steps directly;
+	 * durable runs contribute their prompt (user) and recorded steps
+	 * (assistant).
+	 */
+	async getChatHistory(
+		workflowId: string,
+		userId: string,
+	): Promise<Array<{ role: "user" | "assistant" | "system"; content: string }>> {
+		await this.requireOwnedWorkflow(workflowId, userId);
+		const executions = await this.executions.listByWorkflowChronological(
+			workflowId,
+			50,
+		);
+		const turns: Array<{ role: "user" | "assistant" | "system"; content: string }> =
+			[];
+		for (const execution of executions) {
+			const steps = await this.steps.listByExecutionAscending(execution.id);
+			const isChat = execution.reason === "chat_thread";
+			if (isChat) {
+				for (const step of steps) {
+					if (!step.assistantText) {
+						continue;
+					}
+					const role = step.kind as "user" | "assistant" | "system";
+					if (
+						role !== "user" &&
+						role !== "assistant" &&
+						role !== "system"
+					) {
+						continue;
+					}
+					turns.push({ role, content: step.assistantText });
+				}
+				continue;
+			}
+			if (execution.prompt) {
+				turns.push({ role: "user", content: execution.prompt });
+			}
+			for (const step of steps) {
+				if (step.kind === "user" || !step.assistantText) {
+					continue;
+				}
+				turns.push({ role: "assistant", content: step.assistantText });
+			}
+		}
+		return turns;
+	}
+
 	async updatePlan(workflowId: string, plan: Plan | null): Promise<void> {
 		const existing = await this.states.findByWorkflow(workflowId);
 		await this.states.upsert(workflowId, {

@@ -36,7 +36,10 @@ import {
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { WorkspaceHeader } from "@/components/workspace-header";
+import { ToolCallRenderer } from "@/components/workspace/tool-call-renderer";
 import { usePolling } from "@/hooks/use-polling";
+import { useStreamingChat } from "@/hooks/use-streaming-chat";
+import { useShape } from "@aevryn/ui/lib/shape-context";
 import { trpc, queryClient } from "@/utils/trpc";
 import { useThreadStore } from "@/stores/thread-store";
 import { useWorkflowStore } from "@/stores/workflow-store";
@@ -330,6 +333,10 @@ export default function ThreadPage() {
   const composerDisabled = useUIStore((s) => s.composerDisabled);
   const setActiveApproval = useUIStore((s) => s.setActiveApproval);
 
+  const { chat, resubmitAnswers } = useStreamingChat(threadId);
+  const liveStreaming =
+    chat.status === "submitted" || chat.status === "streaming";
+
   const { data, isLoading, refetch } = useQuery(
     trpc.agent.getThread.queryOptions({ workflowId: threadId }),
   );
@@ -353,16 +360,41 @@ export default function ThreadPage() {
     if (!data) return;
     const built: Message[] = [];
     for (const turn of data.turns) {
-      built.push({
-        id: `user-${turn.execution.id}`,
-        threadId,
-        role: "user",
-        content: turn.prompt ?? "",
-        createdAt: toIsoOrNow(turn.execution.startedAt),
-      });
+      if (turn.execution.reason === "chat_thread") {
+        for (const step of turn.steps) {
+          if (!step.text) continue;
+          if (step.kind === "user") {
+            built.push({
+              id: `user-${step.id}`,
+              threadId,
+              role: "user",
+              content: step.text,
+              createdAt: toIsoOrNow(step.createdAt),
+            });
+          } else if (step.kind === "assistant" || step.kind === "system") {
+            built.push({
+              id: `assistant-${step.id}`,
+              threadId,
+              role: "assistant",
+              content: step.text,
+              createdAt: toIsoOrNow(step.createdAt),
+            });
+          }
+        }
+        continue;
+      }
+      if (turn.prompt?.trim()) {
+        built.push({
+          id: `user-${turn.execution.id}`,
+          threadId,
+          role: "user",
+          content: turn.prompt,
+          createdAt: toIsoOrNow(turn.execution.startedAt),
+        });
+      }
       const assistantText = turn.steps
+        .filter((s) => s.text)
         .map((s) => s.text)
-        .filter(Boolean)
         .join("\n");
       const toolCalls: StepCall[] = turn.toolExecutions.map((tool) => ({
         id: tool.id,
@@ -410,9 +442,6 @@ export default function ThreadPage() {
     );
   }, [data, threadId, setActiveApproval]);
 
-  const sendMessage = useMutation(
-    trpc.agent.sendMessage.mutationOptions({ onSuccess: invalidateThread }),
-  );
   const answerIntake = useMutation(
     trpc.agent.answerIntake.mutationOptions({ onSuccess: invalidateThread }),
   );
@@ -459,12 +488,13 @@ export default function ThreadPage() {
   // Show the thinking indicator while the latest turn is mid-flight.
   const lastTurn = data?.turns.at(-1);
   const thinking =
-    !!lastTurn &&
-    !!lastTurn.execution.status &&
-    !["completed", "failed", "cancelled"].includes(
-      lastTurn.execution.status,
-    ) &&
-    lastTurn.execution.status !== "awaiting_approval";
+    liveStreaming ||
+    (!!lastTurn &&
+      !!lastTurn.execution.status &&
+      !["completed", "failed", "cancelled"].includes(
+        lastTurn.execution.status,
+      ) &&
+      lastTurn.execution.status !== "awaiting_approval");
 
   const approvals: ApprovalInfo[] = (data?.approvals ?? []).map((approval) => ({
     id: approval.id,
@@ -527,6 +557,13 @@ export default function ThreadPage() {
                     workflowStatus={data?.workflow.status}
                     approvals={approvals}
                     thinking={thinking}
+                    liveStreaming={liveStreaming}
+                    liveChat={chat}
+                    onResubmitAnswers={(answers) =>
+                      resubmitAnswers(
+                        answers as Record<string, AskUserAnswer>,
+                      )
+                    }
                     answerIntakeBusy={answerIntake.isPending}
                     confirmBusy={confirmWorkflow.isPending}
                     onAnswerIntake={(answers) =>
@@ -557,9 +594,9 @@ export default function ThreadPage() {
               <ChatComposer
                 demo={false}
                 disabled={composerDisabled}
-                onSubmitMessage={(text) =>
-                  sendMessage.mutate({ workflowId: threadId, message: text })
-                }
+                externalStatus={liveStreaming ? "streaming" : "idle"}
+                onAbort={() => void chat.stop()}
+                onSubmitMessage={(text) => void chat.sendMessage({ text })}
               />
             </div>
           </footer>
@@ -576,6 +613,9 @@ interface ViewThreadProps {
   workflowStatus?: string;
   approvals: ApprovalInfo[];
   thinking: boolean;
+  liveStreaming: boolean;
+  liveChat: ReturnType<typeof useStreamingChat>["chat"];
+  onResubmitAnswers: (answers: Record<string, unknown>) => void;
   answerIntakeBusy: boolean;
   confirmBusy: boolean;
   onAnswerIntake: (answers: Record<string, AskUserAnswer>) => void;
@@ -595,6 +635,9 @@ function ViewThread({
   workflowStatus,
   approvals,
   thinking,
+  liveStreaming,
+  liveChat,
+  onResubmitAnswers,
   answerIntakeBusy,
   confirmBusy,
   onAnswerIntake,
@@ -653,6 +696,9 @@ function ViewThread({
         </div>
       ) : null}
       {messages.length > 0 && <MessageThread messages={messages} />}
+      {liveStreaming && (
+        <LiveStream chat={liveChat} onResubmitAnswers={onResubmitAnswers} />
+      )}
       {thinking && <ThinkingIndicator />}
       {pending.map((approval) => (
         <div key={approval.id} className="flex flex-col gap-1.5">
@@ -716,4 +762,76 @@ function ViewThread({
 
 function toIsoOrNow(value: string | null | undefined): string {
   return value ?? new Date().toISOString();
+}
+
+function LiveStream({
+  chat,
+  onResubmitAnswers,
+}: {
+  chat: ReturnType<typeof useStreamingChat>["chat"];
+  onResubmitAnswers: (answers: Record<string, unknown>) => void;
+}) {
+  const shape = useShape();
+  const latestUser = [...chat.messages].reverse().find((m) => m.role === "user");
+  const latestAssistant = [...chat.messages]
+    .reverse()
+    .find((m) => m.role === "assistant");
+  return (
+    <div className="flex flex-col gap-2">
+      {latestUser &&
+        latestUser.parts
+          .filter(
+            (p): p is Extract<typeof p, { type: "text" }> =>
+              p.type === "text",
+          )
+          .map((p, i) =>
+            p.text ? (
+              <div
+                key={`${latestUser.id}-u-${i}`}
+                className="flex flex-col items-end gap-1.5 self-end"
+              >
+                <div
+                  className={`whitespace-pre-wrap break-words px-3.5 py-2 text-[14px] text-pretty bg-[color-mix(in_oklab,var(--accent),var(--background)_45%)] text-accent-foreground ${shape.bg}`}
+                >
+                  {p.text}
+                </div>
+              </div>
+            ) : null,
+          )}
+      {latestAssistant && (
+        <>
+          {latestAssistant.parts.map((part, i) => {
+            if (part.type === "text" && part.text) {
+              return (
+                <div
+                  key={`${latestAssistant.id}-a-${i}`}
+                  className="max-w-[80%] self-start whitespace-pre-wrap break-words py-2 text-[14px] text-foreground"
+                >
+                  {part.text}
+                </div>
+              );
+            }
+            if (
+              part.type.startsWith("tool-") &&
+              (part as { toolInvocation?: unknown }).toolInvocation
+            ) {
+              return (
+                <ToolCallRenderer
+                  key={`${latestAssistant.id}-tc-${i}`}
+                  invocation={
+                    (part as unknown as { toolInvocation: unknown })
+                      .toolInvocation as Parameters<
+                      typeof ToolCallRenderer
+                    >[0]["invocation"]
+                  }
+                  onResubmitAnswers={onResubmitAnswers}
+                />
+              );
+            }
+            return null;
+          })}
+        </>
+      )}
+    </div>
+  );
 }

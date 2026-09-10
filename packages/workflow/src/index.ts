@@ -1,4 +1,5 @@
 export * from "./errors";
+export * from "./chat/ai-tools";
 export * from "./memory/mem0-store";
 export * from "./memory/types";
 export * from "./recovery";
