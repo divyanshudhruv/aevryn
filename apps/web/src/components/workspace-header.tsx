@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 
 import { SearchableDropdown } from "@aevryn/ui/components/header/searchable-dropdown";
@@ -9,7 +9,7 @@ import InputGroup, {
 } from "@aevryn/ui/components/ui/input-group";
 import { Switch } from "@aevryn/ui/components/ui/switch";
 
-export function WorkspaceHeader() {
+export function WorkspaceHeader({ controls }: { controls?: ReactNode }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -33,6 +33,7 @@ export function WorkspaceHeader() {
         </div>
 
         <div className="flex flex-row items-center gap-2">
+          {controls}
           <Switch
             label=""
             checked={isDark}

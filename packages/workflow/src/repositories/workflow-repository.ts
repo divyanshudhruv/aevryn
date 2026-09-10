@@ -103,4 +103,11 @@ export class WorkflowRepository {
 			.orderBy(desc(workflow.createdAt))
 			.limit(limit);
 	}
+
+	/** Hard delete. Child rows (executions, steps, approvals, events, states,
+	 *  recovery attempts, tool executions, schedules, observations, webhook
+	 *  boards) are removed by ON DELETE CASCADE. */
+	async delete(id: string, client: DbClient = db): Promise<void> {
+		await client.delete(workflow).where(eq(workflow.id, id));
+	}
 }

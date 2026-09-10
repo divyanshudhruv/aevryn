@@ -683,12 +683,19 @@ export const agentRouter = router({
 			);
 			return { paused: true as const, cancelled };
 		}),
-	resumeWorkflow: protectedProcedure
+resumeWorkflow: protectedProcedure
 		.input(workflowIdSchema)
 		.mutation(async ({ input, ctx }) => {
 			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
 			await workflowService.resumeWorkflow(input.workflowId);
 			return { resumed: true as const };
+		}),
+	deleteWorkflow: protectedProcedure
+		.input(workflowIdSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			await workflowService.deleteWorkflow(input.workflowId);
+			return { deleted: true as const };
 		}),
 	listMemories: protectedProcedure.query(async ({ ctx }) => {
 		try {

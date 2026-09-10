@@ -18,6 +18,10 @@ import {
 } from "@aevryn/ui/components/qa-accordion";
 import { Button } from "@aevryn/ui/components/ui/button";
 import { toolDisplayName } from "@aevryn/ui/components/tool-step-card";
+import {
+  WorkflowControls,
+  type WorkflowControlsStatus,
+} from "@aevryn/ui/components/workflow-controls";
 import type {
   ApprovalInfo,
   ApprovalResolve,
@@ -31,6 +35,7 @@ import {
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { WorkspaceHeader } from "@/components/workspace-header";
+import { usePolling } from "@/hooks/use-polling";
 import { trpc, queryClient } from "@/utils/trpc";
 import { useThreadStore } from "@/stores/thread-store";
 import { useWorkflowStore } from "@/stores/workflow-store";
@@ -322,7 +327,7 @@ export default function ThreadPage() {
   const composerDisabled = useUIStore((s) => s.composerDisabled);
   const setActiveApproval = useUIStore((s) => s.setActiveApproval);
 
-  const { data, isLoading } = useQuery(
+  const { data, isLoading, refetch } = useQuery(
     trpc.agent.getThread.queryOptions({ workflowId: threadId }),
   );
 
@@ -417,6 +422,36 @@ export default function ThreadPage() {
   const resolveApproval = useMutation(
     trpc.agent.resolveApproval.mutationOptions({ onSuccess: invalidateThread }),
   );
+  const stopWorkflow = useMutation(
+    trpc.agent.stopWorkflow.mutationOptions({ onSuccess: invalidateThread }),
+  );
+  const pauseWorkflow = useMutation(
+    trpc.agent.pauseWorkflow.mutationOptions({ onSuccess: invalidateThread }),
+  );
+  const resumeWorkflow = useMutation(
+    trpc.agent.resumeWorkflow.mutationOptions({ onSuccess: invalidateThread }),
+  );
+  const runWorkflow = useMutation(
+    trpc.agent.runWorkflow.mutationOptions({ onSuccess: invalidateThread }),
+  );
+  const deleteWorkflow = useMutation(
+    trpc.agent.deleteWorkflow.mutationOptions({
+      onSuccess: () => {
+        invalidateThread();
+        window.history.back();
+      },
+    }),
+  );
+
+  const status = data?.workflow.status as
+    | WorkflowControlsStatus
+    | undefined
+    | null;
+  usePolling(
+    () => void refetch(),
+    !!status &&
+      !["draft", "completed", "cancelled", "failed"].includes(status),
+  );
 
   const approvals: ApprovalInfo[] = (data?.approvals ?? []).map((approval) => ({
     id: approval.id,
@@ -437,7 +472,23 @@ export default function ThreadPage() {
       <AppSidebar />
       <SidebarInset>
         <div className="flex h-full min-h-0 flex-col">
-          <WorkspaceHeader />
+          <WorkspaceHeader
+            controls={
+              <WorkflowControls
+                status={status}
+                runBusy={runWorkflow.isPending}
+                stopBusy={stopWorkflow.isPending}
+                pauseBusy={pauseWorkflow.isPending}
+                resumeBusy={resumeWorkflow.isPending}
+                deleteBusy={deleteWorkflow.isPending}
+                onRun={() => runWorkflow.mutate({ workflowId: threadId })}
+                onStop={() => stopWorkflow.mutate({ workflowId: threadId })}
+                onPause={() => pauseWorkflow.mutate({ workflowId: threadId })}
+                onResume={() => resumeWorkflow.mutate({ workflowId: threadId })}
+                onDelete={() => deleteWorkflow.mutate({ workflowId: threadId })}
+              />
+            }
+          />
           <section
             aria-label="Conversation"
             className="min-h-0 flex-1 overflow-y-auto"

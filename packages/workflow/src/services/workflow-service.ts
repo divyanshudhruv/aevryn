@@ -1035,6 +1035,13 @@ export class WorkflowService {
 		});
 	}
 
+	/** Hard delete a workflow. Child rows cascade; any in-flight agent work
+	 *  fails fast client-side with "execution not found". */
+	async deleteWorkflow(workflowId: string): Promise<void> {
+		await this.workflows.requireById(workflowId);
+		await this.workflows.delete(workflowId);
+	}
+
 	/**
 	 * Persist token/cost usage for an execution. Cheap enough to also fire on
 	 * the failure path; never throws into the caller.
