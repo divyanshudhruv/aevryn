@@ -18,7 +18,7 @@
   "frontend": ["next"],
   "addons": ["biome", "evlog", "lefthook", "turborepo", "skills"],
   "examples": [],
-  "auth": "better-auth",
+  "auth": "supabase",
   "payments": "none",
   "packageManager": "bun",
   "dbSetup": "supabase",

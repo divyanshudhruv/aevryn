@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-import { trpc } from "@/utils/trpc";
-import { useThreadStore } from "@/stores/thread-store";
-import { useMessageStore } from "@/stores/message-store";
-import type { Thread } from "@/stores/thread-store";
+import { createBrowserSupabase } from "@aevryn/auth";
 import {
 	AppSidebar as PresetSidebar,
 	type SidebarThreadItem,
 } from "@aevryn/ui/components/sidebar-preset/app-sidebar";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useMessageStore } from "@/stores/message-store";
+import type { Thread } from "@/stores/thread-store";
+import { useThreadStore } from "@/stores/thread-store";
+import { trpc } from "@/utils/trpc";
 
 type ExecutionStatus =
 	| "pending"
@@ -76,10 +76,7 @@ export function AppSidebar() {
 		trpc.agent.updateWorkflowSettings.mutationOptions({
 			onSuccess: (_result, variables) => {
 				void queryClient.invalidateQueries({
-					queryKey: [
-						["agent.getThread"],
-						{ workflowId: variables.workflowId },
-					],
+					queryKey: [["agent.getThread"], { workflowId: variables.workflowId }],
 				});
 				void queryClient.invalidateQueries({ queryKey: [["agent.listRuns"]] });
 			},
@@ -93,8 +90,14 @@ export function AppSidebar() {
 		}),
 	);
 
-	const threadIdFromPath =
-		pathname.startsWith("/workspace/") ? pathname.split("/")[2] : null;
+	const signOut = async () => {
+		await createBrowserSupabase().auth.signOut();
+		router.push("/login");
+	};
+
+	const threadIdFromPath = pathname.startsWith("/workspace/")
+		? pathname.split("/")[2]
+		: null;
 
 	useEffect(() => {
 		if (!data) return;
@@ -114,7 +117,8 @@ export function AppSidebar() {
 	const items: SidebarThreadItem[] = (data ?? []).map((run) => ({
 		id: run.workflow.id,
 		label: run.workflow.objective ?? "Untitled thread",
-		status: run.execution?.status ?? workflowToExecutionStatus(run.workflow.status),
+		status:
+			run.execution?.status ?? workflowToExecutionStatus(run.workflow.status),
 		messageCount: run.messageCount,
 	}));
 
@@ -153,6 +157,7 @@ export function AppSidebar() {
 					router.push("/workspace");
 				}
 			}}
+			onSignOut={signOut}
 		/>
 	);
 }

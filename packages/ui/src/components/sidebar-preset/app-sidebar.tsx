@@ -73,6 +73,7 @@ export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
   onRunThread?: (id: string) => void;
   onRenameThread?: (id: string) => void;
   onDeleteThread?: (id: string) => void;
+  onSignOut?: () => void;
 }
 
 export function AppSidebar(props: AppSidebarProps) {
@@ -84,6 +85,7 @@ export function AppSidebar(props: AppSidebarProps) {
     onRunThread,
     onRenameThread,
     onDeleteThread,
+    onSignOut,
     ...sidebarProps
   } = props;
   const [active, setActive] = useState("New pricing page exploration");
@@ -418,7 +420,7 @@ export function AppSidebar(props: AppSidebarProps) {
                 index={2}
                 icon={ArrowLeftIcon}
                 label="Log out"
-                onSelect={() => {}}
+                onSelect={() => onSignOut?.()}
               />
             </>
           }

@@ -1,20 +1,16 @@
-import { auth } from "@aevryn/auth";
-import {
-	type BetterAuthInstance,
-	createAuthMiddleware,
-} from "evlog/better-auth";
+import { getSessionUser } from "@aevryn/auth";
+import type { NextRequest } from "next/server";
 
 import { useLogger } from "@/lib/evlog";
 
-const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
-	exclude: ["/api/auth/**"],
-	maskEmail: true,
-});
-
-export async function identifyEvlogUser(request: Request) {
-	await identifyUser(
-		useLogger(),
-		request.headers,
-		new URL(request.url).pathname,
-	);
+export async function identifyEvlogUser(request: NextRequest) {
+	const session = await getSessionUser(request);
+	if (!session) return;
+	useLogger().set({
+		user: {
+			id: session.user.id,
+			email: session.user.email,
+			name: session.user.name,
+		},
+	});
 }

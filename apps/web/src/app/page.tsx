@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
 
+import { createBrowserSupabase } from "@aevryn/auth";
 import { Button } from "@aevryn/ui/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
-import { authClient } from "@/lib/auth-client";
 
 const TITLE_TEXT = `
  ██████╗ ███████╗████████╗████████╗███████╗██████╗
@@ -25,12 +25,11 @@ const TITLE_TEXT = `
  `;
 
 const inputClass =
-  "h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring";
+	"h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring";
 
 export default function Home() {
 	const router = useRouter();
 	const healthCheck = useQuery(trpc.healthCheck.queryOptions());
-	const { data: session } = authClient.useSession();
 
 	const [mode, setMode] = useState<"signin" | "signup">("signin");
 	const [name, setName] = useState("");
@@ -40,26 +39,42 @@ export default function Home() {
 	const [loading, setLoading] = useState(false);
 
 	useEffect(() => {
-		if (session?.user) router.replace("/workspace");
-	}, [session, router]);
+		let active = true;
+		const supabase = createBrowserSupabase();
+		supabase.auth.getSession().then(({ data }) => {
+			if (active && data.session) router.replace("/workspace");
+		});
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange((_event, session) => {
+			if (active && session) router.replace("/workspace");
+		});
+		return () => {
+			active = false;
+			subscription.unsubscribe();
+		};
+	}, [router]);
 
 	const onSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setSubmitError("");
 		setLoading(true);
 		try {
+			const supabase = createBrowserSupabase();
 			const res =
 				mode === "signin"
-					? await authClient.signIn.email({ email, password })
-					: await authClient.signUp.email({ email, password, name });
+					? await supabase.auth.signInWithPassword({ email, password })
+					: await supabase.auth.signUp({
+							email,
+							password,
+							options: { data: { name: name || email } },
+						});
 
 			if (res.error) {
 				setSubmitError(res.error.message ?? "Something went wrong");
 			} else {
-				toast.success(
-					mode === "signin" ? "Welcome back" : "Account created",
-				);
-				router.push("/workspace");
+				toast.success(mode === "signin" ? "Welcome back" : "Account created");
+				router.replace("/workspace");
 				router.refresh();
 			}
 		} catch (err) {
@@ -109,15 +124,13 @@ export default function Home() {
 							type="password"
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
-							placeholder={
-								mode === "signin" ? "••••••••" : "Min 8 characters"
-							}
+							placeholder={mode === "signin" ? "••••••••" : "Min 8 characters"}
 							minLength={mode === "signup" ? 8 : undefined}
 							required
 						/>
 					</label>
 					{submitError && (
-						<p className="text-sm text-destructive">{submitError}</p>
+						<p className="text-destructive text-sm">{submitError}</p>
 					)}
 					<Button type="submit" disabled={loading}>
 						{loading
@@ -128,7 +141,7 @@ export default function Home() {
 					</Button>
 					<button
 						type="button"
-						className="w-fit text-sm text-muted-foreground hover:text-foreground"
+						className="w-fit text-muted-foreground text-sm hover:text-foreground"
 						onClick={() =>
 							setMode((m) => (m === "signin" ? "signup" : "signin"))
 						}
