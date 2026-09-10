@@ -718,13 +718,18 @@ export class WorkflowService {
 		Array<{
 			workflow: Workflow;
 			execution: WorkflowExecution | null;
+			messageCount: number;
 		}>
 	> {
 		const workflows = await this.workflows.listByUser(userId, limit);
 		return Promise.all(
 			workflows.map(async (workflow) => {
 				const executions = await this.executions.listByWorkflow(workflow.id, 1);
-				return { workflow, execution: executions[0] ?? null };
+				return {
+					workflow,
+					execution: executions[0] ?? null,
+					messageCount: await this.executions.countByWorkflow(workflow.id),
+				};
 			}),
 		);
 	}

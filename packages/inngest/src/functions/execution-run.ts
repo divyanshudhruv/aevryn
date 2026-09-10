@@ -686,10 +686,6 @@ export async function persistAndCompleteStep(
 		(count, step) => count + step.toolCalls.length,
 		0,
 	);
-	await workflowService.recordSteps({
-		executionId: outcome.executionId,
-		steps: result.steps,
-	});
 	let planEmitted = false;
 	let finalizedStatus:
 		| "completed"
@@ -700,14 +696,62 @@ export async function persistAndCompleteStep(
 		| "awaiting_approval" = "completed";
 	if (outcome.mode === "planning") {
 		const plan = extractPlan(result.text);
-		if (plan) {
+		if (
+			plan &&
+			plan.kind !== "chat" &&
+			!plan.objective?.trim() &&
+			!plan.summary?.trim() &&
+			(plan.steps?.length ?? 0) === 0
+		) {
+			// The model defaulted to a question-only "Clarification Needed"
+			// plan card. That is just conversation — convert it to a plain
+			// text chat reply instead of showing the question flow.
+			plan.kind = "chat";
+			plan.chatReply = plan.intake?.length
+				? `Sure — ${plan.intake.map((q) => q.title).join(" ")}`
+				: "What would you like me to do?";
+		}
+		if (plan?.kind === "chat" && plan.chatReply) {
+			// Small talk: reply directly as a chat step — no plan card, no
+			// intake, no confirmation gate. The workflow stays a plain thread.
+			await workflowService.recordSteps({
+				executionId: outcome.executionId,
+				steps: [
+					{
+						order: 0,
+						kind: "chat",
+						text: plan.chatReply,
+						toolCalls: [],
+						createdAt: new Date(),
+					},
+				],
+			});
+		} else if (plan) {
 			await workflowService.updatePlan(outcome.workflowId, plan);
 			planEmitted = true;
+			// Record the plan summary as the assistant's reply so the
+			// transcript shows a real bubble instead of an empty "…".
+			await workflowService.recordSteps({
+				executionId: outcome.executionId,
+				steps: [
+					{
+						order: 0,
+						kind: "chat",
+						text: plan.summary,
+						toolCalls: [],
+						createdAt: new Date(),
+					},
+				],
+			});
 		}
 		await workflowService.completeExecution({
 			executionId: outcome.executionId,
 		});
 	} else {
+		await workflowService.recordSteps({
+			executionId: outcome.executionId,
+			steps: result.steps,
+		});
 		const execution = await workflowService.getExecution(outcome.executionId);
 		const requiredApprovals = execution
 			? result.pendingApprovals.filter(

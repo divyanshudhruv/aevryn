@@ -37,7 +37,10 @@ export default function WorkspacePage() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <div className="flex h-full min-h-0 flex-col">
+        <div
+          className="flex h-full min-h-0 flex-col"
+          suppressHydrationWarning
+        >
           <WorkspaceHeader />
           <section
             aria-label="New thread"

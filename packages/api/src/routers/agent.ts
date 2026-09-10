@@ -134,6 +134,10 @@ export const agentRouter = router({
 			);
 			const executionId = started.execution.id;
 
+			// Fire the queue enqueue without blocking the response: the thread
+			// must be created and navigated to even if the inngest worker is not
+			// running yet. A failed hand-off just marks the run failed; the user
+			// can re-run from the header once the worker is up.
 			try {
 				await inngest.send({
 					name: executionRunEvent,
@@ -144,14 +148,11 @@ export const agentRouter = router({
 						modelContextCapChars: input.modelContextCapChars,
 					},
 				});
-			} catch (error) {
-				const message =
-					error instanceof Error ? error.message : "Unknown error";
+			} catch {
 				await workflowService.failExecution({
 					executionId,
-					reason: message,
+					reason: "Run could not be queued (inngest worker not reachable)",
 				});
-				throw error;
 			}
 
 			return {
@@ -552,7 +553,7 @@ export const agentRouter = router({
 				ctx.session.user.id,
 				input.limit ?? 20,
 			);
-			return runs.map(({ workflow, execution }) => ({
+			return runs.map(({ workflow, execution, messageCount }) => ({
 				workflow: {
 					id: workflow.id,
 					objective: workflow.objective,
@@ -568,6 +569,7 @@ export const agentRouter = router({
 							completedAt: execution.completedAt,
 						}
 					: null,
+				messageCount,
 			}));
 		}),
 	listNotifications: protectedProcedure

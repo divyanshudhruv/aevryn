@@ -15,6 +15,7 @@ import {
   toolDisplayName,
 } from "@aevryn/ui/components/tool-step-card";
 import { cn } from "@aevryn/ui/lib/utils";
+import { useIcon } from "@aevryn/ui/lib/icon-context";
 
 interface Group {
   toolName: string;
@@ -44,8 +45,7 @@ function formatTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
+    weekday: "long",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -106,12 +106,26 @@ interface MessageThreadProps {
  *  with their tool/step calls rendered as collapsible thinking steps above the
  *  final response. */
 export function MessageThread({ messages, className }: MessageThreadProps) {
+  const CopyIcon = useIcon("copy");
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {messages.map((message) => {
         const isUser = message.role === "user";
         const tools = message.toolCalls;
-        const body = message.content || (isUser ? "" : "…");
+        const body = message.content;
+        if (!isUser && !body?.trim() && (!tools || tools.length === 0)) {
+          return null;
+        }
+        const actions = body?.trim() ? (
+          <button
+            type="button"
+            aria-label="Copy message"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => void navigator.clipboard.writeText(body)}
+          >
+            <CopyIcon className="size-3.5" />
+          </button>
+        ) : null;
         return (
           <div
             key={message.id}
@@ -124,9 +138,15 @@ export function MessageThread({ messages, className }: MessageThreadProps) {
             {!isUser && tools && tools.length > 0 && (
               <ToolSteps calls={tools} />
             )}
-            <ChatMessage from={isUser ? "user" : "assistant"} time={formatTime(message.createdAt)}>
-              {body}
-            </ChatMessage>
+            {!isUser && !body?.trim() ? null : (
+              <ChatMessage
+                from={isUser ? "user" : "assistant"}
+                time={formatTime(message.createdAt)}
+                actions={actions}
+              >
+                {body}
+              </ChatMessage>
+            )}
           </div>
         );
       })}

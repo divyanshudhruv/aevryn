@@ -4,7 +4,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { SearchableDropdown } from "@aevryn/ui/components/header/searchable-dropdown";
 import InputGroup, {
   InputField,
 } from "@aevryn/ui/components/ui/input-group";
@@ -16,6 +15,8 @@ import { useIcon } from "@aevryn/ui/lib/icon-context";
 import type { MemoryInfo, NotificationInfo } from "@aevryn/ui/lib/chat-types";
 
 import { trpc, queryClient } from "@/utils/trpc";
+import { ThreadSwitcher } from "@/components/thread-switcher";
+import { useThreadStore } from "@/stores/thread-store";
 
 export function WorkspaceHeader({
   threadId,
@@ -40,6 +41,28 @@ export function WorkspaceHeader({
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+
+  const [name, setName] = useState(objective);
+  useEffect(() => setName(objective), [objective]);
+
+  const commitRename = () => {
+    const trimmed = name.trim();
+    if (!threadId) {
+      setName(objective);
+      return;
+    }
+    if (!trimmed || trimmed === objective.trim()) {
+      setName(objective);
+      return;
+    }
+    const { updateThread } = useThreadStore.getState();
+    updateThread(threadId, { objective: trimmed });
+    updateSettings.mutate({
+      workflowId: threadId,
+      objective: trimmed,
+      customPrompt: undefined,
+    });
+  };
 
   const unread = useQuery(trpc.agent.unreadNotifications.queryOptions());
   const notifications = useQuery(
@@ -79,6 +102,7 @@ export function WorkspaceHeader({
     trpc.agent.updateWorkflowSettings.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: [["agent.getThread"]] });
+        queryClient.invalidateQueries({ queryKey: [["agent.listRuns"]] });
       },
     }),
   );
@@ -94,18 +118,26 @@ export function WorkspaceHeader({
   const memoryItems: MemoryInfo[] = memories.data ?? [];
 
   return (
-    <header className="flex h-12 shrink-0 items-center px-4">
+    <header className="flex h-12 shrink-0 items-center px-4" suppressHydrationWarning>
       <div className="flex w-full flex-row items-center justify-between">
         <div className="flex flex-row items-center gap-px">
-          <SearchableDropdown />
+          <ThreadSwitcher activeId={threadId} />
           <InputGroup className="mb-1">
             <InputField
               index={0}
-              className="truncate"
+              className="w-56"
               label=""
-              placeholder="Search teamspaces..."
-              value=""
-              onChange={() => {}}
+              placeholder={threadId ? "Name this thread…" : "New thread"}
+              value={name}
+              readOnly={!threadId}
+              onChange={setName}
+              onBlur={commitRename}
+              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  (e.target as HTMLElement).blur();
+                }
+              }}
             />
           </InputGroup>
         </div>

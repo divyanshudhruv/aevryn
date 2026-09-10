@@ -28,6 +28,7 @@ import type {
   PlanInfo,
   PlanProgressInfo,
 } from "@aevryn/ui/lib/chat-types";
+import { ThinkingIndicator } from "@aevryn/ui/components/ui/thinking-indicator";
 import {
   SidebarInset,
   SidebarProvider,
@@ -68,6 +69,8 @@ const RESOLVE_QUESTIONS: AskUserQuestion[] = [
     ],
   },
 ];
+
+const EMPTY_MESSAGES: Message[] = [];
 
 function invalidateThread() {
   queryClient.invalidateQueries({
@@ -453,6 +456,16 @@ export default function ThreadPage() {
       !["draft", "completed", "cancelled", "failed"].includes(status),
   );
 
+  // Show the thinking indicator while the latest turn is mid-flight.
+  const lastTurn = data?.turns.at(-1);
+  const thinking =
+    !!lastTurn &&
+    !!lastTurn.execution.status &&
+    !["completed", "failed", "cancelled"].includes(
+      lastTurn.execution.status,
+    ) &&
+    lastTurn.execution.status !== "awaiting_approval";
+
   const approvals: ApprovalInfo[] = (data?.approvals ?? []).map((approval) => ({
     id: approval.id,
     executionId: approval.executionId ?? "",
@@ -471,7 +484,10 @@ export default function ThreadPage() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <div className="flex h-full min-h-0 flex-col">
+        <div
+          className="flex h-full min-h-0 flex-col"
+          suppressHydrationWarning
+        >
           <WorkspaceHeader
             threadId={threadId}
             objective={data?.workflow.objective ?? ""}
@@ -510,6 +526,7 @@ export default function ThreadPage() {
                     planProgress={planProgress}
                     workflowStatus={data?.workflow.status}
                     approvals={approvals}
+                    thinking={thinking}
                     answerIntakeBusy={answerIntake.isPending}
                     confirmBusy={confirmWorkflow.isPending}
                     onAnswerIntake={(answers) =>
@@ -558,6 +575,7 @@ interface ViewThreadProps {
   planProgress: PlanProgressInfo | null;
   workflowStatus?: string;
   approvals: ApprovalInfo[];
+  thinking: boolean;
   answerIntakeBusy: boolean;
   confirmBusy: boolean;
   onAnswerIntake: (answers: Record<string, AskUserAnswer>) => void;
@@ -576,6 +594,7 @@ function ViewThread({
   planProgress,
   workflowStatus,
   approvals,
+  thinking,
   answerIntakeBusy,
   confirmBusy,
   onAnswerIntake,
@@ -584,7 +603,10 @@ function ViewThread({
   resolveBusy,
   onResolveApproval,
 }: ViewThreadProps) {
-  const messages = useMessageStore((s) => s.messagesByThread[threadId] ?? []);
+  const messagesRaw = useMessageStore(
+    (s) => s.messagesByThread[threadId],
+  );
+  const messages = messagesRaw ?? EMPTY_MESSAGES;
   const pending = approvals.filter((a) => a.status === "pending");
   const decided = approvals.filter((a) => a.status !== "pending");
   const hasIntake = (plan?.intake?.length ?? 0) > 0;
@@ -631,6 +653,7 @@ function ViewThread({
         </div>
       ) : null}
       {messages.length > 0 && <MessageThread messages={messages} />}
+      {thinking && <ThinkingIndicator />}
       {pending.map((approval) => (
         <div key={approval.id} className="flex flex-col gap-1.5">
           <div className="flex items-baseline gap-2 px-1 text-[12px] text-muted-foreground">

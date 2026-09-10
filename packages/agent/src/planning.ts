@@ -56,7 +56,12 @@ Rules:
 - Option questions need 2-5 options, each with BOTH a title and a description. freeText true is a single multi-line field.
 - At most 4 intake questions, only the ones that genuinely change the plan.
 - You decide multiSelect and skippable per question. "skippable": true lets the user skip without answering.
-- Layout, chip side, the "other" free-text row and multi-line free-text are fixed by the product — single consistent style, never emitted here.`;
+- Layout, chip side, the "other" free-text row and multi-line free-text are fixed by the product — single consistent style, never emitted here.
+
+CHAT vs TASK — classify the current message FIRST:
+- If it is a greeting, small talk, chit-chat, casual remark, or anything that is NOT a request to get something done (research, build, monitor, book, compare, check, write, fill, send, scrape, alert, summarize...), reply with kind "chat": emit a short friendly chatReply, and NO objective rewrite, NO summary, NO steps, NO intake. Do not ask clarifying questions — just answer.
+- If the message gives you NOTHING concrete to plan either — a bare "hi", "help me", "what can you do?", a single word, or a vague thought you genuinely cannot turn into a task — reply with kind "chat" too: say chatReply describing how you can help (research, build, monitors, alerts, analysis), still with NO intake questions and NO plan card. Do NOT emit an "intake" array or a question flow in this case.
+- Otherwise reply with kind "plan" (or omit "kind" entirely) using the full plan shape above.`;
 
 export function createPlanningRegistry(): CapabilityRegistry {
 	const full = createDefaultRegistry();

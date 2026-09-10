@@ -58,6 +58,9 @@ export interface SidebarThreadItem {
   label: string;
   status: NavItemStatus;
   badge?: string;
+  /** Number of messages sent on this thread — rendered as the row badge
+   *  when present (message count wins over a generic `badge`). */
+  messageCount?: number;
 }
 
 export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
@@ -67,11 +70,22 @@ export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
   activeThreadId?: string | null;
   onNavigate?: (id: string) => void;
   onNewThread?: () => void;
+  onRunThread?: (id: string) => void;
+  onRenameThread?: (id: string) => void;
+  onDeleteThread?: (id: string) => void;
 }
 
 export function AppSidebar(props: AppSidebarProps) {
-  const { threads, activeThreadId, onNavigate, onNewThread, ...sidebarProps } =
-    props;
+  const {
+    threads,
+    activeThreadId,
+    onNavigate,
+    onNewThread,
+    onRunThread,
+    onRenameThread,
+    onDeleteThread,
+    ...sidebarProps
+  } = props;
   const [active, setActive] = useState("New pricing page exploration");
   const [callouts, setCallouts] = useState(CALLOUTS);
   const dismiss = (id: number) =>
@@ -181,9 +195,71 @@ export function AppSidebar(props: AppSidebarProps) {
                   >
                     {item.label}
                   </SidebarMenuButton>
-                  {item.badge && (
+                  {(item.messageCount ?? 0) > 0 && (
+                    <SidebarMenuBadge>{item.messageCount}</SidebarMenuBadge>
+                  )}
+                  {item.badge && (item.messageCount ?? 0) === 0 && (
                     <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
                   )}
+                  <SidebarMenuActions showOnHover>
+                    {onRunThread && (
+                      <Tooltip content="Run" side="top">
+                        <SidebarMenuAction
+                          aria-label="Run"
+                          onClick={() => onRunThread(item.id)}
+                        >
+                          <PlayIcon />
+                        </SidebarMenuAction>
+                      </Tooltip>
+                    )}
+                    {onRenameThread && (
+                      <Tooltip content="Rename" side="top">
+                        <SidebarMenuAction
+                          aria-label="Rename"
+                          onClick={() => onRenameThread(item.id)}
+                        >
+                          <PencilIcon />
+                        </SidebarMenuAction>
+                      </Tooltip>
+                    )}
+                    <DropdownMenu>
+                      <DropdownTrigger
+                        render={
+                          <SidebarMenuAction aria-label="More options">
+                            <MoreVerticalIcon />
+                          </SidebarMenuAction>
+                        }
+                      />
+                      <DropdownContent
+                        className="min-w-0 w-[240px]"
+                        align="start"
+                        sideOffset={4}
+                      >
+                        {onRenameThread && (
+                          <MenuItem
+                            index={0}
+                            icon={PencilIcon}
+                            label="Rename"
+                            onSelect={() => onRenameThread(item.id)}
+                          />
+                        )}
+                        <MenuItem
+                          index={1}
+                          icon={LinkIcon}
+                          label="Share"
+                          onSelect={() => {}}
+                        />
+                        {onDeleteThread && (
+                          <MenuItem
+                            index={2}
+                            icon={DeleteIcon}
+                            label="Delete"
+                            onSelect={() => onDeleteThread(item.id)}
+                          />
+                        )}
+                      </DropdownContent>
+                    </DropdownMenu>
+                  </SidebarMenuActions>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

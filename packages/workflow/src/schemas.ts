@@ -177,6 +177,13 @@ export const planSchema = z.object({
 	objective: z.string().min(1).max(2000),
 	summary: z.string().min(1).max(2000),
 	steps: z.array(z.string().min(1).max(2000)).max(20).optional(),
+	/** Classifies the planner's response: "plan" for a real task workflow
+	 *  (plan card + confirmation gate) or "chat" for greetings/small talk,
+	 *  which replies with `chatReply` and never shows the plan/question UI.
+	 *  Absent/omitted means "plan" (back-compat with stored plans). */
+	kind: z.enum(["chat", "plan"]).optional(),
+	/** The chat reply when `kind` is "chat". Ignored otherwise. */
+	chatReply: z.string().min(1).max(2000).optional(),
 	/** Interactive clarifying questions the UI shows before the plan is
 	 *  confirmed. Absent when the objective was already concrete. */
 	intake: z.array(planIntakeQuestionSchema).max(12).optional(),
