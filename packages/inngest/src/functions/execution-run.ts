@@ -142,11 +142,21 @@ async function buildConversationInstructions(
 		executionId,
 		maxChars,
 	);
+	const workflow = await workflowService.getWorkflowById(workflowId);
+	const customPrompt = workflow?.customPrompt
+		? `CUSTOM PROMPT (follow this before the standard instructions below):\n${workflow.customPrompt}`
+		: null;
 	if (mode === "planning") {
-		const base = PLANNING_SYSTEM_INSTRUCTIONS;
+		let base = PLANNING_SYSTEM_INSTRUCTIONS;
+		if (customPrompt) {
+			base = `${customPrompt}\n\n${base}`;
+		}
 		return context ? `${base}\n\n${context}` : base;
 	}
 	let base = RUN_DECISION_INSTRUCTIONS;
+	if (customPrompt) {
+		base = `${customPrompt}\n\n${base}`;
+	}
 	if (recoveryContext) {
 		base = `${base}\n\n${recoveryBlock(recoveryContext)}`;
 	}

@@ -1042,6 +1042,30 @@ export class WorkflowService {
 		await this.workflows.delete(workflowId);
 	}
 
+	async setWorkflowObjective(
+		workflowId: string,
+		objective: string,
+	): Promise<void> {
+		await this.workflows.setObjective(workflowId, objective);
+		await this.events.insert({
+			workflowId,
+			type: "workflow.objective.updated",
+			data: { objective },
+		});
+	}
+
+	async setWorkflowCustomPrompt(
+		workflowId: string,
+		customPrompt: string | null,
+	): Promise<void> {
+		await this.workflows.setCustomPrompt(workflowId, customPrompt);
+		await this.events.insert({
+			workflowId,
+			type: "workflow.custom_prompt.updated",
+			data: { customPrompt },
+		});
+	}
+
 	/**
 	 * Persist token/cost usage for an execution. Cheap enough to also fire on
 	 * the failure path; never throws into the caller.

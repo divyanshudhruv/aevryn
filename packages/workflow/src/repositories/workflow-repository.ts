@@ -91,6 +91,22 @@ export class WorkflowRepository {
 		return rows[0];
 	}
 
+	async setCustomPrompt(
+		id: string,
+		prompt: string | null,
+		client: DbClient = db,
+	): Promise<Workflow> {
+		const rows = await client
+			.update(workflow)
+			.set({ customPrompt: prompt })
+			.where(eq(workflow.id, id))
+			.returning();
+		if (!rows[0]) {
+			throw new WorkflowNotFoundError(id);
+		}
+		return rows[0];
+	}
+
 	async listByUser(
 		userId: string,
 		limit = 50,

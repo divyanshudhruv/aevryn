@@ -474,6 +474,9 @@ export default function ThreadPage() {
         <div className="flex h-full min-h-0 flex-col">
           <WorkspaceHeader
             threadId={threadId}
+            objective={data?.workflow.objective ?? ""}
+            customPrompt={data?.workflow.customPrompt ?? ""}
+            exportData={data ?? null}
             controls={
               <WorkflowControls
                 status={status}

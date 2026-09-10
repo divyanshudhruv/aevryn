@@ -11,6 +11,7 @@ export const workflow = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		objective: text("objective").notNull(),
+		customPrompt: text("custom_prompt"),
 		status: text("status", { enum: WORKFLOW_STATUSES })
 			.notNull()
 			.default("draft"),

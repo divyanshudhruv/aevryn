@@ -20,9 +20,15 @@ import { trpc, queryClient } from "@/utils/trpc";
 export function WorkspaceHeader({
   threadId,
   controls,
+  objective = "",
+  customPrompt = "",
+  exportData,
 }: {
   threadId?: string;
   controls?: ReactNode;
+  objective?: string;
+  customPrompt?: string;
+  exportData?: unknown;
 }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -66,6 +72,13 @@ export function WorkspaceHeader({
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: [["agent.listMemories"]] });
         queryClient.invalidateQueries({ queryKey: [["agent.listThreadMemories"]] });
+      },
+    }),
+  );
+  const updateSettings = useMutation(
+    trpc.agent.updateWorkflowSettings.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [["agent.getThread"]] });
       },
     }),
   );
@@ -141,14 +154,22 @@ export function WorkspaceHeader({
         open={moreOpen}
         onClose={() => setMoreOpen(false)}
         threadId={threadId}
+        objective={objective}
+        customPrompt={customPrompt}
+        saveBusy={updateSettings.isPending}
+        onSaveSettings={(values) =>
+          threadId &&
+          updateSettings.mutate({ workflowId: threadId, ...values })
+        }
         memories={memoryItems}
         memoriesBusy={deleteAllMemory.isPending}
         onDeleteMemory={(id) => deleteMemory.mutate({ ids: [id] })}
-        onDeleteAll={
-          threadId
-            ? undefined
-            : () => deleteAllMemory.mutate()
-        }
+        onDeleteAll={threadId ? undefined : () => deleteAllMemory.mutate()}
+        exportData={exportData ?? {
+          exportedAt: new Date().toISOString(),
+          workflowId: threadId ?? null,
+          objective,
+        }}
       />
     </header>
   );

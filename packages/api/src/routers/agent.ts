@@ -337,6 +337,7 @@ export const agentRouter = router({
 				workflow: {
 					id: thread.workflow.id,
 					objective: thread.workflow.objective,
+					customPrompt: thread.workflow.customPrompt ?? null,
 					status: thread.workflow.status,
 					createdAt: thread.workflow.createdAt,
 				},
@@ -721,6 +722,30 @@ resumeWorkflow: protectedProcedure
 			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
 			await workflowService.deleteWorkflow(input.workflowId);
 			return { deleted: true as const };
+		}),
+	updateWorkflowSettings: protectedProcedure
+		.input(
+			z.object({
+				workflowId: z.string().min(1),
+				objective: z.string().trim().min(1).max(1000).optional(),
+				customPrompt: z.string().trim().max(4000).nullable().optional(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			if (input.objective !== undefined) {
+				await workflowService.setWorkflowObjective(
+					input.workflowId,
+					input.objective,
+				);
+			}
+			if (input.customPrompt !== undefined) {
+				await workflowService.setWorkflowCustomPrompt(
+					input.workflowId,
+					input.customPrompt,
+				);
+			}
+			return { updated: true as const };
 		}),
 	listMemories: protectedProcedure.query(async ({ ctx }) => {
 		try {
