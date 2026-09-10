@@ -67,3 +67,22 @@ export interface PlanProgressInfo {
 	status: PlanProgressStatus;
 	note?: string;
 }
+
+export interface NotificationInfo {
+	id: string;
+	workflowId: string | null;
+	channel: string;
+	type: string;
+	subject: string | null;
+	body: unknown;
+	createdAt: string;
+	readAt: string | null;
+}
+
+export interface MemoryInfo {
+	id: string;
+	text: string;
+	category: string;
+	score: number | null;
+	createdAt: string;
+}

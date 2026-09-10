@@ -519,6 +519,31 @@ export const agentRouter = router({
 		);
 		return { count };
 	}),
+	listThreadMemories: protectedProcedure
+		.input(workflowIdSchema)
+		.query(async ({ input, ctx }) => {
+			try {
+				const entries = await memoryStore.listForUser({
+					userId: ctx.session.user.id,
+					limit: 100,
+				});
+				return entries
+					.filter(
+						(entry) =>
+							(entry.metadata as Record<string, unknown> | undefined)
+								?.workflowId === input.workflowId,
+					)
+					.map((entry) => ({
+						id: entry.id,
+						text: entry.text,
+						category: entry.category,
+						score: entry.score ?? null,
+						createdAt: entry.createdAt,
+					}));
+			} catch {
+				return [];
+			}
+		}),
 	listRuns: protectedProcedure
 		.input(z.object({ limit: z.number().int().min(1).max(50).optional() }))
 		.query(async ({ input, ctx }) => {
