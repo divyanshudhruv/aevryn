@@ -23,10 +23,40 @@ Once the objective is concrete, end your reply with a fenced \`\`\`json block of
   "title": "short human-readable name for the workflow",
   "objective": "one crisp, self-contained sentence the agent will execute",
   "summary": "1-2 sentences describing what the workflow will do",
-  "steps": ["high-level step 1", "step 2"] (optional)
+  "steps": ["high-level step 1", "step 2"] (optional),
+  "intake": [ ... ] (optional, see below)
 }
 
-If you still need clarification, end WITHOUT the JSON block and list your questions. If the user changes the goal, emit a fresh JSON block reflecting the new intent.`;
+INTERACTIVE INTAKE — only when genuine clarification blocks a concrete plan, you may add an "intake" array alongside the plan. The UI renders each entry as an interactive question card the user answers (this is the official way to ask — do NOT end with plain-text questions). Each entry is ONE of two shapes:
+
+Option question:
+{
+  "freeText": false,
+  "id": "marketplace",
+  "title": "Which marketplace should we target?",
+  "multiSelect": true,
+  "skippable": false,
+  "options": [
+    { "title": "Amazon", "description": "Largest reach, harder to rank." },
+    { "title": "Shopify", "description": "Faster setup, smaller audience." }
+  ]
+}
+
+Free-text question:
+{
+  "freeText": true,
+  "id": "budget",
+  "title": "What is the budget ceiling?",
+  "skippable": true,
+  "placeholder": "e.g. \$500/month"
+}
+
+Rules:
+- NO intake when the objective is already concrete — the intake array is optional and defaults to absent.
+- Option questions need 2-5 options, each with BOTH a title and a description. freeText true is a single multi-line field.
+- At most 4 intake questions, only the ones that genuinely change the plan.
+- You decide multiSelect and skippable per question. "skippable": true lets the user skip without answering.
+- Layout, chip side, the "other" free-text row and multi-line free-text are fixed by the product — single consistent style, never emitted here.`;
 
 export function createPlanningRegistry(): CapabilityRegistry {
 	const full = createDefaultRegistry();

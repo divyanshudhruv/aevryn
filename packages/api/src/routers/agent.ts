@@ -2,6 +2,7 @@ import { env } from "@aevryn/env/server";
 import { executionRunEvent, inngest } from "@aevryn/inngest";
 import {
 	Mem0MemoryStore,
+	type Plan,
 	resolveApprovalSchema,
 	WorkflowService,
 } from "@aevryn/workflow";
@@ -17,6 +18,16 @@ const sendMessageSchema = z.object({
 });
 
 const workflowIdSchema = z.object({ workflowId: z.string().min(1) });
+
+const intakeAnswerSchema = z.object({
+	selectedIds: z.array(z.string().min(1)).optional(),
+	otherText: z.string().max(4000).optional(),
+	skipped: z.boolean().optional(),
+});
+
+const answerIntakeSchema = workflowIdSchema.extend({
+	answers: z.record(z.string().min(1).max(80), intakeAnswerSchema),
+});
 
 const updateObjectiveSchema = z.object({
 	workflowId: z.string().min(1),
@@ -69,6 +80,34 @@ async function requireOwnedWorkflow(workflowId: string, userId: string) {
 	return workflow;
 }
 
+/** Renders the user's intake answers as a compact block the planner can fold
+ *  into the finalized plan. Option ids follow the UI convention minted by
+ *  `intakeToQuestions` — `<questionId>-o-<index>`. */
+function formatIntakeAnswers(
+	plan: Plan,
+	answers: z.infer<typeof answerIntakeSchema>["answers"],
+): string {
+	const lines: string[] = [];
+	for (const q of plan.intake ?? []) {
+		const answer = answers[q.id];
+		if (!answer || answer.skipped) {
+			lines.push(`- ${q.title}: skipped`);
+			continue;
+		}
+		if (q.freeText) {
+			lines.push(`- ${q.title}: ${answer.otherText ?? ""}`);
+			continue;
+		}
+		const chosen = (answer.selectedIds ?? [])
+			.map((id) => q.options.find((_, oi) => `${q.id}-o-${oi}` === id))
+			.filter((option): option is (typeof q.options)[number] => option !== undefined)
+			.map((option) => option.title);
+		const extra = answer.otherText?.trim() ? ` (${answer.otherText.trim()})` : "";
+		lines.push(`- ${q.title}: ${chosen.join(", ")}${extra}`);
+	}
+	return lines.join("\n");
+}
+
 export const agentRouter = router({
 	sendMessage: protectedProcedure
 		.input(sendMessageSchema)
@@ -118,6 +157,57 @@ export const agentRouter = router({
 			return {
 				workflowId,
 				executionId,
+				status: "queued" as const,
+			};
+		}),
+	/**
+	 * Answer-to-plan round: the user answered the planner's intake questions.
+	 * A fresh planning-mode run is queued with those answers as context, so the
+	 * planner finalizes the plan. The workflow stays in `draft` (planning mode)
+	 * for this run; if the plan still carries `intake`, the UI asks again
+	 * (iterative clarification), otherwise the plan is ready to run.
+	 */
+	answerIntake: protectedProcedure
+		.input(answerIntakeSchema)
+		.mutation(async ({ input, ctx }) => {
+			await requireOwnedWorkflow(input.workflowId, ctx.session.user.id);
+			const plan = await workflowService.getPlan(input.workflowId);
+			if (!plan || !plan.intake?.length) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Workflow has no open planning questions",
+				});
+			}
+			const answersBlock = formatIntakeAnswers(plan, input.answers);
+			const prompt = `${plan.objective}\n\nThe user has answered your planning questions. Finalize the plan with these answers and emit the finished plan JSON. Use another intake only if something is still genuinely blocking a concrete plan:\n${answersBlock}`;
+			const started = await workflowService.enqueueMessage(
+				input.workflowId,
+				prompt,
+			);
+			try {
+				await inngest.send({
+					name: executionRunEvent,
+					data: {
+						workflowId: input.workflowId,
+						executionId: started.execution.id,
+						prompt,
+					},
+				});
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : "Unknown error";
+				await workflowService.failExecution({
+					executionId: started.execution.id,
+					reason: message.slice(0, 500),
+				});
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Answers saved but the refine run could not be queued",
+				});
+			}
+			return {
+				workflowId: input.workflowId,
+				executionId: started.execution.id,
 				status: "queued" as const,
 			};
 		}),

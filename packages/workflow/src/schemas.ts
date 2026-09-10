@@ -133,11 +133,53 @@ export const toolActivityUpsertSchema = z.object({
 
 export type ToolActivityUpsert = z.infer<typeof toolActivityUpsertSchema>;
 
+export const planIntakeOptionSchema = z.object({
+	title: z.string().min(1).max(200),
+	description: z.string().min(1).max(500),
+});
+
+export type PlanIntakeOption = z.infer<typeof planIntakeOptionSchema>;
+
+/**
+ * One question of the interactive planning intake (what the UI shows as an
+ * AskUserQuestions flow before the plan is confirmed). Discriminated on
+ * `freeText`:
+ * - option question: 2-5 options, each with a description; the user may also
+ *   pick an "other" free-text row, multiSelect and skippable are LLM choices.
+ * - free-text question: a single multi-line field; skippable is the LLM choice.
+ *
+ * Everything else — layout "stacked", chipPosition "right", allowOther,
+ * freeTextMultiline — is fixed by design and injected by the UI converter.
+ * The LLM must never emit those fields.
+ */
+export const planIntakeQuestionSchema = z.discriminatedUnion("freeText", [
+	z.object({
+		freeText: z.literal(true),
+		id: z.string().min(1).max(80),
+		title: z.string().min(1).max(200),
+		skippable: z.boolean().optional(),
+		placeholder: z.string().max(200).optional(),
+	}),
+	z.object({
+		freeText: z.literal(false),
+		id: z.string().min(1).max(80),
+		title: z.string().min(1).max(200),
+		multiSelect: z.boolean().optional(),
+		skippable: z.boolean().optional(),
+		options: z.array(planIntakeOptionSchema).min(2).max(5),
+	}),
+]);
+
+export type PlanIntakeQuestion = z.infer<typeof planIntakeQuestionSchema>;
+
 export const planSchema = z.object({
 	title: z.string().min(1).max(200),
 	objective: z.string().min(1).max(2000),
 	summary: z.string().min(1).max(2000),
 	steps: z.array(z.string().min(1).max(2000)).max(20).optional(),
+	/** Interactive clarifying questions the UI shows before the plan is
+	 *  confirmed. Absent when the objective was already concrete. */
+	intake: z.array(planIntakeQuestionSchema).max(12).optional(),
 });
 
 export type Plan = z.infer<typeof planSchema>;

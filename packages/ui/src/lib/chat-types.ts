@@ -21,3 +21,49 @@ export interface ThreadMessage {
 	toolCalls?: StepCall[];
 	approvalPending?: boolean;
 }
+
+export type ApprovalResolve = "approve" | "deny";
+
+export type ApprovalStatus = "pending" | "approved" | "denied";
+
+export interface ApprovalInfo {
+	id: string;
+	executionId: string;
+	toolName: string;
+	status: ApprovalStatus;
+	input: Record<string, unknown>;
+	reason?: string | null;
+	createdAt: string;
+	decidedAt?: string | null;
+}
+
+export interface PlanIntakeOption {
+	title: string;
+	description: string;
+}
+
+export interface PlanIntakeQuestion {
+	freeText: boolean;
+	id?: string;
+	title: string;
+	skippable?: boolean;
+	multiSelect?: boolean;
+	placeholder?: string;
+	options?: PlanIntakeOption[];
+}
+
+export interface PlanInfo {
+	title: string;
+	objective: string;
+	summary: string;
+	steps?: string[];
+	intake?: PlanIntakeQuestion[];
+}
+
+export type PlanProgressStatus = "in_progress" | "completed";
+
+export interface PlanProgressInfo {
+	currentStep: number;
+	status: PlanProgressStatus;
+	note?: string;
+}
