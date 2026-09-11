@@ -3,7 +3,7 @@
   "checkpoint_id": "34155f26ee4f",
   "strategy": "manual-commit",
   "branch": "backend/rewrite",
-  "checkpoints_count": 51,
+  "checkpoints_count": 72,
   "files_touched": [
     "packages/db/drizzle.config.ts",
     "packages/db/src/domain.ts",
@@ -61,13 +61,20 @@
       "compact_transcript": "/34/155f26ee4f/1/transcript.jsonl",
       "content_hash": "/34/155f26ee4f/1/content_hash.txt",
       "prompt": "/34/155f26ee4f/1/prompt.txt"
+    },
+    {
+      "metadata": "/34/155f26ee4f/2/metadata.json",
+      "transcript": "/34/155f26ee4f/2/full.jsonl",
+      "compact_transcript": "/34/155f26ee4f/2/transcript.jsonl",
+      "content_hash": "/34/155f26ee4f/2/content_hash.txt",
+      "prompt": "/34/155f26ee4f/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 1165102,
+    "input_tokens": 3127045,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 18081600,
-    "output_tokens": 141155,
-    "api_call_count": 239
+    "cache_read_tokens": 47061184,
+    "output_tokens": 424158,
+    "api_call_count": 594
   }
 }

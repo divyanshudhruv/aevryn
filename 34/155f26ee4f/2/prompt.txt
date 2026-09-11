@@ -1,0 +1,21 @@
+alright so first you have to audit my codebase, you are only read only mode... you cant run any git command or modify any files, thos you can see, read, open, run commands etc.... I have wrote `NEWTODO` somewhere in files accross many files that rewuires changes. and also see /docs directory and /internal directory. These contain the older docs and internal files of my codebase. You can just see it so that you know the basics of what I am building. YOu do not have to remember it or use it for further coding, because my plan has a lot of changes... YOU ARE A PROFESSIONAL CODE REVIEWER right? find and understand what my codebase actualyl does earlier. then create another directory `final-docs` and add it to gitignore, and then write your observations in it. So basically earlier, the codebase and backend was messy and fucked up, all the thigns were happenin in inngest side, cron was not working, database schema was trash, evrything was trash and  not working. Right now UI is 90% made, just real inputs and informations from database or ingnest  is reuired to be put, or realtime... Earlier vercel ai sdk was no working too... Now i have nearly  every UI component for every thing... a few 5-6 are left, like markdown parser, codeblock markdown, but those i will add it later. Earlier the schema sent to the vercel LLM was trash too, i want a definite schema with description that llm can understand, and prompts was bad too. And there were no perfect tools invoked by  vercel ai sdk, so audit that too.... So what i am building it an ai agent that works on web, uses anakin for workflow creation, may/may not use cron job, can work even if user closes the window, and uses anakin for everything, it is for a hackathon. Right now eveyrthign is messy.... I rebuilt the UI, see that, usdestad how user talks with llm.... right? search for `NEWTODO`, i have it in a lot of files with texts after it, and see what i wrote.... So basically learn what i am making, and learn what's the issue...... Just give your observations in a new directory and file i told you earlier...... Read only mode, no write or  git commands.....
+
+---
+
+Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.
+
+---
+
+alright, soon i am going to send you my plan or how my tool will actualyl work, rathe rthan this old backend okay? then you have to rewrite the backend and apply logict to frontend or you can ask me several qestions before rewriting okay?  currently i am writing the plan
+
+---
+
+see LLM_INSTRUCTIONS.md for my plan and questions, assing your sub agents to do tasks use /final-docs for writing your observation and sub folder and files creations, and the full architecture , new schema, new PLAN inside it. and write everything and even reason your own (USE YOUR designated INSTALLED SKILLS, make sure you do not hallucinate from OLDER plans (i already deleted older docs and instrctuions, except i renamed AGENTS.md to AGENTS_OLD.md, so that u do not look at it)). Now you are in a read only state got it? Please do not run any destructive commands, you can run commadns that you like but not descructive. Now go and read and perform the tasks, do nto ask questions, yo ucan write questions.md file or just follow waht u need got it ?? Continut, great job baby
+
+---
+
+i answerd the questions in QUESTIONS.md ans MISSING.md in these file itself.... So tell me in chat what needds to be updated or changed in the new plan and new architecture and all the files you created. Also tell me, I dont know how invite memebrs the dropdowns, member, owner, admin will work, cuz these dropdowns have no meaning, waht will admin do, what will members do. I don't know. And what about thread only invite? (it creates a new group called INVITES, and in the button of the invited thread a badge will appear on the right, beside the number, so that user can know that this is invited thread). or what? explain what will invite do, and how will i manage the memebrs, uses, and the permisisons, visibiltiy to only a few threads in workspace or what... Tell me after readming my answers. If yo uhave any more questions ask in chat using your tool. And then update all the /docs-final files you created.
+
+---
+
+Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.
