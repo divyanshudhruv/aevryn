@@ -63,11 +63,12 @@ enabled = true
 schema_paths = []
 
 [db.seed]
-# If enabled, seeds the database after migrations during a db reset.
-enabled = true
+# Seeding via files is DISABLED — workspace/profile/group bootstrap is done
+# by the on_auth_user_created DB trigger (see SCHEMA.md "Oracle triggers").
+enabled = false
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-sql_paths = ["./seed.sql"]
+sql_paths = []
 
 [db.network_restrictions]
 # Enable management of network restrictions.

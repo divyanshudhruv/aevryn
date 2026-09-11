@@ -4,6 +4,13 @@ dotenv.config({
 	path: "../../apps/web/.env",
 });
 
+if (process.env.CI || process.env.VERCEL) {
+	console.error(
+		"RESET: refusing to truncate tables in CI/Vercel (destructive op).",
+	);
+	process.exit(1);
+}
+
 const { db } = await import("@aevryn/db");
 
 import { sql } from "drizzle-orm";
