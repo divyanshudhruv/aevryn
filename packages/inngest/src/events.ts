@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-export const executionRunEvent = "execution/run" as const;
+export const threadRunEvent = "thread/run" as const;
 
-export const executionRunEventSchema = z.object({
-	workflowId: z.string().min(1),
-	executionId: z.string().min(1),
+export const threadRunEventSchema = z.object({
+	runId: z.string().min(1),
+	threadId: z.string().min(1),
 	prompt: z.string().min(1).max(2000),
 	modelContextCapChars: z.number().int().positive().max(2_000_000).optional(),
 	recoveryContext: z
@@ -17,21 +17,22 @@ export const executionRunEventSchema = z.object({
 	approvedToolNames: z.array(z.string().min(1)).max(20).optional(),
 });
 
-export type ExecutionRunEventData = z.infer<typeof executionRunEventSchema>;
+export type ThreadRunEventData = z.infer<typeof threadRunEventSchema>;
 
 export const notificationPublishEvent = "notification/publish" as const;
 
 export const notificationPublishEventSchema = z.object({
 	notificationId: z.string().min(1),
+	runId: z.string().optional(),
 });
 
 export type NotificationPublishEventData = z.infer<
 	typeof notificationPublishEventSchema
 >;
 
-export const executionRunResultSchema = z.object({
-	workflowId: z.string().min(1),
-	executionId: z.string().min(1),
+export const threadRunResultSchema = z.object({
+	runId: z.string().min(1),
+	threadId: z.string().min(1),
 	status: z.enum([
 		"completed",
 		"skipped",
@@ -47,4 +48,4 @@ export const executionRunResultSchema = z.object({
 	planEmitted: z.boolean().optional(),
 });
 
-export type ExecutionRunResult = z.infer<typeof executionRunResultSchema>;
+export type ThreadRunResult = z.infer<typeof threadRunResultSchema>;

@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { executionRunEvent, inngest } from "@aevryn/inngest";
-import { WorkflowService, webhookFireSchema } from "@aevryn/workflow";
+import { inngest, threadRunEvent } from "@aevryn/inngest";
+import { RunService, ThreadService, webhookFireSchema, WebhookHookService } from "@aevryn/workflow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const workflowService = new WorkflowService();
+const runService = new RunService();
+const threadService = new ThreadService();
+const webhookHookService = new WebhookHookService();
 
 function jsonResponse(status: number, body: unknown): Response {
 	return Response.json(body, {
@@ -37,8 +39,8 @@ export async function POST(
 		});
 	}
 	const { token } = await params;
-	const fired = await workflowService.fireWebhook({ token, payload });
-	if (!fired.ok || !fired.workflowId || !fired.instruction) {
+	const { ok, hook } = await webhookHookService.consume({ token, payload });
+	if (!ok || !hook) {
 		return jsonResponse(404, {
 			data: null,
 			error: {
@@ -50,25 +52,68 @@ export async function POST(
 			meta: { requestId },
 		});
 	}
-	const started = await workflowService.enqueueMessage(
-		fired.workflowId,
-		fired.instruction,
+	const run = await runService.findById(hook.runId);
+	if (!run) {
+		return jsonResponse(404, {
+			data: null,
+			error: {
+				code: "WEBHOOK_RUN_NOT_FOUND",
+				message: "The waiting run no longer exists.",
+				details: null,
+			},
+			meta: { requestId },
+		});
+	}
+	const thread = await threadService.findById(hook.threadId);
+	if (!thread) {
+		return jsonResponse(404, {
+			data: null,
+			error: {
+				code: "WEBHOOK_THREAD_NOT_FOUND",
+				message: "The waiting thread no longer exists.",
+				details: null,
+			},
+			meta: { requestId },
+		});
+	}
+	await runService.resumeTriggeredBy(run.id);
+	const consumed = (hook.consumePayload ?? {}) as {
+		instruction?: string;
+		payload?: unknown;
+	};
+	const instruction = consumed.instruction ?? "";
+	const payloadText = JSON.stringify(consumed.payload ?? payload);
+	const prompt = `${instruction}${payloadText ? `\n\nWebhook payload received for this run:\n${payloadText}` : ""}`.slice(
+		0,
+		2000,
 	);
 	try {
-		await inngest.send({
-			name: executionRunEvent,
-			data: {
-				workflowId: fired.workflowId,
-				executionId: started.execution.id,
-				prompt: fired.instruction,
+		await runService.createActivity({
+			runId: run.id,
+			type: "system",
+			status: "complete",
+			stepLabel: "webhook.resume",
+			title: "Resumed by webhook",
+			detail: {
+				webhookId: hook.id,
+				instruction,
+				payload: payloadText,
+				firedAt: new Date().toISOString(),
 			},
 		});
-	} catch (error) {
-		const message = error instanceof Error ? error.message : "Unknown error";
-		await workflowService.failExecution({
-			executionId: started.execution.id,
-			reason: message,
+	} catch {
+		// Activity bookkeeping is best-effort; the resume still proceeds.
+	}
+	try {
+		await inngest.send({
+			name: threadRunEvent,
+			data: {
+				runId: run.id,
+				threadId: thread.id,
+				prompt,
+			},
 		});
+	} catch {
 		return jsonResponse(502, {
 			data: null,
 			error: {
@@ -82,8 +127,8 @@ export async function POST(
 	return jsonResponse(200, {
 		data: {
 			accepted: true,
-			workflowId: fired.workflowId,
-			executionId: started.execution.id,
+			runId: run.id,
+			threadId: thread.id,
 		},
 		error: null,
 		meta: { requestId },

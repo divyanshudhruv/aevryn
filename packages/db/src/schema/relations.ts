@@ -10,8 +10,10 @@ import { plans } from "./plan";
 import { planSteps } from "./plan-step";
 import { runs } from "./run";
 import { runActivities } from "./run-activity";
+import { schedules } from "./schedule";
 import { threads } from "./thread";
 import { threadShares } from "./thread-share";
+import { webhookHooks } from "./webhook-hook";
 import { workspaceApiKeys } from "./workspace-api-key";
 import { workspaceMembers } from "./workspace-member";
 import { workspaces } from "./workspace";
@@ -62,6 +64,8 @@ export const threadRelations = relations(threads, ({ one, many }) => ({
 	workflows: many(workflows),
 	chatMessages: many(chatMessages),
 	runs: many(runs),
+	schedules: many(schedules),
+	webhookHooks: many(webhookHooks),
 	shares: many(threadShares),
 	invites: many(invites),
 }));
@@ -131,6 +135,7 @@ export const runRelations = relations(runs, ({ one, many }) => ({
 	reruns: many(runs, { relationName: "rerunOf" }),
 	activities: many(runActivities),
 	approvalRequests: many(approvalRequests),
+	webhookHooks: many(webhookHooks),
 }));
 
 // ── run_activities (self-ref `parent_id` — relationName BOTH sides) ─
@@ -222,6 +227,40 @@ export const fileRelations = relations(files, ({ one }) => ({
 	}),
 	thread: one(threads, {
 		fields: [files.threadId],
+		references: [threads.id],
+	}),
+}));
+
+// ── schedules ───────────────────────────────────────────────────────
+
+export const scheduleRelations = relations(schedules, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [schedules.workspaceId],
+		references: [workspaces.id],
+	}),
+	thread: one(threads, {
+		fields: [schedules.threadId],
+		references: [threads.id],
+	}),
+	lastRun: one(runs, {
+		fields: [schedules.lastRunId],
+		references: [runs.id],
+	}),
+}));
+
+// ── webhook_hooks ───────────────────────────────────────────────────
+
+export const webhookHookRelations = relations(webhookHooks, ({ one }) => ({
+	run: one(runs, {
+		fields: [webhookHooks.runId],
+		references: [runs.id],
+	}),
+	workspace: one(workspaces, {
+		fields: [webhookHooks.workspaceId],
+		references: [workspaces.id],
+	}),
+	thread: one(threads, {
+		fields: [webhookHooks.threadId],
 		references: [threads.id],
 	}),
 }));

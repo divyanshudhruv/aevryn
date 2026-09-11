@@ -48,6 +48,12 @@ export class NotificationService {
 		});
 	}
 
+	async findById(id: string): Promise<Notification | undefined> {
+		return this.scope().query.notifications.findFirst({
+			where: eq(notifications.id, id),
+		});
+	}
+
 	async listUnread(userId: string, limit = 50): Promise<Notification[]> {
 		return this.scope().query.notifications.findMany({
 			where: and(

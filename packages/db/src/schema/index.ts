@@ -16,4 +16,6 @@ export * from "./thread-share";
 export * from "./notification";
 export * from "./workspace-api-key";
 export * from "./file";
+export * from "./schedule";
+export * from "./webhook-hook";
 export * from "./relations";

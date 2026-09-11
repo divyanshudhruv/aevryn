@@ -20,6 +20,8 @@ export const ID_PREFIXES = {
 	notification: "not_",
 	workspaceApiKey: "key_",
 	file: "fil_",
+	schedule: "sched_",
+	webhookHook: "whk_",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIXES)[keyof typeof ID_PREFIXES];
@@ -51,4 +53,6 @@ export const ids = {
 	notification: () => makeId(ID_PREFIXES.notification),
 	workspaceApiKey: () => makeId(ID_PREFIXES.workspaceApiKey),
 	file: () => makeId(ID_PREFIXES.file),
+	schedule: () => makeId(ID_PREFIXES.schedule),
+	webhookHook: () => makeId(ID_PREFIXES.webhookHook),
 } as const;

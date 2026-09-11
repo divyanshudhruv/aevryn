@@ -1,4 +1,4 @@
-import { db, ids, threads, type Db, type Thread, type DbTx } from "@aevryn/db";
+import { chatMessages, db, ids, threads, type ChatMessage, type Db, type Thread, type DbTx } from "@aevryn/db";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
 export interface CreateThreadInput {
@@ -55,6 +55,17 @@ export class ThreadService {
 		return this.scope().query.threads.findMany({
 			where: and(eq(threads.groupId, groupId), isNull(threads.deletedAt)),
 			orderBy: [asc(threads.createdAt)],
+		});
+	}
+
+	async listMessagesByThread(
+		threadId: string,
+		limit = 200,
+	): Promise<ChatMessage[]> {
+		return this.scope().query.chatMessages.findMany({
+			where: eq(chatMessages.threadId, threadId),
+			orderBy: [asc(chatMessages.createdAt)],
+			limit,
 		});
 	}
 

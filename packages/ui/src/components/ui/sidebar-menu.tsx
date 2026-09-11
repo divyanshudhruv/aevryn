@@ -24,7 +24,7 @@ import {
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cva, type VariantProps } from "class-variance-authority";
-import type { ExecutionStatus } from "@aevryn/db/domain";
+import type { RunStatus } from "@aevryn/db/domain";
 import { cn } from "@aevryn/ui/lib/utils";
 import { DotmCircular7 } from "../dotm-circular-7";
 import { DotmCircular4 } from "../dotm-circular-4";
@@ -926,7 +926,7 @@ export const sidebarMenuButtonVariants = cva(
   },
 );
 
-export type MenuRowStatus = ExecutionStatus;
+export type MenuRowStatus = RunStatus;
 
 export interface SidebarMenuButtonProps
   extends

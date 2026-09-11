@@ -6,6 +6,7 @@ import {
 	API_PROVIDERS,
 	APPROVAL_STATUSES,
 	GROUP_KINDS,
+	HOOK_STATUSES,
 	INVITE_KINDS,
 	INVITE_STATUSES,
 	MESSAGE_ROLES,
@@ -39,3 +40,4 @@ export const apiProviderEnum = pgEnum("api_provider", API_PROVIDERS);
 export const planStatusEnum = pgEnum("plan_status", PLAN_STATUSES);
 export const planStepStatusEnum = pgEnum("plan_step_status", PLAN_STEP_STATUSES);
 export const notificationTypeEnum = pgEnum("notification_type", NOTIFICATION_TYPES);
+export const hookStatusEnum = pgEnum("hook_status", HOOK_STATUSES);

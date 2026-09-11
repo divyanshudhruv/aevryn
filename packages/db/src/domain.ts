@@ -112,3 +112,6 @@ export const NOTIFICATION_TYPES = [
 	"webhook",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const HOOK_STATUSES = ["active", "fired", "expired"] as const;
+export type HookStatus = (typeof HOOK_STATUSES)[number];

@@ -1,4 +1,4 @@
-import { computeNextRun, WorkflowService } from "@aevryn/workflow";
+import { computeNextRun, ScheduleService } from "@aevryn/workflow";
 import { z } from "zod";
 
 import type { Capability } from "../capability";
@@ -27,7 +27,7 @@ const createScheduleInputSchema = z
 			.max(2000)
 			.optional()
 			.describe(
-				"Specific instruction to run at each fire. Defaults to the workflow objective.",
+				"Specific instruction to run at each fire. Defaults to the current objective.",
 			),
 		startAt: z
 			.string()
@@ -47,15 +47,16 @@ const createScheduleInputSchema = z
 		}
 	});
 
-export function createScheduleCapability(
-	workflowId: string,
-	userId: string,
-): Capability {
-	const service = new WorkflowService();
+export function createScheduleCapability(context: {
+	threadId: string;
+	workspaceId: string;
+	userId: string;
+}): Capability {
+	const service = new ScheduleService();
 	return {
 		name: "createSchedule",
 		description:
-			"Create a recurring schedule on this workflow. The workflow runs " +
+			"Create a recurring schedule on this thread. The agent runs " +
 			"again automatically at each scheduled time (cron expression or fixed " +
 			"interval), letting you monitor something over time and report back. " +
 			"Use this for 'check every ...', 'monitor ... until ...', or 'notify me " +
@@ -83,9 +84,10 @@ export function createScheduleCapability(
 					parsed.data.intervalSeconds,
 					startDate,
 				);
-				const schedule = await service.createSchedule({
-					userId,
-					workflowId,
+				const schedule = await service.upsert({
+					workspaceId: context.workspaceId,
+					threadId: context.threadId,
+					userId: context.userId,
 					cron: parsed.data.cron,
 					intervalSeconds: parsed.data.intervalSeconds,
 					startAt: startDate,

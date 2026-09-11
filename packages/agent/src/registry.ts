@@ -44,18 +44,22 @@ export function createDefaultRegistry(): CapabilityRegistry {
 }
 
 /**
- * Add the schedule capability to a registry for a specific workflow. The
- * schedule is bound to the owning workflow (and its user) so the capability
- * can persist a recurring schedule without letting the model touch arbitrary
- * workflows.
+ * Add the execution capabilities to a registry for a specific thread context.
+ * The schedule is bound to the owning thread (and its user/workspace) so the
+ * capability can persist a recurring schedule without letting the model touch
+ * arbitrary threads; memory stays user/workflow-scoped.
  */
 export function withExecutionCapabilities(
 	registry: CapabilityRegistry,
-	workflowId: string,
-	userId: string,
+	context: {
+		workflowId?: string;
+		threadId: string;
+		workspaceId: string;
+		userId: string;
+	},
 ): CapabilityRegistry {
-	registry.register(createScheduleCapability(workflowId, userId));
-	registry.register(createStoreMemoryCapability(userId, workflowId));
-	registry.register(createSearchMemoryCapability(userId, workflowId));
+	registry.register(createScheduleCapability(context));
+	registry.register(createStoreMemoryCapability(context.userId, context.workflowId ?? ""));
+	registry.register(createSearchMemoryCapability(context.userId, context.workflowId ?? ""));
 	return registry;
 }

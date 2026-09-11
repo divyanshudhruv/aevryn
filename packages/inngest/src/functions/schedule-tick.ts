@@ -1,20 +1,27 @@
-import { computeNextRun, WorkflowService } from "@aevryn/workflow";
-import { NonRetriableError } from "inngest";
+import {
+	computeNextRun,
+	NotificationService,
+	RunService,
+	ScheduleService,
+	ThreadService,
+} from "@aevryn/workflow";
 
 import { inngest } from "../client";
-import { executionRunEvent } from "../events";
+import { threadRunEvent } from "../events";
 
-const workflowService = new WorkflowService();
+const scheduleService = new ScheduleService();
+const runService = new RunService();
+const threadService = new ThreadService();
+const notificationService = new NotificationService();
 
 interface FireOutcome {
 	scheduleId: string;
-	executionId?: string;
+	runId?: string;
 	skipped?: string;
 }
 
 interface WakeOutcome {
-	executionId: string;
-	nextExecutionId?: string;
+	runId: string;
 	skipped?: string;
 }
 
@@ -27,49 +34,38 @@ export const scheduleTick = inngest.createFunction(
 		const now = new Date();
 		const due = await step.run("find-due-work", async () => {
 			return {
-				schedules: await workflowService.listDueSchedules(now),
-				sleeping: await workflowService.listDueSleepingExecutions(now),
+				schedules: await scheduleService.listDue(now),
+				sleeping: await runService.listSleepingDue(now),
 			};
 		});
 
 		const fired: FireOutcome[] = [];
 		for (const schedule of due.schedules) {
 			const outcome = await step.run("fire-schedule", async () => {
-				const workflow = await workflowService.getWorkflowById(
-					schedule.workflowId,
-				);
-				if (!workflow) {
-					throw new NonRetriableError(
-						`Schedule ${schedule.id} references missing workflow`,
-					);
-				}
-				if (
-					workflow.status === "cancelled" ||
-					workflow.status === "failed" ||
-					workflow.status === "completed" ||
-					workflow.status === "paused"
-				) {
-					if (workflow.status !== "paused") {
-						await workflowService.setScheduleEnabled(schedule.id, false);
-					}
+				const thread = await threadService.findById(schedule.threadId);
+				if (!thread) {
+					await scheduleService.setEnabled(schedule.id, false);
 					return {
 						scheduleId: schedule.id,
-						skipped: `workflow ${workflow.status}`,
+						skipped: "thread unavailable",
 					} satisfies FireOutcome;
 				}
-				const config = (schedule.config ?? {}) as {
-					prompt?: string;
-				};
-				const prompt = config.prompt ?? workflow.objective;
-				const { execution } = await workflowService.enqueueMessage(
-					workflow.id,
-					prompt,
-				);
+				const prompt = (
+					((schedule.config ?? {}) as { prompt?: string }).prompt ??
+					thread.title
+				).slice(0, 2000);
+				const { id: runId } = await runService.create({
+					threadId: thread.id,
+					userId: schedule.userId,
+					trigger: "schedule",
+					workflowId: thread.boundWorkflowId ?? undefined,
+					promptSnapshot: { prompt },
+				});
 				await inngest.send({
-					name: executionRunEvent,
+					name: threadRunEvent,
 					data: {
-						workflowId: workflow.id,
-						executionId: execution.id,
+						runId,
+						threadId: thread.id,
 						prompt,
 					},
 				});
@@ -77,57 +73,52 @@ export const scheduleTick = inngest.createFunction(
 					schedule.cron ?? undefined,
 					schedule.intervalSeconds ?? undefined,
 				);
-				await workflowService.markScheduleRan(schedule.id, nextRunAt);
-				await workflowService.createNotification({
-					userId: workflow.userId,
-					workflowId: workflow.id,
-					channel: "in-app",
-					type: "schedule.started",
-					subject: "Scheduled run started",
-					body: { prompt },
-				});
+				await scheduleService.markRan(schedule.id, nextRunAt, runId);
+				try {
+					await notificationService.create({
+						userId: schedule.userId,
+						workspaceId: schedule.workspaceId,
+						threadId: thread.id,
+						type: "run",
+						title: "Scheduled run started",
+						body: JSON.stringify({ prompt, runId }),
+					});
+				} catch {
+					// Best-effort.
+				}
 				return {
 					scheduleId: schedule.id,
-					executionId: execution.id,
+					runId,
 				} satisfies FireOutcome;
 			});
 			fired.push(outcome);
 		}
 
 		const woken: WakeOutcome[] = [];
-		for (const execution of due.sleeping) {
+		for (const run of due.sleeping) {
 			const outcome = await step.run("wake-sleeping", async () => {
-				const workflow = await workflowService.getWorkflowById(
-					execution.workflowId,
-				);
-				if (!workflow) {
+				const thread = await threadService.findById(run.threadId);
+				if (!thread) {
 					return {
-						executionId: execution.id,
-						skipped: "workflow unavailable",
+						runId: run.id,
+						skipped: "thread unavailable",
 					} satisfies WakeOutcome;
 				}
-				if (workflow.status === "paused") {
-					return {
-						executionId: execution.id,
-						skipped: "workflow paused",
-					} satisfies WakeOutcome;
-				}
-				const prompt =
-					execution.prompt.length > 0 ? execution.prompt : workflow.objective;
-				const { execution: nextExecution } =
-					await workflowService.enqueueMessage(workflow.id, prompt);
+				await runService.resumeTriggeredBy(run.id);
+				const prompt = (
+					((run.promptSnapshot ?? {}) as { prompt?: string }).prompt ??
+					thread.title
+				).slice(0, 2000);
 				await inngest.send({
-					name: executionRunEvent,
+					name: threadRunEvent,
 					data: {
-						workflowId: workflow.id,
-						executionId: nextExecution.id,
+						runId: run.id,
+						threadId: thread.id,
 						prompt,
 					},
 				});
-				await workflowService.completeSupersededExecution(execution.id);
 				return {
-					executionId: execution.id,
-					nextExecutionId: nextExecution.id,
+					runId: run.id,
 				} satisfies WakeOutcome;
 			});
 			woken.push(outcome);

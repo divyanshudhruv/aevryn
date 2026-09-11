@@ -1,7 +1,7 @@
-import type { ExecutionStatus } from "@aevryn/db/domain";
+import type { RunStatus } from "@aevryn/db/domain";
 
-/** Sidebar row status vocabulary = execution lifecycle only. */
-export type NavItemStatus = ExecutionStatus;
+/** Sidebar row status vocabulary = run lifecycle only. */
+export type NavItemStatus = RunStatus;
 
 export interface NavItem {
   label: string;
