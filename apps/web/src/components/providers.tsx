@@ -1,12 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 import { SizeProvider } from "@aevryn/ui/lib/size-context";
-
-import { queryClient } from "@/utils/trpc";
 
 import { ThemeProvider } from "./theme-provider";
 
@@ -37,12 +33,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 			enableSystem
 			disableTransitionOnChange
 		>
-			<SizeProvider>
-				<QueryClientProvider client={queryClient}>
-					{children}
-					<ReactQueryDevtools />
-				</QueryClientProvider>
-			</SizeProvider>
+			<SizeProvider>{children}</SizeProvider>
 		</ThemeProvider>
 	);
 }

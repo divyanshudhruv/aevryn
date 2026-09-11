@@ -17,8 +17,6 @@
 		"@aevryn/env": "workspace:*",
 		"@aevryn/inngest": "workspace:*",
 		"@aevryn/workflow": "workspace:*",
-		"@trpc/client": "catalog:",
-		"@trpc/server": "catalog:",
 		"dotenv": "catalog:",
 		"next": "catalog:",
 		"zod": "catalog:"

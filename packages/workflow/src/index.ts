@@ -15,5 +15,8 @@ export * from "./repositories/tool-execution-repository";
 export * from "./repositories/workflow-repository";
 export * from "./schedule-utils";
 export * from "./schemas";
+export * from "./services/plan-service";
+export * from "./services/run-service";
+export * from "./services/thread-service";
 export * from "./services/workflow-service";
 export * from "./types";
