@@ -1,0 +1,420 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "34155f26ee4f",
+  "session_id": "ses_f6f5065d1ffeV57k6ASZ6Ozgg1",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-11T15:27:42.5166893Z",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 41,
+  "save_step_count": 34,
+  "files_touched": [
+    "packages/db/drizzle.config.ts",
+    "packages/db/src/domain.ts",
+    "packages/db/src/ids.ts",
+    "packages/db/src/migrations/0001_confused_bruce_banner.sql",
+    "packages/db/src/migrations/meta/0001_snapshot.json",
+    "packages/db/src/migrations/meta/_journal.json",
+    "packages/db/src/schema/README.md",
+    "packages/db/src/schema/agent-state.ts",
+    "packages/db/src/schema/approval-request.ts",
+    "packages/db/src/schema/approval.ts",
+    "packages/db/src/schema/auth.ts",
+    "packages/db/src/schema/chat-message.ts",
+    "packages/db/src/schema/enums.ts",
+    "packages/db/src/schema/event.ts",
+    "packages/db/src/schema/file.ts",
+    "packages/db/src/schema/group.ts",
+    "packages/db/src/schema/index.ts",
+    "packages/db/src/schema/invite.ts",
+    "packages/db/src/schema/notification.ts",
+    "packages/db/src/schema/observation.ts",
+    "packages/db/src/schema/plan-step.ts",
+    "packages/db/src/schema/plan.ts",
+    "packages/db/src/schema/policies.ts",
+    "packages/db/src/schema/recovery-attempt.ts",
+    "packages/db/src/schema/relations.ts",
+    "packages/db/src/schema/run-activity.ts",
+    "packages/db/src/schema/run.ts",
+    "packages/db/src/schema/schedule.ts",
+    "packages/db/src/schema/thread-share.ts",
+    "packages/db/src/schema/thread.ts",
+    "packages/db/src/schema/tool-execution.ts",
+    "packages/db/src/schema/user-profile.ts",
+    "packages/db/src/schema/webhook-board.ts",
+    "packages/db/src/schema/workflow-execution.ts",
+    "packages/db/src/schema/workflow-step.ts",
+    "packages/db/src/schema/workflow.ts",
+    "packages/db/src/schema/workspace-api-key.ts",
+    "packages/db/src/schema/workspace-member.ts",
+    "packages/db/src/schema/workspace.ts",
+    "packages/db/src/zod/index.ts",
+    "packages/db/supabase/migrations/20260911130000_supabase_glue.sql"
+  ],
+  "agent": "OpenCode",
+  "model": "big-pickle",
+  "turn_id": "c5a822404936",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 1027660,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 16414208,
+    "output_tokens": 115522,
+    "api_call_count": 214
+  },
+  "session_metrics": {
+    "turn_count": 41
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-11T15:27:42.09093Z",
+    "agent_lines": 0,
+    "agent_removed": 636,
+    "human_added": 18844,
+    "human_modified": 246,
+    "human_removed": 0,
+    "total_committed": 18844,
+    "total_lines_changed": 19726,
+    "agent_percentage": 3.2241711446821455,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1911,
+      "agent_lines_removed": 854
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1911,
+      "agent_lines_removed": 854
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1911,
+      "agent_lines_removed": 854
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1911,
+      "agent_lines_removed": 854
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 9,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1911,
+      "agent_lines_removed": 854
+    },
+    {
+      "checkpoint_number": 10,
+      "user_lines_added": 2328,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1911,
+      "agent_lines_removed": 867,
+      "user_added_per_file": {
+        "packages/db/src/migrations/0001_far_meggan.sql": 274,
+        "packages/db/src/migrations/meta/0001_snapshot.json": 2034,
+        "packages/db/src/migrations/meta/_journal.json": 20
+      }
+    },
+    {
+      "checkpoint_number": 11,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 12,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4226,
+      "agent_lines_removed": 854
+    },
+    {
+      "checkpoint_number": 13,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 14,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1928,
+      "agent_lines_removed": 860
+    },
+    {
+      "checkpoint_number": 15,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 16,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1928,
+      "agent_lines_removed": 860
+    },
+    {
+      "checkpoint_number": 17,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 18,
+      "user_lines_added": 12,
+      "user_lines_removed": 19,
+      "agent_lines_added": 1928,
+      "agent_lines_removed": 860,
+      "user_added_per_file": {
+        "packages/db/src/migrations/meta/_journal.json": 12
+      },
+      "user_removed_per_file": {
+        "packages/db/src/migrations/meta/_journal.json": 19
+      }
+    },
+    {
+      "checkpoint_number": 19,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 20,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1933,
+      "agent_lines_removed": 872
+    },
+    {
+      "checkpoint_number": 21,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 22,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1933,
+      "agent_lines_removed": 872
+    },
+    {
+      "checkpoint_number": 23,
+      "user_lines_added": 568,
+      "user_lines_removed": 49,
+      "agent_lines_added": 3967,
+      "agent_lines_removed": 872,
+      "user_added_per_file": {
+        "packages/db/src/migrations/0001_confused_bruce_banner.sql": 293,
+        "packages/db/src/migrations/meta/0001_snapshot.json": 256,
+        "packages/db/src/migrations/meta/_journal.json": 19
+      },
+      "user_removed_per_file": {
+        "packages/db/src/migrations/meta/0001_snapshot.json": 37,
+        "packages/db/src/migrations/meta/_journal.json": 12
+      }
+    },
+    {
+      "checkpoint_number": 24,
+      "user_lines_added": 549,
+      "user_lines_removed": 37,
+      "agent_lines_added": 3962,
+      "agent_lines_removed": 860,
+      "user_added_per_file": {
+        "packages/db/src/migrations/0001_confused_bruce_banner.sql": 293,
+        "packages/db/src/migrations/meta/0001_snapshot.json": 256
+      },
+      "user_removed_per_file": {
+        "packages/db/src/migrations/meta/0001_snapshot.json": 37
+      }
+    },
+    {
+      "checkpoint_number": 25,
+      "user_lines_added": 549,
+      "user_lines_removed": 37,
+      "agent_lines_added": 3962,
+      "agent_lines_removed": 860,
+      "user_added_per_file": {
+        "packages/db/src/migrations/0001_confused_bruce_banner.sql": 293,
+        "packages/db/src/migrations/meta/0001_snapshot.json": 256
+      },
+      "user_removed_per_file": {
+        "packages/db/src/migrations/meta/0001_snapshot.json": 37
+      }
+    },
+    {
+      "checkpoint_number": 26,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 27,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4474,
+      "agent_lines_removed": 860
+    },
+    {
+      "checkpoint_number": 28,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4474,
+      "agent_lines_removed": 860
+    },
+    {
+      "checkpoint_number": 29,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 30,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4474,
+      "agent_lines_removed": 860
+    },
+    {
+      "checkpoint_number": 31,
+      "user_lines_added": 3670,
+      "user_lines_removed": 84,
+      "agent_lines_added": 4474,
+      "agent_lines_removed": 875,
+      "user_added_per_file": {
+        "packages/db/drizzle.config.ts": 20,
+        "packages/db/src/migrations/0002_rls_policies.sql": 80,
+        "packages/db/src/migrations/meta/0002_snapshot.json": 2837,
+        "packages/db/src/migrations/meta/_journal.json": 7,
+        "packages/db/src/schema/approval-request.ts": 19,
+        "packages/db/src/schema/chat-message.ts": 25,
+        "packages/db/src/schema/file.ts": 47,
+        "packages/db/src/schema/group.ts": 25,
+        "packages/db/src/schema/invite.ts": 25,
+        "packages/db/src/schema/notification.ts": 24,
+        "packages/db/src/schema/plan-step.ts": 24,
+        "packages/db/src/schema/plan.ts": 46,
+        "packages/db/src/schema/policies.ts": 42,
+        "packages/db/src/schema/run-activity.ts": 10,
+        "packages/db/src/schema/run.ts": 25,
+        "packages/db/src/schema/thread-share.ts": 22,
+        "packages/db/src/schema/thread.ts": 25,
+        "packages/db/src/schema/user-profile.ts": 45,
+        "packages/db/src/schema/workflow.ts": 25,
+        "packages/db/src/schema/workspace-api-key.ts": 25,
+        "packages/db/src/schema/workspace-member.ts": 25,
+        "packages/db/src/schema/workspace.ts": 29,
+        "packages/db/supabase/migrations/20260911130000_supabase_glue.sql": 218
+      },
+      "user_removed_per_file": {
+        "packages/db/src/schema/approval-request.ts": 2,
+        "packages/db/src/schema/chat-message.ts": 2,
+        "packages/db/src/schema/file.ts": 19,
+        "packages/db/src/schema/group.ts": 2,
+        "packages/db/src/schema/invite.ts": 2,
+        "packages/db/src/schema/notification.ts": 2,
+        "packages/db/src/schema/plan-step.ts": 2,
+        "packages/db/src/schema/plan.ts": 19,
+        "packages/db/src/schema/run-activity.ts": 2,
+        "packages/db/src/schema/run.ts": 1,
+        "packages/db/src/schema/thread-share.ts": 2,
+        "packages/db/src/schema/thread.ts": 2,
+        "packages/db/src/schema/user-profile.ts": 18,
+        "packages/db/src/schema/workflow.ts": 2,
+        "packages/db/src/schema/workspace-api-key.ts": 2,
+        "packages/db/src/schema/workspace-member.ts": 2,
+        "packages/db/src/schema/workspace.ts": 3
+      }
+    },
+    {
+      "checkpoint_number": 32,
+      "user_lines_added": 2917,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4166,
+      "agent_lines_removed": 877,
+      "user_added_per_file": {
+        "packages/db/src/migrations/0002_rls_policies.sql": 80,
+        "packages/db/src/migrations/meta/0002_snapshot.json": 2837
+      }
+    },
+    {
+      "checkpoint_number": 33,
+      "user_lines_added": 2917,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4174,
+      "agent_lines_removed": 877,
+      "user_added_per_file": {
+        "packages/db/src/migrations/0002_rls_policies.sql": 80,
+        "packages/db/src/migrations/meta/0002_snapshot.json": 2837
+      }
+    },
+    {
+      "checkpoint_number": 34,
+      "user_lines_added": 2917,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4186,
+      "agent_lines_removed": 877,
+      "user_added_per_file": {
+        "packages/db/src/migrations/0002_rls_policies.sql": 80,
+        "packages/db/src/migrations/meta/0002_snapshot.json": 2837
+      }
+    },
+    {
+      "checkpoint_number": 35,
+      "user_lines_added": 2917,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4186,
+      "agent_lines_removed": 877,
+      "user_added_per_file": {
+        "packages/db/src/migrations/0002_rls_policies.sql": 80,
+        "packages/db/src/migrations/meta/0002_snapshot.json": 2837
+      }
+    }
+  ]
+}
