@@ -13,6 +13,7 @@ export const env = createEnv({
 		NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
 		SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 		SUPABASE_AUTH_SECRET: z.string().min(1).optional(),
+		VAULT_KEY: z.string().min(1).optional(),
 		NODE_ENV: z
 			.enum(["development", "production", "test"])
 			.default("development"),

@@ -1,5 +1,4 @@
-import { env } from "@aevryn/env/server";
-import { Mem0MemoryStore, memoryCategorySchema } from "@aevryn/workflow";
+import { memoryCategorySchema, memoryService } from "@aevryn/workflow";
 import { z } from "zod";
 
 import type { Capability } from "../capability";
@@ -19,7 +18,7 @@ export function createSearchMemoryCapability(
 	userId: string,
 	workflowId: string,
 ): Capability {
-	const store = new Mem0MemoryStore(env.MEM0_API_KEY);
+	const store = memoryService;
 	const schema = searchMemoryInputSchema;
 	return {
 		name: "searchMemory",
