@@ -1,0 +1,81 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "f192f21bca32",
+  "session_id": "ses_f6f5065d1ffeV57k6ASZ6Ozgg1",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-11T15:50:33.112429Z",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 4,
+  "save_step_count": 3,
+  "files_touched": [
+    "apps/web/package.json",
+    "apps/web/src/app/api/auth/[...all]/route.ts",
+    "apps/web/src/app/auth/callback/route.ts",
+    "apps/web/src/app/login/page.tsx",
+    "apps/web/src/components/login-button.tsx",
+    "apps/web/src/lib/auth-client.ts",
+    "apps/web/src/lib/evlog-auth.ts",
+    "apps/web/src/lib/supabase-client.ts",
+    "apps/web/src/lib/supabase-server.ts",
+    "apps/web/src/proxy.ts",
+    "bun.lock",
+    "package.json",
+    "packages/auth/README.md",
+    "packages/auth/package.json",
+    "packages/auth/src/client.ts",
+    "packages/auth/src/index.ts",
+    "packages/auth/src/server.ts",
+    "packages/auth/src/user.ts",
+    "packages/env/src/server.ts",
+    "packages/env/src/web.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "big-pickle",
+  "turn_id": "393d2972f87b",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 1143618,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 23159552,
+    "output_tokens": 150817,
+    "api_call_count": 301
+  },
+  "session_metrics": {
+    "turn_count": 45
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-11T15:50:32.5230996Z",
+    "agent_lines": 351,
+    "agent_removed": 123,
+    "human_added": 0,
+    "human_modified": 166,
+    "human_removed": 24,
+    "total_committed": 517,
+    "total_lines_changed": 664,
+    "agent_percentage": 71.3855421686747,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 541,
+      "agent_lines_removed": 279
+    }
+  ]
+}

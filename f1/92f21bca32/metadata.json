@@ -1,0 +1,45 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "f192f21bca32",
+  "strategy": "manual-commit",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "apps/web/package.json",
+    "apps/web/src/app/api/auth/[...all]/route.ts",
+    "apps/web/src/app/auth/callback/route.ts",
+    "apps/web/src/app/login/page.tsx",
+    "apps/web/src/components/login-button.tsx",
+    "apps/web/src/lib/auth-client.ts",
+    "apps/web/src/lib/evlog-auth.ts",
+    "apps/web/src/lib/supabase-client.ts",
+    "apps/web/src/lib/supabase-server.ts",
+    "apps/web/src/proxy.ts",
+    "bun.lock",
+    "package.json",
+    "packages/auth/README.md",
+    "packages/auth/package.json",
+    "packages/auth/src/client.ts",
+    "packages/auth/src/index.ts",
+    "packages/auth/src/server.ts",
+    "packages/auth/src/user.ts",
+    "packages/env/src/server.ts",
+    "packages/env/src/web.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f1/92f21bca32/0/metadata.json",
+      "transcript": "/f1/92f21bca32/0/full.jsonl",
+      "compact_transcript": "/f1/92f21bca32/0/transcript.jsonl",
+      "content_hash": "/f1/92f21bca32/0/content_hash.txt",
+      "prompt": "/f1/92f21bca32/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1143618,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 23159552,
+    "output_tokens": 150817,
+    "api_call_count": 301
+  }
+}
