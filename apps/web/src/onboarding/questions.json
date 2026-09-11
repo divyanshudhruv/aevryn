@@ -1,0 +1,107 @@
+{
+	"questions": [
+		{
+			"id": "role",
+			"title": "What best describes you?",
+			"layout": "stacked",
+			"multiSelect": false,
+			"allowOther": true,
+			"otherPlaceholder": "Something else…",
+			"options": [
+				{
+					"id": "student",
+					"title": "Student",
+					"description": "Exploring, learning, coursework."
+				},
+				{
+					"id": "engineer",
+					"title": "Engineer",
+					"description": "Building and shipping products."
+				},
+				{
+					"id": "ai-engineer",
+					"title": "AI Engineer",
+					"description": "Working with models and agents."
+				},
+				{
+					"id": "developer",
+					"title": "Developer",
+					"description": "Writing code day to day."
+				},
+				{
+					"id": "designer",
+					"title": "Designer",
+					"description": "Crafting interfaces and flows."
+				},
+				{
+					"id": "researcher",
+					"title": "Researcher",
+					"description": "Investigating, analysing, citing."
+				}
+			]
+		},
+		{
+			"id": "use-case",
+			"title": "What do you plan to use Aevryn for?",
+			"layout": "stacked",
+			"multiSelect": true,
+			"allowOther": true,
+			"otherPlaceholder": "Something else…",
+			"options": [
+				{
+					"id": "workflows",
+					"title": "Workflows & automation",
+					"description": "Multi-step agents that run end to end."
+				},
+				{
+					"id": "research",
+					"title": "Deep research",
+					"description": "Gather, scrape and compare sources."
+				},
+				{
+					"id": "learning",
+					"title": "Learning",
+					"description": "Explain concepts step by step."
+				},
+				{
+					"id": "productivity",
+					"title": "Everyday productivity",
+					"description": "Quick answers and small tasks."
+				}
+			]
+		},
+		{
+			"id": "goal",
+			"title": "What's one goal you'd like to achieve first?",
+			"layout": "stacked",
+			"freeText": true,
+			"freeTextPlaceholder": "e.g. Automate my weekly research report…",
+			"freeTextMultiline": false,
+			"skippable": false
+		},
+		{
+			"id": "team",
+			"title": "Will you use Aevryn alone or with a team?",
+			"layout": "stacked",
+			"multiSelect": false,
+			"skippable": true,
+			"options": [
+				{
+					"id": "solo",
+					"title": "Just me",
+					"description": "Personal assistant."
+				},
+				{
+					"id": "small-team",
+					"title": "Small team",
+					"description": "2–10 people sharing workspaces."
+				},
+				{
+					"id": "company",
+					"title": "Company",
+					"description": "Organisation-wide usage."
+				}
+			]
+		}
+	]
+}
