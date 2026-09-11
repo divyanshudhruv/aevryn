@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "674772f82f16",
+  "strategy": "manual-commit",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 20,
+  "files_touched": [
+    "packages/workflow/src/index.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/67/4772f82f16/0/metadata.json",
+      "transcript": "/67/4772f82f16/0/full.jsonl",
+      "compact_transcript": "/67/4772f82f16/0/transcript.jsonl",
+      "content_hash": "/67/4772f82f16/0/content_hash.txt",
+      "prompt": "/67/4772f82f16/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 3705275,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 65113024,
+    "output_tokens": 431851,
+    "api_call_count": 819
+  }
+}

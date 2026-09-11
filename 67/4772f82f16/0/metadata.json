@@ -1,0 +1,209 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "674772f82f16",
+  "session_id": "ses_f6f5065d1ffeV57k6ASZ6Ozgg1",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-11T19:01:44.859988Z",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 20,
+  "save_step_count": 11,
+  "files_touched": [
+    "packages/workflow/src/index.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "big-pickle",
+  "turn_id": "50cc654ef3df",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 3705275,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 65113024,
+    "output_tokens": 431851,
+    "api_call_count": 819
+  },
+  "session_metrics": {
+    "turn_count": 73
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-11T19:01:42.327408Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 1519,
+    "human_modified": 4542,
+    "human_removed": 0,
+    "total_committed": 1522,
+    "total_lines_changed": 10150,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 10,
+      "agent_lines_removed": 1
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 6,
+      "user_lines_removed": 14,
+      "agent_lines_added": 10,
+      "agent_lines_removed": 1,
+      "user_added_per_file": {
+        "packages/db/src/schema/policies.ts": 6
+      },
+      "user_removed_per_file": {
+        "packages/db/src/schema/policies.ts": 14
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 30,
+      "agent_lines_removed": 28
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 9,
+      "user_lines_added": 627,
+      "user_lines_removed": 1219,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "apps/web/src/components/providers.tsx": 39,
+        "packages/api/src/http.ts": 81,
+        "packages/api/src/index.ts": 1,
+        "packages/workflow/src/index.ts": 22,
+        "packages/workflow/src/services/plan-service.ts": 173,
+        "packages/workflow/src/services/run-service.ts": 164,
+        "packages/workflow/src/services/thread-service.ts": 147
+      },
+      "user_removed_per_file": {
+        "apps/web/src/app/api/trpc/[trpc]/route.ts": 19,
+        "apps/web/src/components/providers.tsx": 48,
+        "apps/web/src/utils/trpc.ts": 39,
+        "packages/api/inngest-send-test.ts": 222,
+        "packages/api/phase3-verify.ts": 184,
+        "packages/api/src/context.ts": 17,
+        "packages/api/src/index.ts": 25,
+        "packages/api/src/routers/agent.ts": 630,
+        "packages/api/src/routers/index.ts": 16,
+        "packages/workflow/src/index.ts": 19
+      }
+    },
+    {
+      "checkpoint_number": 10,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 11,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 12,
+      "user_lines_added": 5713,
+      "user_lines_removed": 4496,
+      "agent_lines_added": 27,
+      "agent_lines_removed": 27,
+      "user_added_per_file": {
+        "apps/web/src/app/api/inngest/route.ts": 2,
+        "apps/web/src/app/api/v1/hooks/[token]/route.ts": 66,
+        "packages/agent/src/capabilities/schedule-create.ts": 14,
+        "packages/agent/src/registry.ts": 65,
+        "packages/db/src/ids.ts": 57,
+        "packages/db/src/migrations/0004_lowly_ronan.sql": 52,
+        "packages/db/src/migrations/meta/0004_snapshot.json": 3265,
+        "packages/db/src/schema/index.ts": 20,
+        "packages/db/src/schema/relations.ts": 265,
+        "packages/db/src/schema/schedule.ts": 68,
+        "packages/db/src/schema/webhook-hook.ts": 60,
+        "packages/db/supabase/migrations/20260911150000_schedule_webhook_hooks.sql": 55,
+        "packages/inngest/src/events.ts": 10,
+        "packages/inngest/src/functions/helpers/decisions.ts": 48,
+        "packages/inngest/src/functions/helpers/memory.ts": 203,
+        "packages/inngest/src/functions/helpers/prompts.ts": 81,
+        "packages/inngest/src/functions/notification-notifier.ts": 62,
+        "packages/inngest/src/functions/schedule-tick.ts": 63,
+        "packages/inngest/src/functions/thread-runner.ts": 727,
+        "packages/inngest/src/index.ts": 2,
+        "packages/ui/src/components/sidebar-preset/nav-data.ts": 49,
+        "packages/ui/src/components/ui/sidebar-menu.tsx": 2,
+        "packages/workflow/src/index.ts": 2,
+        "packages/workflow/src/services/notification-service.ts": 6,
+        "packages/workflow/src/services/run-service.ts": 203,
+        "packages/workflow/src/services/schedule-service.ts": 135,
+        "packages/workflow/src/services/thread-service.ts": 12,
+        "packages/workflow/src/services/webhook-hook-service.ts": 119
+      },
+      "user_removed_per_file": {
+        "apps/web/src/app/api/inngest/route.ts": 2,
+        "apps/web/src/app/api/v1/hooks/[token]/route.ts": 21,
+        "packages/agent/src/capabilities/schedule-create.ts": 12,
+        "packages/agent/src/registry.ts": 61,
+        "packages/db/src/ids.ts": 53,
+        "packages/db/src/schema/index.ts": 18,
+        "packages/db/src/schema/relations.ts": 226,
+        "packages/inngest/src/events.ts": 9,
+        "packages/inngest/src/functions/execution-run.ts": 914,
+        "packages/inngest/src/functions/notification-notifier.ts": 13,
+        "packages/inngest/src/functions/schedule-tick.ts": 72,
+        "packages/inngest/src/index.ts": 2,
+        "packages/ui/src/components/sidebar-preset/nav-data.ts": 49,
+        "packages/ui/src/components/ui/sidebar-menu.tsx": 2,
+        "packages/workflow/src/errors.ts": 25,
+        "packages/workflow/src/index.ts": 14,
+        "packages/workflow/src/repositories/approval-repository.ts": 166,
+        "packages/workflow/src/repositories/event-repository.ts": 47,
+        "packages/workflow/src/repositories/execution-repository.ts": 136,
+        "packages/workflow/src/repositories/notification-repository.ts": 145,
+        "packages/workflow/src/repositories/observation-repository.ts": 51,
+        "packages/workflow/src/repositories/recovery-repository.ts": 111,
+        "packages/workflow/src/repositories/schedule-repository.ts": 117,
+        "packages/workflow/src/repositories/state-repository.ts": 114,
+        "packages/workflow/src/repositories/step-repository.ts": 57,
+        "packages/workflow/src/repositories/tool-execution-repository.ts": 89,
+        "packages/workflow/src/repositories/webhook-repository.ts": 86,
+        "packages/workflow/src/repositories/workflow-repository.ts": 106,
+        "packages/workflow/src/schemas.ts": 259,
+        "packages/workflow/src/services/run-service.ts": 1,
+        "packages/workflow/src/services/thread-service.ts": 1,
+        "packages/workflow/src/services/workflow-service.ts": 1517
+      }
+    }
+  ]
+}
