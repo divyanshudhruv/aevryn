@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "64ceaab54389",
+  "strategy": "manual-commit",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 18,
+  "files_touched": [
+    "packages/db/drizzle.config.ts",
+    "packages/db/src/migrations/0000_long_ronan.sql",
+    "packages/db/src/migrations/meta/0000_snapshot.json",
+    "packages/db/src/migrations/meta/_journal.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/64/ceaab54389/0/metadata.json",
+      "transcript": "/64/ceaab54389/0/full.jsonl",
+      "compact_transcript": "/64/ceaab54389/0/transcript.jsonl",
+      "content_hash": "/64/ceaab54389/0/content_hash.txt",
+      "prompt": "/64/ceaab54389/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1503065,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 17891840,
+    "output_tokens": 165342,
+    "api_call_count": 211
+  }
+}
