@@ -11,11 +11,9 @@
 	},
 	"scripts": {},
 	"dependencies": {
-		"@aevryn/db": "workspace:*",
 		"@aevryn/env": "workspace:*",
-		"better-auth": "catalog:",
-		"dotenv": "catalog:",
-		"zod": "catalog:"
+		"@supabase/supabase-js": "catalog:",
+		"@supabase/ssr": "catalog:"
 	},
 	"devDependencies": {
 		"@aevryn/config": "workspace:*",
