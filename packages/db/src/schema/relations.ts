@@ -1,181 +1,227 @@
 import { relations } from "drizzle-orm";
-import { agentState } from "./agent-state";
-import { approval } from "./approval";
-import { account, session, user } from "./auth";
-import { event } from "./event";
-import { notification } from "./notification";
-import { observation } from "./observation";
-import { recoveryAttempt } from "./recovery-attempt";
-import { schedule } from "./schedule";
-import { toolExecution } from "./tool-execution";
-import { webhookBoard } from "./webhook-board";
-import { workflow } from "./workflow";
-import { workflowExecution } from "./workflow-execution";
-import { workflowStep } from "./workflow-step";
 
-export const workflowRelations = relations(workflow, ({ one, many }) => ({
-	user: one(user, {
-		fields: [workflow.userId],
-		references: [user.id],
-	}),
-	executions: many(workflowExecution),
-	agentStates: many(agentState),
-	observations: many(observation),
-	toolExecutions: many(toolExecution),
-	recoveryAttempts: many(recoveryAttempt),
-	events: many(event),
-	schedules: many(schedule),
-	notifications: many(notification),
-	webhooks: many(webhookBoard),
-	approvals: many(approval),
+import { approvalRequests } from "./approval-request";
+import { chatMessages } from "./chat-message";
+import { files } from "./file";
+import { groups } from "./group";
+import { invites } from "./invite";
+import { notifications } from "./notification";
+import { plans } from "./plan";
+import { planSteps } from "./plan-step";
+import { runs } from "./run";
+import { runActivities } from "./run-activity";
+import { threads } from "./thread";
+import { threadShares } from "./thread-share";
+import { workspaceApiKeys } from "./workspace-api-key";
+import { workspaceMembers } from "./workspace-member";
+import { workspaces } from "./workspace";
+import { workflows } from "./workflow";
+
+// ── workspaces ──────────────────────────────────────────────────────
+
+export const workspaceRelations = relations(workspaces, ({ many }) => ({
+	groups: many(groups),
+	members: many(workspaceMembers),
+	threads: many(threads),
+	workflows: many(workflows),
+	notifications: many(notifications),
+	apiKeys: many(workspaceApiKeys),
+	files: many(files),
 }));
 
-export const webhookBoardRelations = relations(webhookBoard, ({ one }) => ({
-	workflow: one(workflow, {
-		fields: [webhookBoard.workflowId],
-		references: [workflow.id],
+// ── groups ──────────────────────────────────────────────────────────
+
+export const groupRelations = relations(groups, ({ one, many }) => ({
+	workspace: one(workspaces, {
+		fields: [groups.workspaceId],
+		references: [workspaces.id],
 	}),
-	execution: one(workflowExecution, {
-		fields: [webhookBoard.executionId],
-		references: [workflowExecution.id],
-	}),
+	threads: many(threads),
 }));
 
-export const workflowExecutionRelations = relations(
-	workflowExecution,
-	({ one, many }) => ({
-		workflow: one(workflow, {
-			fields: [workflowExecution.workflowId],
-			references: [workflow.id],
-		}),
-		steps: many(workflowStep),
-		toolExecutions: many(toolExecution),
-		recoveryAttempts: many(recoveryAttempt),
-		events: many(event),
-		webhooks: many(webhookBoard),
-		approvals: many(approval),
-	}),
-);
+// ── workspace_members ───────────────────────────────────────────────
 
-export const workflowStepRelations = relations(
-	workflowStep,
-	({ one, many }) => ({
-		execution: one(workflowExecution, {
-			fields: [workflowStep.executionId],
-			references: [workflowExecution.id],
-		}),
-		toolExecutions: many(toolExecution),
-		recoveryAttempts: many(recoveryAttempt),
-	}),
-);
-
-export const agentStateRelations = relations(agentState, ({ one }) => ({
-	workflow: one(workflow, {
-		fields: [agentState.workflowId],
-		references: [workflow.id],
+export const workspaceMemberRelations = relations(workspaceMembers, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [workspaceMembers.workspaceId],
+		references: [workspaces.id],
 	}),
 }));
 
-export const observationRelations = relations(observation, ({ one }) => ({
-	workflow: one(workflow, {
-		fields: [observation.workflowId],
-		references: [workflow.id],
+// ── threads ─────────────────────────────────────────────────────────
+
+export const threadRelations = relations(threads, ({ one, many }) => ({
+	workspace: one(workspaces, {
+		fields: [threads.workspaceId],
+		references: [workspaces.id],
+	}),
+	group: one(groups, {
+		fields: [threads.groupId],
+		references: [groups.id],
+	}),
+	workflows: many(workflows),
+	chatMessages: many(chatMessages),
+	runs: many(runs),
+	shares: many(threadShares),
+	invites: many(invites),
+}));
+
+// ── workflows ───────────────────────────────────────────────────────
+
+export const workflowRelations = relations(workflows, ({ one, many }) => ({
+	workspace: one(workspaces, {
+		fields: [workflows.workspaceId],
+		references: [workspaces.id],
+	}),
+	thread: one(threads, {
+		fields: [workflows.threadId],
+		references: [threads.id],
+	}),
+	plan: one(plans, {
+		fields: [workflows.id],
+		references: [plans.workflowId],
+	}),
+	runs: many(runs),
+}));
+
+// ── plans ───────────────────────────────────────────────────────────
+
+export const planRelations = relations(plans, ({ one, many }) => ({
+	workflow: one(workflows, {
+		fields: [plans.workflowId],
+		references: [workflows.id],
+	}),
+	steps: many(planSteps),
+}));
+
+// ── plan_steps ──────────────────────────────────────────────────────
+
+export const planStepRelations = relations(planSteps, ({ one }) => ({
+	plan: one(plans, {
+		fields: [planSteps.planId],
+		references: [plans.id],
 	}),
 }));
 
-export const toolExecutionRelations = relations(toolExecution, ({ one }) => ({
-	workflow: one(workflow, {
-		fields: [toolExecution.workflowId],
-		references: [workflow.id],
-	}),
-	execution: one(workflowExecution, {
-		fields: [toolExecution.executionId],
-		references: [workflowExecution.id],
-	}),
-	step: one(workflowStep, {
-		fields: [toolExecution.stepId],
-		references: [workflowStep.id],
+// ── chat_messages ───────────────────────────────────────────────────
+
+export const chatMessageRelations = relations(chatMessages, ({ one }) => ({
+	thread: one(threads, {
+		fields: [chatMessages.threadId],
+		references: [threads.id],
 	}),
 }));
 
-export const recoveryAttemptRelations = relations(
-	recoveryAttempt,
-	({ one }) => ({
-		workflow: one(workflow, {
-			fields: [recoveryAttempt.workflowId],
-			references: [workflow.id],
-		}),
-		execution: one(workflowExecution, {
-			fields: [recoveryAttempt.executionId],
-			references: [workflowExecution.id],
-		}),
-		step: one(workflowStep, {
-			fields: [recoveryAttempt.stepId],
-			references: [workflowStep.id],
-		}),
-	}),
-);
+// ── runs (self-ref `rerun_of` — relationName on BOTH sides) ─────────
 
-export const eventRelations = relations(event, ({ one }) => ({
-	workflow: one(workflow, {
-		fields: [event.workflowId],
-		references: [workflow.id],
+export const runRelations = relations(runs, ({ one, many }) => ({
+	thread: one(threads, {
+		fields: [runs.threadId],
+		references: [threads.id],
 	}),
-	execution: one(workflowExecution, {
-		fields: [event.executionId],
-		references: [workflowExecution.id],
+	workflow: one(workflows, {
+		fields: [runs.workflowId],
+		references: [workflows.id],
+	}),
+	rerunOf: one(runs, {
+		fields: [runs.rerunOf],
+		references: [runs.id],
+		relationName: "rerunOf",
+	}),
+	reruns: many(runs, { relationName: "rerunOf" }),
+	activities: many(runActivities),
+	approvalRequests: many(approvalRequests),
+}));
+
+// ── run_activities (self-ref `parent_id` — relationName BOTH sides) ─
+
+export const runActivityRelations = relations(runActivities, ({ one, many }) => ({
+	run: one(runs, {
+		fields: [runActivities.runId],
+		references: [runs.id],
+	}),
+	parent: one(runActivities, {
+		fields: [runActivities.parentId],
+		references: [runActivities.id],
+		relationName: "parent",
+	}),
+	children: many(runActivities, { relationName: "parent" }),
+}));
+
+// ── approval_requests ──────────────────────────────────────────────
+
+export const approvalRequestRelations = relations(approvalRequests, ({ one }) => ({
+	run: one(runs, {
+		fields: [approvalRequests.runId],
+		references: [runs.id],
+	}),
+	workflow: one(workflows, {
+		fields: [approvalRequests.workflowId],
+		references: [workflows.id],
+	}),
+	thread: one(threads, {
+		fields: [approvalRequests.threadId],
+		references: [threads.id],
 	}),
 }));
 
-export const scheduleRelations = relations(schedule, ({ one }) => ({
-	workflow: one(workflow, {
-		fields: [schedule.workflowId],
-		references: [workflow.id],
+// ── invites ─────────────────────────────────────────────────────────
+
+export const inviteRelations = relations(invites, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [invites.workspaceId],
+		references: [workspaces.id],
+	}),
+	thread: one(threads, {
+		fields: [invites.threadId],
+		references: [threads.id],
 	}),
 }));
 
-export const notificationRelations = relations(notification, ({ one }) => ({
-	workflow: one(workflow, {
-		fields: [notification.workflowId],
-		references: [workflow.id],
+// ── thread_shares ──────────────────────────────────────────────────
+
+export const threadShareRelations = relations(threadShares, ({ one }) => ({
+	thread: one(threads, {
+		fields: [threadShares.threadId],
+		references: [threads.id],
 	}),
-	user: one(user, {
-		fields: [notification.userId],
-		references: [user.id],
+	invite: one(invites, {
+		fields: [threadShares.inviteId],
+		references: [invites.id],
 	}),
 }));
 
-export const userRelations = relations(user, ({ many }) => ({
-	workflows: many(workflow),
-	notifications: many(notification),
-	approvals: many(approval),
-}));
+// ── notifications ──────────────────────────────────────────────────
 
-export const approvalRelations = relations(approval, ({ one }) => ({
-	workflow: one(workflow, {
-		fields: [approval.workflowId],
-		references: [workflow.id],
+export const notificationRelations = relations(notifications, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [notifications.workspaceId],
+		references: [workspaces.id],
 	}),
-	execution: one(workflowExecution, {
-		fields: [approval.executionId],
-		references: [workflowExecution.id],
-	}),
-	user: one(user, {
-		fields: [approval.userId],
-		references: [user.id],
+	thread: one(threads, {
+		fields: [notifications.threadId],
+		references: [threads.id],
 	}),
 }));
 
-export const sessionRelations = relations(session, ({ one }) => ({
-	user: one(user, {
-		fields: [session.userId],
-		references: [user.id],
+// ── workspace_api_keys ─────────────────────────────────────────────
+
+export const workspaceApiKeyRelations = relations(workspaceApiKeys, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [workspaceApiKeys.workspaceId],
+		references: [workspaces.id],
 	}),
 }));
 
-export const accountRelations = relations(account, ({ one }) => ({
-	user: one(user, {
-		fields: [account.userId],
-		references: [user.id],
+// ── files ───────────────────────────────────────────────────────────
+
+export const fileRelations = relations(files, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [files.workspaceId],
+		references: [workspaces.id],
+	}),
+	thread: one(threads, {
+		fields: [files.threadId],
+		references: [threads.id],
 	}),
 }));

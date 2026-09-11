@@ -1,49 +1,58 @@
-import {
-	index,
-	integer,
-	jsonb,
-	pgTable,
-	text,
-	timestamp,
-} from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { index, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { authenticatedRole } from "drizzle-orm/supabase";
 
-import type { z } from "zod";
+import { notificationTypeEnum } from "./enums";
+import { threads } from "./thread";
+import { workspaces } from "./workspace";
 
-import type { eventDataSchema } from "../zod";
-import { user } from "./auth";
-import { workflow } from "./workflow";
-
-export const notification = pgTable(
-	"notification",
+export const notifications = pgTable(
+	"notifications",
 	{
 		id: text("id").primaryKey(),
-		userId: text("user_id")
+		userId: uuid("user_id").notNull(),
+		workspaceId: text("workspace_id")
 			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		workflowId: text("workflow_id").references(() => workflow.id, {
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		threadId: text("thread_id").references(() => threads.id, {
 			onDelete: "set null",
 		}),
-		type: text("type").notNull(),
-		channel: text("channel").notNull(),
-		subject: text("subject"),
-		body: jsonb("body").$type<z.input<typeof eventDataSchema>>(),
-		deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+		type: notificationTypeEnum("type").notNull(),
+		title: text("title").notNull(),
+		body: text("body").notNull().default(""),
 		readAt: timestamp("read_at", { withTimezone: true }),
-		schemaVersion: integer("schema_version").notNull().default(1),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
 	},
 	(table) => [
-		index("notification_user_created_idx").on(table.userId, table.createdAt),
-		index("notification_user_delivered_idx").on(
+		index("notifications_user_read_created_idx").on(
 			table.userId,
-			table.deliveredAt,
+			table.readAt,
+			table.createdAt,
 		),
-		index("notification_user_read_idx").on(table.userId, table.readAt),
-		index("notification_workflow_idx").on(table.workflowId),
+		pgPolicy("notifications_select", {
+			for: "select",
+			to: authenticatedRole,
+			using: sql`${table.userId} = auth.uid()`,
+		}),
+		pgPolicy("notifications_insert", {
+			for: "insert",
+			to: authenticatedRole,
+			withCheck: sql`${table.userId} = auth.uid()`,
+		}),
+		pgPolicy("notifications_update", {
+			for: "update",
+			to: authenticatedRole,
+			using: sql`${table.userId} = auth.uid()`,
+		}),
+		pgPolicy("notifications_delete", {
+			for: "delete",
+			to: authenticatedRole,
+			using: sql`${table.userId} = auth.uid()`,
+		}),
 	],
-);
+).enableRLS();
 
-export type Notification = typeof notification.$inferSelect;
-export type NewNotification = typeof notification.$inferInsert;
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;

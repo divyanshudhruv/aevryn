@@ -1,17 +1,52 @@
+export const ROLES = ["owner", "editor", "viewer"] as const;
+export type Role = (typeof ROLES)[number];
+
+export const THREAD_ROLES = ["editor", "viewer"] as const;
+export type ThreadRole = (typeof THREAD_ROLES)[number];
+
+export const PLAN_LEVELS = ["free", "pro"] as const;
+export type PlanLevel = (typeof PLAN_LEVELS)[number];
+
+export const GROUP_KINDS = ["custom", "system"] as const;
+export type GroupKind = (typeof GROUP_KINDS)[number];
+
+export const INVITE_KINDS = ["workspace", "thread"] as const;
+export type InviteKind = (typeof INVITE_KINDS)[number];
+
+export const INVITE_STATUSES = [
+	"pending",
+	"accepted",
+	"revoked",
+	"expired",
+] as const;
+export type InviteStatus = (typeof INVITE_STATUSES)[number];
+
 export const WORKFLOW_STATUSES = [
-	"draft",
-	"active",
-	"paused",
-	"sleeping",
 	"waiting",
+	"planning",
+	"running",
 	"awaiting_approval",
-	"completed",
-	"cancelled",
+	"idle",
+	"paused",
 	"failed",
+	"completed",
 ] as const;
 export type WorkflowStatus = (typeof WORKFLOW_STATUSES)[number];
 
-export const EXECUTION_STATUSES = [
+export const MESSAGE_ROLES = ["user", "assistant", "system", "tool"] as const;
+export type MessageRole = (typeof MESSAGE_ROLES)[number];
+
+export const MESSAGE_STATUSES = [
+	"draft",
+	"queued",
+	"streaming",
+	"completed",
+	"failed",
+	"interrupted",
+] as const;
+export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
+
+export const RUN_STATUSES = [
 	"pending",
 	"running",
 	"sleeping",
@@ -21,33 +56,59 @@ export const EXECUTION_STATUSES = [
 	"failed",
 	"cancelled",
 ] as const;
-export type ExecutionStatus = (typeof EXECUTION_STATUSES)[number];
+export type RunStatus = (typeof RUN_STATUSES)[number];
 
-export const STEP_STATUSES = [
-	"pending",
-	"running",
-	"completed",
-	"failed",
-	"skipped",
+export const RUN_TRIGGERS = [
+	"message",
+	"schedule",
+	"resume",
+	"approval",
+	"rerun",
 ] as const;
-export type StepStatus = (typeof STEP_STATUSES)[number];
+export type RunTrigger = (typeof RUN_TRIGGERS)[number];
 
-export const TOOL_STATUSES = ["called", "completed", "failed"] as const;
-export type ToolStatus = (typeof TOOL_STATUSES)[number];
+export const ACTIVITY_STATUSES = ["pending", "active", "complete", "failed"] as const;
+export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
 
-export const FAILURE_CLASSES = ["transient", "structural", "fatal"] as const;
-export type FailureClass = (typeof FAILURE_CLASSES)[number];
-
-export const MEMORY_CATEGORIES = [
-	"working",
-	"episodic",
-	"semantic",
-	"procedural",
+export const ACTIVITY_TYPES = [
+	"tool",
+	"thinking",
+	"task",
+	"subtask",
+	"system",
 ] as const;
-export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
-
-export const RECOVERY_STATUSES = ["started", "completed", "failed"] as const;
-export type RecoveryStatus = (typeof RECOVERY_STATUSES)[number];
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 export const APPROVAL_STATUSES = ["pending", "approved", "denied"] as const;
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
+
+export const API_PROVIDERS = [
+	"groq",
+	"anakin",
+	"mem0",
+	"image",
+	"speech",
+	"transcription",
+	"video",
+] as const;
+export type ApiProvider = (typeof API_PROVIDERS)[number];
+
+export const PLAN_STATUSES = ["draft", "proposed", "accepted", "declined"] as const;
+export type PlanStatus = (typeof PLAN_STATUSES)[number];
+
+export const PLAN_STEP_STATUSES = [
+	"pending",
+	"active",
+	"completed",
+	"skipped",
+] as const;
+export type PlanStepStatus = (typeof PLAN_STEP_STATUSES)[number];
+
+export const NOTIFICATION_TYPES = [
+	"system",
+	"workflow",
+	"run",
+	"security",
+	"webhook",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
