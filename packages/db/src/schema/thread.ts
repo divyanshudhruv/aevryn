@@ -3,7 +3,7 @@ import { boolean, index, pgPolicy, pgTable, text, timestamp, uuid } from "drizzl
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { groups } from "./group";
-import { canEditThread, canReadThread, isEditorOf } from "./policies";
+import { isEditorOf, isMemberOf } from "./policies";
 import { workspaces } from "./workspace";
 
 export const threads = pgTable(
@@ -40,7 +40,7 @@ export const threads = pgTable(
 		pgPolicy("threads_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: canReadThread(table.id),
+			using: sql`${table.userId} = auth.uid() or ${isMemberOf(table.workspaceId)} or exists (select 1 from "thread_shares" ts where ts."thread_id" = ${table.id} and ts."user_id" = auth.uid())`,
 		}),
 		pgPolicy("threads_insert", {
 			for: "insert",
@@ -50,7 +50,7 @@ export const threads = pgTable(
 		pgPolicy("threads_update", {
 			for: "update",
 			to: authenticatedRole,
-			using: canEditThread(table.id),
+			using: sql`${table.userId} = auth.uid() or ${isEditorOf(table.workspaceId)}`,
 		}),
 		pgPolicy("threads_delete", {
 			for: "delete",

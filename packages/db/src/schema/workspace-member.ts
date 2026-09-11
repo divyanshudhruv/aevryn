@@ -3,7 +3,7 @@ import { pgPolicy, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-o
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { roleEnum } from "./enums";
-import { isEditorOf, isMemberOf } from "./policies";
+import { ownsWorkspace } from "./policies";
 import { workspaces } from "./workspace";
 
 export const workspaceMembers = pgTable(
@@ -27,22 +27,23 @@ export const workspaceMembers = pgTable(
 		pgPolicy("workspace_members_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: isMemberOf(table.workspaceId),
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("workspace_members_insert", {
 			for: "insert",
 			to: authenticatedRole,
-			withCheck: isEditorOf(table.workspaceId),
+			withCheck: ownsWorkspace(table.workspaceId),
 		}),
 		pgPolicy("workspace_members_update", {
 			for: "update",
 			to: authenticatedRole,
-			using: isEditorOf(table.workspaceId),
+			using: ownsWorkspace(table.workspaceId),
+			withCheck: ownsWorkspace(table.workspaceId),
 		}),
 		pgPolicy("workspace_members_delete", {
 			for: "delete",
 			to: authenticatedRole,
-			using: sql`${isEditorOf(table.workspaceId)} and ${table.role} != 'owner'`,
+			using: sql`${ownsWorkspace(table.workspaceId)} and ${table.role} != 'owner'`,
 		}),
 	],
 ).enableRLS();

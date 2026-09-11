@@ -22,6 +22,13 @@
       "when": 1789138248869,
       "tag": "0002_rls_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789144978189,
+      "tag": "0003_fix_rls_recursion",
+      "breakpoints": true
     }
   ]
 }

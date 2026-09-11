@@ -2,7 +2,7 @@ import { pgPolicy, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { planStatusEnum } from "./enums";
-import { planViaEditableWorkflow, planViaOwnedWorkflow, planViaVisibleWorkflow } from "./policies";
+import { workflowEditable, workflowOwned, workflowVisible } from "./policies";
 import { workflows } from "./workflow";
 
 export const plans = pgTable(
@@ -29,22 +29,22 @@ export const plans = pgTable(
 		pgPolicy("plans_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: planViaVisibleWorkflow(table.workflowId),
+			using: workflowVisible(table.workflowId),
 		}),
 		pgPolicy("plans_insert", {
 			for: "insert",
 			to: authenticatedRole,
-			withCheck: planViaEditableWorkflow(table.workflowId),
+			withCheck: workflowEditable(table.workflowId),
 		}),
 		pgPolicy("plans_update", {
 			for: "update",
 			to: authenticatedRole,
-			using: planViaEditableWorkflow(table.workflowId),
+			using: workflowEditable(table.workflowId),
 		}),
 		pgPolicy("plans_delete", {
 			for: "delete",
 			to: authenticatedRole,
-			using: planViaOwnedWorkflow(table.workflowId),
+			using: workflowOwned(table.workflowId),
 		}),
 	],
 ).enableRLS();
