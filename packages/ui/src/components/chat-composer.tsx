@@ -222,7 +222,7 @@ export function ChatComposer() {
 
       <InputMessage
         ref={inputRef}
-        className="absolute inset-x-0 bottom-0"
+        className="absolute inset-x-0 bottom-0 bg-background/45"
         value={value}
         onValueChange={setValue}
         onSend={(text, sent, meta) => {

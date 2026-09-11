@@ -16,6 +16,7 @@
 	"dependencies": {
 		"@aevryn/db": "workspace:*",
 		"@base-ui/react": "^1.6.0",
+		"@radix-ui/react-tooltip": "^1.2.16",
 		"@shadcn/react": "^0.2.1",
 		"class-variance-authority": "^0.7.1",
 		"cn": "^0.2.4",

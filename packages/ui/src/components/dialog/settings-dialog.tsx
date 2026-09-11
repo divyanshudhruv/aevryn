@@ -29,6 +29,8 @@ import {
 } from "@aevryn/ui/components/ui/select";
 import { InputGroup, InputField } from "@aevryn/ui/components/ui/input-group";
 import { useIcons, type IconName } from "@aevryn/ui/lib/icon-context";
+import { useSizeContext } from "@aevryn/ui/lib/size-context";
+import { useTheme } from "next-themes";
 import { cn } from "@aevryn/ui/lib/utils";
 import { fontWeights } from "@aevryn/ui/lib/font-weight";
 
@@ -265,6 +267,7 @@ function GeneralPanel() {
   const [name, setName] = useState("Acme Inc");
   const [language, setLanguage] = useState("en");
   const [timezone, setTimezone] = useState("utc+1");
+  const [telemetry, setTelemetry] = useState(false);
   return (
     <>
       <InputGroup className="w-full">
@@ -278,26 +281,14 @@ function GeneralPanel() {
       </InputGroup>
       <div className="flex flex-col">
         <SettingRow
-          label="Language"
-          description="Used for the interface and emails."
+          label="Telemetry"
+          description="Help us improve by sharing usage data."
         >
-          <Select value={language} onValueChange={setLanguage}>
-            <SelectTrigger placeholder="Language" />
-            <SelectContent>
-              <SelectItem index={0} value="en">
-                English
-              </SelectItem>
-              <SelectItem index={1} value="fr">
-                Français
-              </SelectItem>
-              <SelectItem index={2} value="de">
-                Deutsch
-              </SelectItem>
-              <SelectItem index={3} value="ja">
-                日本語
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <Switch
+            label={telemetry ? "Enabled" : "Disabled"}
+            checked={telemetry}
+            onToggle={() => setTelemetry((prev) => !prev)}
+          />
         </SettingRow>
         <SettingRow
           label="Timezone"
@@ -330,56 +321,69 @@ function GeneralPanel() {
 }
 
 function NotificationsPanel() {
-  const [digest, setDigest] = useState(true);
-  const [mentions, setMentions] = useState(true);
-  const [updates, setUpdates] = useState(false);
+  const [enabled, setEnabled] = useState<Record<string, boolean>>({
+    "workflow.failed": true,
+    "schedule.started": true,
+    alert: true,
+    webhook: false,
+    "in-app": true,
+  });
+  const toggles = [
+    {
+      id: "workflow.failed",
+      label: "Workflow failures",
+      description: "When a workflow run fails and needs attention.",
+    },
+    {
+      id: "schedule.started",
+      label: "Scheduled runs",
+      description: "When a scheduled workflow run starts.",
+    },
+    {
+      id: "alert",
+      label: "Agent alerts",
+      description: "When an agent sends an alert notification.",
+    },
+    {
+      id: "webhook",
+      label: "Webhooks",
+      description: "When the agent posts to an external webhook URL.",
+    },
+    {
+      id: "in-app",
+      label: "In-app notifications",
+      description: "Deliver to the notification bell.",
+    },
+  ];
   return (
     <div className="flex flex-col">
-      <SettingRow
-        label="Daily digest"
-        description="One email each morning with what changed."
-      >
-        <Switch
-          className={SWITCH_LABEL_HIDDEN}
-          label="Daily digest"
-          checked={digest}
-          onToggle={() => setDigest((v) => !v)}
-        />
-      </SettingRow>
-      <SettingRow label="Mentions" description="When someone @-mentions you.">
-        <Switch
-          className={SWITCH_LABEL_HIDDEN}
-          label="Mentions"
-          checked={mentions}
-          onToggle={() => setMentions((v) => !v)}
-        />
-      </SettingRow>
-      <SettingRow
-        label="Product updates"
-        description="New features, once a month at most."
-      >
-        <Switch
-          className={SWITCH_LABEL_HIDDEN}
-          label="Product updates"
-          checked={updates}
-          onToggle={() => setUpdates((v) => !v)}
-        />
-      </SettingRow>
+      {toggles.map((t) => (
+        <SettingRow key={t.id} label={t.label} description={t.description}>
+          <Switch
+            className={SWITCH_LABEL_HIDDEN}
+            label={t.label}
+            checked={enabled[t.id] ?? false}
+            onToggle={() =>
+              setEnabled((e) => ({ ...e, [t.id]: !e[t.id] }))
+            }
+          />
+        </SettingRow>
+      ))}
     </div>
   );
 }
 
 function AppearancePanel() {
   const icons = useIcons();
-  const [theme, setTheme] = useState("system");
-  const [density, setDensity] = useState("default");
+  const { resolvedTheme, setTheme } = useTheme();
+  const { size, setSize } = useSizeContext();
   return (
     <div className="flex flex-col">
       <SettingRow
         label="Theme"
         description="Follows the system unless you pick one."
       >
-        <Select value={theme} onValueChange={setTheme}>
+        <Select value={resolvedTheme} onValueChange={setTheme}>
           <SelectTrigger placeholder="Theme" />
           <SelectContent>
             <SelectItem index={0} value="system" icon={icons.monitor}>
@@ -398,7 +402,10 @@ function AppearancePanel() {
         label="Density"
         description="Row height across lists and tables."
       >
-        <Select value={density} onValueChange={setDensity}>
+        <Select
+          value={size}
+          onValueChange={(v) => setSize(v as "default" | "compact")}
+        >
           <SelectTrigger placeholder="Density" />
           <SelectContent>
             <SelectItem index={0} value="default">
@@ -415,21 +422,10 @@ function AppearancePanel() {
 }
 
 function SecurityPanel() {
-  const [twoFactor, setTwoFactor] = useState(true);
   const [alerts, setAlerts] = useState(true);
   return (
     <div className="flex flex-col">
-      <SettingRow
-        label="Two-factor authentication"
-        description="A code from your authenticator app at sign-in."
-      >
-        <Switch
-          className={SWITCH_LABEL_HIDDEN}
-          label="Two-factor authentication"
-          checked={twoFactor}
-          onToggle={() => setTwoFactor((v) => !v)}
-        />
-      </SettingRow>
+      
       <SettingRow
         label="New sign-in alerts"
         description="Email when a new device signs in."
@@ -455,8 +451,7 @@ function SecurityPanel() {
 
 const MEMBERS = [
   { name: "Jane Doe", email: "jane@acme.com", role: "owner" },
-  { name: "Sam Park", email: "sam@acme.com", role: "admin" },
-  { name: "Ravi Patel", email: "ravi@acme.com", role: "member" },
+
 ];
 
 function MembersPanel() {

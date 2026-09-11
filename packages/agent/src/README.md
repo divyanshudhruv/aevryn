@@ -1,0 +1,1 @@
+NEWTODO fix runtime.ts it has hardcoded prompts (i want a definite prompt library where i cna declare prompts and export it and then use it in other places, right?)

@@ -1,0 +1,3 @@
+NEWTODO since most of the things will be done in the web only liek chatting with LLM ai agent via vercel ai sdk, ingnest will only be used to create an event for the workflwo if it is binded with a thread and for cron jobs too. (if cron jobs are not possible to auto invoke an function or the event, tell me which other library i should use for cron jobs storing and usage)
+
+NEWTODO also the /functions directory is very big and unusable, rebuild whoile /inngest directory after you know my new plan

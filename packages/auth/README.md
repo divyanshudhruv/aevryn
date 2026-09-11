@@ -1,0 +1,1 @@
+NEWTODO the auth will use supabase google signup ONLY for easy use,  so rebuild this too

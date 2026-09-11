@@ -34,6 +34,7 @@ export interface AskUserOption {
   description?: string;
 }
 
+// NEWTODO this will be the schema sent to LLM toolcall via vercel ai sdk (llm can use this schema to create as many clarifying or final questions he wants)
 export interface AskUserQuestion {
   id?: string;
   title: string;
@@ -1219,7 +1220,9 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
           // overflow-hidden crops the footer buttons to the card's rounded
           // bounds, so a button animating out (e.g. Continue on exit) is
           // clipped at the edge instead of visibly flying outside the card.
-          "relative w-full max-w-[520px] overflow-hidden bg-card border border-border",
+          "relative w-full overflow-hidden bg-card border border-border",
+          // Previously capped at max-w-[520px]; dropped so callers can size it
+          // up (e.g. max-w-full) via className.
           shape.container,
           className
         )}

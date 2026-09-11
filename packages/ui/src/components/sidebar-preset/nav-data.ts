@@ -15,6 +15,7 @@ export interface NavSection {
   items: NavItem[];
 }
 
+// NEWTODO change with real data via dataabse
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "PERSONAL",

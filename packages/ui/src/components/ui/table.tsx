@@ -13,8 +13,15 @@ import {
 } from "react";
 import { cn } from "@aevryn/ui/lib/utils";
 import { fontWeights } from "@aevryn/ui/lib/font-weight";
-import { SizeProvider, useSize, type SizeVariant } from "@aevryn/ui/lib/size-context";
-import { useFluidHover, useRegisterFluidHoverItem } from "@aevryn/ui/hooks/use-fluid-hover";
+import {
+  SizeProvider,
+  useSize,
+  type SizeVariant,
+} from "@aevryn/ui/lib/size-context";
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+} from "@aevryn/ui/hooks/use-fluid-hover";
 import { FluidHoverHighlight } from "@aevryn/ui/components/ui/fluid-hover-highlight";
 
 // ── Context ──────────────────────────────────────────────
@@ -42,16 +49,11 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
     const sizeClasses = useSize(size);
 
     const hover = useFluidHover(containerRef);
-    const {
-      activeIndex,
-      handlers,
-      registerItem,
-    } = hover;
-
+    const { activeIndex, handlers, registerItem } = hover;
 
     const contextValue = useMemo(
       () => ({ registerItem, activeIndex }),
-      [registerItem, activeIndex]
+      [registerItem, activeIndex],
     );
 
     const table = (
@@ -69,7 +71,11 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 
           <table
             ref={ref}
-            className={cn("w-full border-collapse", sizeClasses.text, className)}
+            className={cn(
+              "w-full border-collapse",
+              sizeClasses.text,
+              className,
+            )}
             {...props}
           >
             {children}
@@ -80,7 +86,7 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 
     // A size prop pins every cell to one ladder step (cells read the context).
     return size ? <SizeProvider size={size}>{table}</SizeProvider> : table;
-  }
+  },
 );
 
 Table.displayName = "Table";
@@ -122,24 +128,29 @@ const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
 
     const isBodyRow = index !== undefined;
     const activeIdx = ctx?.activeIndex ?? null;
-    const hideBorder = activeIdx !== null && (
-      (isBodyRow && (index === activeIdx || index === activeIdx - 1)) ||
-      (!isBodyRow && activeIdx === 0)
-    );
+    const hideBorder =
+      activeIdx !== null &&
+      ((isBodyRow && (index === activeIdx || index === activeIdx - 1)) ||
+        (!isBodyRow && activeIdx === 0));
 
     return (
       <tr
         ref={(node) => {
-          (internalRef as React.MutableRefObject<HTMLTableRowElement | null>).current = node;
+          (
+            internalRef as React.MutableRefObject<HTMLTableRowElement | null>
+          ).current = node;
           if (typeof ref === "function") ref(node);
-          else if (ref) (ref as React.MutableRefObject<HTMLTableRowElement | null>).current = node;
+          else if (ref)
+            (
+              ref as React.MutableRefObject<HTMLTableRowElement | null>
+            ).current = node;
         }}
         data-fluid-hover-index={index}
         className={cn(
           "group/row relative z-10 border-b transition-[border-color] duration-80",
           hideBorder ? "border-transparent" : "border-accent/40",
           isBodyRow && activeIdx === index && "is-active",
-          className
+          className,
         )}
         style={{
           ...style,
@@ -150,7 +161,7 @@ const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
         {...props}
       />
     );
-  }
+  },
 );
 
 TableRow.displayName = "TableRow";
@@ -166,10 +177,10 @@ const TableHead = forwardRef<
     <th
       ref={ref}
       className={cn(
-        "text-left text-foreground",
+        "text-left text-foreground underline font-[300]",
         // py + line box lands the row on the ladder (36px / 28px).
         sizeClasses.variant === "compact" ? "px-2.5 py-[5px]" : "px-3 py-2",
-        className
+        className,
       )}
       {...props}
     />
@@ -191,7 +202,7 @@ const TableCell = forwardRef<
       className={cn(
         "text-muted-foreground transition-colors duration-80 group-[.is-active]/row:text-foreground",
         sizeClasses.variant === "compact" ? "px-2.5 py-[5px]" : "px-3 py-2",
-        className
+        className,
       )}
       {...props}
     />

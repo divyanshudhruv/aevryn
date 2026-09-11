@@ -1,3 +1,4 @@
+// NEWTODO : search context7 or web search to find the exact  scrapeformat ANAKIN offers, there are a few that ANAAKIN do not offer, or if it offers all, jsut do it.
 export type ScrapeFormat =
 	| "markdown"
 	| "html"

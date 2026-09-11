@@ -23,7 +23,7 @@ import {
   DropdownMenu,
   DropdownTrigger,
   DropdownContent,
-  DropdownSeparator
+  DropdownSeparator,
 } from "@aevryn/ui/components/ui/dropdown";
 import { MenuItem } from "@aevryn/ui/components/ui/menu-item";
 import { useIcon } from "@aevryn/ui/lib/icon-context";
@@ -48,6 +48,12 @@ import { useSurface } from "@aevryn/ui/lib/surface-context";
 import { NAV_SECTIONS } from "@aevryn/ui/components/sidebar-preset/nav-data";
 import { SettingsDialog } from "../dialog/settings-dialog";
 import { PlayIcon } from "lucide-react";
+import { WorkflowDelConfirmationDialog } from "../dialog/workflow-del-confirmation-dialog";
+import { EntityActionDialog } from "../dialog/entity-action-dialog";
+import { useTheme } from "next-themes";
+import { useEffect } from "react";
+import { WorkflowDialog } from "../dialog/workflow-dialog";
+import { NotificationsDialog } from "../dialog/notifications-dialog";
 
 const CALLOUTS = [
   { id: 1, title: "Aurora 2 is here", desc: "Longer context, faster agents" },
@@ -60,6 +66,16 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
     setCallouts((c) => c.filter((x) => x.id !== id));
   // The callout rests one surface step above the rail.
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [workflowDeleteOpen, setWorkflowDeleteOpen] = useState<[boolean, boolean]>([
+    false,
+    false,
+  ]);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [sectionRenameOpen, setSectionRenameOpen] = useState(false);
+  const [workflowDialogOpen, setWorkflowDialogOpen] = useState<
+    [boolean, string]
+  >([false, "general"]);
   const level = Math.min(useSurface() + 1, 8);
   const PlusIcon = useIcon("plus");
   const PencilIcon = useIcon("pencil");
@@ -71,13 +87,54 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
   const ArrowLeftIcon = useIcon("arrow-left");
   const FooterSettingsIcon = useIcon("settings");
   const MoonIcon = useIcon("moon");
+  const SunIcon = useIcon("sun");
   const BellIcon = useIcon("bell");
   const DeleteIcon = useIcon("dustbin");
+  const StopIcon = useIcon("stop");
+
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const isDark = mounted ? resolvedTheme === "dark" : false;
 
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar rail={false} bordered={false} variant="inset" {...props}>
       {" "}
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <NotificationsDialog
+        open={notificationsOpen}
+        onOpenChange={setNotificationsOpen}
+      />
+      <WorkflowDelConfirmationDialog
+        open={workflowDeleteOpen[0]}
+        onOpenChange={(open) => {
+          setWorkflowDeleteOpen([open, workflowDeleteOpen[1]]);
+        }}
+        mode="delete-all"
+      />
+      <WorkflowDelConfirmationDialog
+        open={workflowDeleteOpen[1]}
+        onOpenChange={(open) => {
+          setWorkflowDeleteOpen([workflowDeleteOpen[0], open]);
+        }}
+      />
+      <WorkflowDialog
+        open={workflowDialogOpen[0]}
+        onOpenChange={(open) =>
+          setWorkflowDialogOpen([open, workflowDialogOpen[1]])
+        }
+        defaultSection={workflowDialogOpen[1]}
+      />
+      <EntityActionDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        mode="rename-workflow"
+      />
+      <EntityActionDialog
+        open={sectionRenameOpen}
+        onOpenChange={setSectionRenameOpen}
+        mode="rename-section"
+      />
       <SidebarHeader>
         <SidebarWorkspaceHeader
           name="Acme Inc"
@@ -106,13 +163,10 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
           <SidebarSearchField />
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton icon={BellIcon}>
+              <SidebarMenuButton icon={BellIcon} onClick={() => setNotificationsOpen(true)}>
                 Notifications
                 {/* shortcut chip, revealed on row hover */}
-                <span
-                  className="ml-auto inline-flex opacity-0 transition-opacity duration-80
-                  group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100"
-                >
+                <span className="ml-auto inline-flex opacity-0 transition-opacity duration-80 group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100">
                   <kbd className="font-sans text-[11px] text-muted-foreground">
                     ⌘ N
                   </kbd>
@@ -123,10 +177,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
               <SidebarMenuButton icon={PlusIcon}>
                 New
                 {/* shortcut chip, revealed on row hover */}
-                <span
-                  className="ml-auto inline-flex opacity-0 transition-opacity duration-80
-                  group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100"
-                >
+                <span className="ml-auto inline-flex opacity-0 transition-opacity duration-80 group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100">
                   <kbd className="font-sans text-[11px] text-muted-foreground">
                     ⌘ O
                   </kbd>
@@ -146,11 +197,56 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                   <PlusIcon />
                 </SidebarGroupAction>
               </Tooltip>
-              <Tooltip content="Section settings" side="top">
-                <SidebarGroupAction aria-label="Section settings">
-                  <SlidersIcon />
-                </SidebarGroupAction>
-              </Tooltip>
+              <DropdownMenu>
+                <Tooltip content="Section settings" side="top">
+                  <DropdownTrigger
+                    render={
+                      <SidebarGroupAction aria-label="Section settings">
+                        <SlidersIcon />
+                      </SidebarGroupAction>
+                    }
+                  />
+                </Tooltip>
+                {/* 240px — the header/footer trigger width */}
+                <DropdownContent
+                  className="min-w-0 w-[240px]"
+                  align="start"
+                  sideOffset={4}
+                >
+                  <MenuItem
+                    index={0}
+                    icon={PlayIcon}
+                    label="Run all"
+                    onSelect={() => {}}
+                  />
+                  <MenuItem
+                    index={1}
+                    icon={StopIcon}
+                    label="Stop all"
+                    onSelect={() => {}}
+                  />
+                  <MenuItem
+                    index={2}
+                    icon={PencilIcon}
+                    label="Rename section"
+                    onSelect={() => setRenameOpen(true)}
+                  />
+
+                  <DropdownSeparator />
+                  {/* a confirmation dialog to delete this thread permanently, includign cascade everything from database */}
+                  <MenuItem
+                    index={3}
+                    icon={DeleteIcon}
+                    label="Delete all"
+                    onSelect={() =>
+                      setWorkflowDeleteOpen([
+                        true,
+                        workflowDeleteOpen[1],
+                      ])
+                    }
+                  />
+                </DropdownContent>
+              </DropdownMenu>
             </SidebarGroupActions>
             <SidebarMenu className="gap-px">
               {section.items.map((item) => (
@@ -167,13 +263,25 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                     <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
                   )}
                   <SidebarMenuActions showOnHover>
-                    <Tooltip content="Run" side="top">
-                      <SidebarMenuAction aria-label="Run">
-                        <PlayIcon />
+                    <Tooltip
+                      content={item.status === "running" ? "Stop" : "Run"}
+                      side="top"
+                    >
+                      <SidebarMenuAction
+                        aria-label={item.status === "running" ? "Stop" : "Run"}
+                      >
+                        {item.status === "running" ? (
+                          <StopIcon />
+                        ) : (
+                          <PlayIcon />
+                        )}
                       </SidebarMenuAction>
                     </Tooltip>
                     <Tooltip content="Rename" side="top">
-                      <SidebarMenuAction aria-label="Rename">
+                      <SidebarMenuAction
+                        aria-label="Rename"
+                        onClick={() => setRenameOpen(true)}
+                      >
                         <PencilIcon />
                       </SidebarMenuAction>
                     </Tooltip>
@@ -201,21 +309,29 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                           index={1}
                           icon={PencilIcon}
                           label="Rename"
-                          onSelect={() => {}}
+                          onSelect={() => setRenameOpen(true)}
                         />
                         <MenuItem
                           index={2}
                           icon={LinkIcon}
                           label="Share"
-                          onSelect={() => {}}
+                          onSelect={() =>
+                            setWorkflowDialogOpen([true, "share"])
+                          }
                         />
-                        <DropdownSeparator/>
+
+                        <DropdownSeparator />
                         {/* a confirmation dialog to delete this thread permanently, includign cascade everything from database */}
                         <MenuItem
-                          index={3}
+                          index={4}
                           icon={DeleteIcon}
                           label="Delete"
-                          onSelect={() => {}}
+                          onSelect={() =>
+                            setWorkflowDeleteOpen([
+                              workflowDeleteOpen[0],
+                              true,
+                            ])
+                          }
                         />
                       </DropdownContent>
                     </DropdownMenu>
@@ -233,9 +349,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
             dismissible
             onDismiss={() => dismiss(1)}
             label="Aurora 2 is here — longer context, faster agents"
-            className={`rounded-xl overflow-hidden min-h-0 transition-[background-color,box-shadow]
-            duration-80 ${surfaceClasses(level, 2)} ${surfaceHoverClasses(level + 1, 3)}
-            shadow-(--shadow-2-inset) hover:shadow-(--shadow-3-inset)`}
+            className={`rounded-xl overflow-hidden min-h-0 transition-[background-color,box-shadow] duration-80 ${surfaceClasses(level, 2)} ${surfaceHoverClasses(level + 1, 3)} shadow-(--shadow-2-inset) hover:shadow-(--shadow-3-inset)`}
           >
             {/* swap for your artwork */}
             <CardImage
@@ -257,11 +371,16 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
               icon={FooterSettingsIcon}
               onClick={() => setSettingsOpen(true)}
             >
-              Settings
+              Global Settings
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton icon={MoonIcon}>Theme</SidebarMenuButton>
+            <SidebarMenuButton
+              icon={isDark ? SunIcon : MoonIcon}
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+            >
+              Toggle Theme
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarUserFooter
