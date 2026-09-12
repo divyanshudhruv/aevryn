@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "f68c4007548a",
+  "strategy": "manual-commit",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "apps/web/src/app/workspace/page.tsx",
+    "packages/ui/src/components/sidebar-preset/nav-data.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f6/8c4007548a/0/metadata.json",
+      "transcript": "/f6/8c4007548a/0/full.jsonl",
+      "compact_transcript": "/f6/8c4007548a/0/transcript.jsonl",
+      "content_hash": "/f6/8c4007548a/0/content_hash.txt",
+      "prompt": "/f6/8c4007548a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5889027,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 118444608,
+    "output_tokens": 806855,
+    "api_call_count": 1426
+  }
+}
