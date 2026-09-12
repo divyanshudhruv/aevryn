@@ -1,0 +1,64 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2c2a26548391",
+  "session_id": "ses_f6f5065d1ffeV57k6ASZ6Ozgg1",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-12T04:17:44.7252075Z",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    "packages/workflow/src/index.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "big-pickle",
+  "turn_id": "cb4384ba2717",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 4766516,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 93454528,
+    "output_tokens": 631155,
+    "api_call_count": 1139
+  },
+  "session_metrics": {
+    "turn_count": 91
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-12T04:17:41.5619685Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 941,
+    "human_modified": 17,
+    "human_removed": 0,
+    "total_committed": 956,
+    "total_lines_changed": 961,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 594,
+      "user_lines_removed": 1,
+      "agent_lines_added": 16,
+      "agent_lines_removed": 16,
+      "user_added_per_file": {
+        "apps/web/src/app/api/chat/route.ts": 18,
+        "apps/web/src/app/api/queue/[id]/route.ts": 95,
+        "apps/web/src/app/api/queue/deliver/route.ts": 69,
+        "apps/web/src/app/api/queue/reorder/route.ts": 61,
+        "apps/web/src/app/api/queue/route.ts": 112,
+        "packages/inngest/src/events.ts": 9,
+        "packages/inngest/src/functions/queue-deliver.ts": 75,
+        "packages/inngest/src/functions/thread-runner.ts": 10,
+        "packages/inngest/src/index.ts": 1,
+        "packages/workflow/src/index.ts": 1,
+        "packages/workflow/src/services/queue-service.ts": 143
+      },
+      "user_removed_per_file": {
+        "packages/inngest/src/events.ts": 1
+      }
+    }
+  ]
+}
