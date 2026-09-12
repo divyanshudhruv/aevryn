@@ -1,0 +1,300 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2eb4991fc4e5",
+  "session_id": "ses_f6a16fe1effe7XdqeVchGYpP3r",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-12T15:06:16.7650749Z",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 25,
+  "save_step_count": 25,
+  "files_touched": [
+    "apps/web/src/app/workspace/[workspaceId]/layout.tsx",
+    "apps/web/src/app/workspace/[workspaceId]/page.tsx",
+    "apps/web/src/app/workspace/layout.tsx",
+    "apps/web/src/components/workspace/Header.tsx",
+    "bun.lock",
+    "packages/agent/src/README.md",
+    "packages/agent/src/decisions.ts",
+    "packages/agent/src/prompts.ts",
+    "packages/db/src/migrations/0005_remove_group_kind_and_key_override.sql",
+    "packages/db/src/migrations/meta/0005_snapshot.json",
+    "packages/db/src/migrations/meta/_journal.json",
+    "packages/db/supabase/migrations/20260912130000_remove_system_groups.sql",
+    "packages/ui/package.json"
+  ],
+  "agent": "OpenCode",
+  "model": "nemotron-3.5-lightning-free",
+  "turn_id": "1ba29c9022e5",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 1843207,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9728896,
+    "output_tokens": 23837,
+    "api_call_count": 159
+  },
+  "session_metrics": {
+    "turn_count": 25
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-12T15:06:16.6470427Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 3144,
+    "human_removed": 15,
+    "total_committed": 53,
+    "total_lines_changed": 3159,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 3573,
+      "user_lines_removed": 654,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/layout.tsx": 34,
+        "apps/web/src/app/workspace/[workspaceId]/page.tsx": 13,
+        "packages/agent/src/README.md": 14,
+        "packages/agent/src/decisions.ts": 85,
+        "packages/agent/src/prompts.ts": 201,
+        "packages/db/src/domain.ts": 112,
+        "packages/db/src/migrations/0005_remove_group_kind_and_key_override.sql": 47,
+        "packages/db/src/migrations/meta/0005_snapshot.json": 2466,
+        "packages/db/src/migrations/meta/_journal.json": 48,
+        "packages/db/supabase/migrations/20260912130000_remove_system_groups.sql": 87,
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 417,
+        "packages/ui/src/components/sidebar-preset/nav-data.ts": 49
+      },
+      "user_removed_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/page.tsx": 16,
+        "apps/web/src/app/workspace/layout.tsx": 31,
+        "packages/agent/src/README.md": 1,
+        "packages/db/src/domain.ts": 100,
+        "packages/db/src/migrations/meta/_journal.json": 41,
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 414,
+        "packages/ui/src/components/sidebar-preset/nav-data.ts": 51
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3574,
+      "agent_lines_removed": 654
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3574,
+      "agent_lines_removed": 654
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 1,
+      "user_lines_removed": 1,
+      "agent_lines_added": 3574,
+      "agent_lines_removed": 654,
+      "user_added_per_file": {
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 1
+      },
+      "user_removed_per_file": {
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 1
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3577,
+      "agent_lines_removed": 654
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 9,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3609,
+      "agent_lines_removed": 654
+    },
+    {
+      "checkpoint_number": 10,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 11,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3666,
+      "agent_lines_removed": 695
+    },
+    {
+      "checkpoint_number": 12,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 13,
+      "user_lines_added": 17,
+      "user_lines_removed": 26,
+      "agent_lines_added": 3676,
+      "agent_lines_removed": 695,
+      "user_added_per_file": {
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 17
+      },
+      "user_removed_per_file": {
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 26
+      }
+    },
+    {
+      "checkpoint_number": 14,
+      "user_lines_added": 630,
+      "user_lines_removed": 680,
+      "agent_lines_added": 3841,
+      "agent_lines_removed": 821,
+      "user_added_per_file": {
+        "apps/web/src/app/old-workspace/page.tsx": 567,
+        "apps/web/src/app/workspace/[workspaceId]/layout.tsx": 4,
+        "apps/web/src/components/workspace/Header.tsx": 58,
+        "packages/ui/tsconfig.json": 1
+      },
+      "user_removed_per_file": {
+        "apps/web/src/app/old-workspace/page.tsx": 567,
+        "apps/web/src/app/workspace/[workspaceId]/layout.tsx": 3,
+        "apps/web/src/components/workspace/Header.tsx": 2,
+        "packages/ui/src/components/header/searchable-dropdown.tsx": 107,
+        "packages/ui/tsconfig.json": 1
+      }
+    },
+    {
+      "checkpoint_number": 15,
+      "user_lines_added": 4,
+      "user_lines_removed": 3,
+      "agent_lines_added": 4359,
+      "agent_lines_removed": 1390,
+      "user_added_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/layout.tsx": 4
+      },
+      "user_removed_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/layout.tsx": 3
+      }
+    },
+    {
+      "checkpoint_number": 16,
+      "user_lines_added": 9,
+      "user_lines_removed": 9,
+      "agent_lines_added": 4359,
+      "agent_lines_removed": 1390,
+      "user_added_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/layout.tsx": 4,
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 5
+      },
+      "user_removed_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/layout.tsx": 3,
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 6
+      }
+    },
+    {
+      "checkpoint_number": 17,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 18,
+      "user_lines_added": 33,
+      "user_lines_removed": 23,
+      "agent_lines_added": 4346,
+      "agent_lines_removed": 1370,
+      "user_added_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/page.tsx": 7,
+        "apps/web/src/components/workspace/Header.tsx": 25,
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 1
+      },
+      "user_removed_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/page.tsx": 3,
+        "apps/web/src/components/workspace/Header.tsx": 14,
+        "packages/ui/src/components/sidebar-preset/app-sidebar.tsx": 6
+      }
+    },
+    {
+      "checkpoint_number": 19,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4356,
+      "agent_lines_removed": 1369
+    },
+    {
+      "checkpoint_number": 20,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 21,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4353,
+      "agent_lines_removed": 1367
+    },
+    {
+      "checkpoint_number": 22,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 23,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4327,
+      "agent_lines_removed": 1368
+    },
+    {
+      "checkpoint_number": 24,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 25,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4375,
+      "agent_lines_removed": 1419
+    }
+  ]
+}
