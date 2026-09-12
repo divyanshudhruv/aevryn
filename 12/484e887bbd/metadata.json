@@ -1,0 +1,55 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "12484e887bbd",
+  "strategy": "manual-commit",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "apps/web/package.json",
+    "apps/web/src/app/api/approvals/[id]/route.ts",
+    "apps/web/src/app/api/notifications/read/route.ts",
+    "apps/web/src/app/api/runs/[id]/stop/route.ts",
+    "apps/web/src/app/api/threads/[id]/route.ts",
+    "apps/web/src/app/api/threads/[id]/run/route.ts",
+    "apps/web/src/app/api/threads/route.ts",
+    "apps/web/src/app/workspace/[workspaceId]/[threadId]/page.tsx",
+    "apps/web/src/app/workspace/[workspaceId]/layout.tsx",
+    "apps/web/src/app/workspace/[workspaceId]/page.tsx",
+    "apps/web/src/components/workspace/approval-dialog.tsx",
+    "apps/web/src/components/workspace/chat-view.tsx",
+    "apps/web/src/components/workspace/header.tsx",
+    "apps/web/src/components/workspace/notifications-sheet.tsx",
+    "apps/web/src/components/workspace/sidebar.tsx",
+    "apps/web/src/components/workspace/stop-thread-button.tsx",
+    "apps/web/src/components/workspace/thread-client.tsx",
+    "apps/web/src/components/workspace/workspace-client.tsx",
+    "apps/web/src/hooks/use-realtime-thread.ts",
+    "apps/web/src/hooks/use-thread-chat.ts",
+    "apps/web/src/lib/workspace-data.ts",
+    "apps/web/src/stores/auth-store.ts",
+    "apps/web/src/stores/composer-store.ts",
+    "apps/web/src/stores/sidebar-store.ts",
+    "apps/web/src/stores/thread-store.ts",
+    "apps/web/src/stores/ui-store.ts",
+    "apps/web/src/types/workspace.ts",
+    "bun.lock",
+    "packages/ui/src/components/ui/card.tsx",
+    "packages/ui/src/lib/dotmatrix-core.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/12/484e887bbd/0/metadata.json",
+      "transcript": "/12/484e887bbd/0/full.jsonl",
+      "compact_transcript": "/12/484e887bbd/0/transcript.jsonl",
+      "content_hash": "/12/484e887bbd/0/content_hash.txt",
+      "prompt": "/12/484e887bbd/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5889027,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 118444608,
+    "output_tokens": 806855,
+    "api_call_count": 1426
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "12484e887bbd",
+  "session_id": "ses_f6f5065d1ffeV57k6ASZ6Ozgg1",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-12T06:08:00.8447998Z",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 6,
+  "save_step_count": 6,
+  "files_touched": [
+    "apps/web/package.json",
+    "apps/web/src/app/api/approvals/[id]/route.ts",
+    "apps/web/src/app/api/notifications/read/route.ts",
+    "apps/web/src/app/api/runs/[id]/stop/route.ts",
+    "apps/web/src/app/api/threads/[id]/route.ts",
+    "apps/web/src/app/api/threads/[id]/run/route.ts",
+    "apps/web/src/app/api/threads/route.ts",
+    "apps/web/src/app/workspace/[workspaceId]/[threadId]/page.tsx",
+    "apps/web/src/app/workspace/[workspaceId]/layout.tsx",
+    "apps/web/src/app/workspace/[workspaceId]/page.tsx",
+    "apps/web/src/components/workspace/approval-dialog.tsx",
+    "apps/web/src/components/workspace/chat-view.tsx",
+    "apps/web/src/components/workspace/header.tsx",
+    "apps/web/src/components/workspace/notifications-sheet.tsx",
+    "apps/web/src/components/workspace/sidebar.tsx",
+    "apps/web/src/components/workspace/stop-thread-button.tsx",
+    "apps/web/src/components/workspace/thread-client.tsx",
+    "apps/web/src/components/workspace/workspace-client.tsx",
+    "apps/web/src/hooks/use-realtime-thread.ts",
+    "apps/web/src/hooks/use-thread-chat.ts",
+    "apps/web/src/lib/workspace-data.ts",
+    "apps/web/src/stores/auth-store.ts",
+    "apps/web/src/stores/composer-store.ts",
+    "apps/web/src/stores/sidebar-store.ts",
+    "apps/web/src/stores/thread-store.ts",
+    "apps/web/src/stores/ui-store.ts",
+    "apps/web/src/types/workspace.ts",
+    "bun.lock",
+    "packages/ui/src/components/ui/card.tsx",
+    "packages/ui/src/lib/dotmatrix-core.tsx"
+  ],
+  "agent": "OpenCode",
+  "model": "big-pickle",
+  "turn_id": "73ad964afadc",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 5889027,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 118444608,
+    "output_tokens": 806855,
+    "api_call_count": 1426
+  },
+  "session_metrics": {
+    "turn_count": 97
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-12T06:07:59.3368225Z",
+    "agent_lines": 7,
+    "agent_removed": 8,
+    "human_added": 3400,
+    "human_modified": 1034,
+    "human_removed": 0,
+    "total_committed": 4441,
+    "total_lines_changed": 4449,
+    "agent_percentage": 0.33715441672285906,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 3413,
+      "user_lines_removed": 13,
+      "agent_lines_added": 18,
+      "agent_lines_removed": 2,
+      "user_added_per_file": {
+        "apps/web/src/app/api/approvals/[id]/route.ts": 146,
+        "apps/web/src/app/api/notifications/read/route.ts": 58,
+        "apps/web/src/app/api/runs/[id]/stop/route.ts": 70,
+        "apps/web/src/app/api/threads/[id]/route.ts": 91,
+        "apps/web/src/app/api/threads/[id]/run/route.ts": 123,
+        "apps/web/src/app/api/threads/route.ts": 74,
+        "apps/web/src/app/workspace/[workspaceId]/[threadId]/page.tsx": 33,
+        "apps/web/src/app/workspace/[workspaceId]/layout.tsx": 31,
+        "apps/web/src/app/workspace/[workspaceId]/page.tsx": 38,
+        "apps/web/src/components/workspace/approval-dialog.tsx": 144,
+        "apps/web/src/components/workspace/chat-view.tsx": 211,
+        "apps/web/src/components/workspace/header.tsx": 241,
+        "apps/web/src/components/workspace/notifications-sheet.tsx": 94,
+        "apps/web/src/components/workspace/sidebar.tsx": 356,
+        "apps/web/src/components/workspace/stop-thread-button.tsx": 37,
+        "apps/web/src/components/workspace/thread-client.tsx": 82,
+        "apps/web/src/components/workspace/workspace-client.tsx": 44,
+        "apps/web/src/hooks/use-realtime-thread.ts": 225,
+        "apps/web/src/hooks/use-thread-chat.ts": 207,
+        "apps/web/src/lib/workspace-data.ts": 370,
+        "apps/web/src/stores/auth-store.ts": 52,
+        "apps/web/src/stores/composer-store.ts": 63,
+        "apps/web/src/stores/sidebar-store.ts": 76,
+        "apps/web/src/stores/thread-store.ts": 363,
+        "apps/web/src/stores/ui-store.ts": 43,
+        "apps/web/src/types/workspace.ts": 141
+      },
+      "user_removed_per_file": {
+        "apps/web/src/app/api/threads/[id]/route.ts": 1,
+        "apps/web/src/app/workspace/[workspaceId]/[threadId]/page.tsx": 6,
+        "apps/web/src/app/workspace/[workspaceId]/page.tsx": 6
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    }
+  ]
+}
