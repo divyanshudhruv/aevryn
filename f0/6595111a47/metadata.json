@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "f06595111a47",
+  "strategy": "manual-commit",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "packages/db/src/domain.ts",
+    "packages/db/src/ids.ts",
+    "packages/db/src/migrations/meta/_journal.json",
+    "packages/db/src/schema/enums.ts",
+    "packages/db/src/schema/index.ts",
+    "packages/db/src/schema/policies.ts",
+    "packages/db/src/schema/relations.ts",
+    "packages/db/src/schema/thread.ts",
+    "packages/db/src/schema/workspace-member.ts",
+    "packages/workflow/src/index.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f0/6595111a47/0/metadata.json",
+      "transcript": "/f0/6595111a47/0/full.jsonl",
+      "compact_transcript": "/f0/6595111a47/0/transcript.jsonl",
+      "content_hash": "/f0/6595111a47/0/content_hash.txt",
+      "prompt": "/f0/6595111a47/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5889027,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 118444608,
+    "output_tokens": 806855,
+    "api_call_count": 1426
+  }
+}
