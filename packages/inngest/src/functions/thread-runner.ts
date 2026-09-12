@@ -21,6 +21,7 @@ import { inngest } from "../client";
 import {
 	type ThreadRunResult,
 	notificationPublishEvent,
+	queueDeliverEvent,
 	threadRunEvent,
 	threadRunEventSchema,
 } from "../events";
@@ -639,6 +640,15 @@ export async function persistAndCompleteStep(
 			threadTitle: thread.title,
 			summary,
 		});
+		try {
+			await inngest.send({
+				name: queueDeliverEvent,
+				data: { threadId: outcome.threadId },
+			});
+		} catch {
+			// Best-effort: a missed event just means queued messages wait for the
+			// next delivery trigger.
+		}
 	}
 	return {
 		runId: outcome.runId,

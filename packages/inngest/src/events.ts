@@ -49,3 +49,11 @@ export const threadRunResultSchema = z.object({
 });
 
 export type ThreadRunResult = z.infer<typeof threadRunResultSchema>;
+
+export const queueDeliverEvent = "queue/deliver" as const;
+
+export const queueDeliverEventSchema = z.object({
+	threadId: z.string().min(1),
+});
+
+export type QueueDeliverEventData = z.infer<typeof queueDeliverEventSchema>;

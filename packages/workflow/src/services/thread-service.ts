@@ -1,5 +1,5 @@
 import { chatMessages, db, ids, threads, type ChatMessage, type Db, type DbTx, type NewChatMessage, type Thread } from "@aevryn/db";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 
 export interface CreateThreadInput {
 	workspaceId: string;
@@ -55,6 +55,13 @@ export class ThreadService {
 		return this.scope().query.threads.findMany({
 			where: and(eq(threads.groupId, groupId), isNull(threads.deletedAt)),
 			orderBy: [asc(threads.createdAt)],
+		});
+	}
+
+	async listDeletedOlderThan(olderThanDays: number): Promise<Thread[]> {
+		const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+		return this.scope().query.threads.findMany({
+			where: and(isNotNull(threads.deletedAt), lt(threads.deletedAt, cutoff)),
 		});
 	}
 

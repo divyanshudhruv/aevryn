@@ -8,6 +8,7 @@ export * from "./services/member-service";
 export * from "./services/memory-service";
 export * from "./services/notification-service";
 export * from "./services/plan-service";
+export * from "./services/queue-service";
 export * from "./services/run-service";
 export * from "./services/schedule-service";
 export * from "./services/thread-service";

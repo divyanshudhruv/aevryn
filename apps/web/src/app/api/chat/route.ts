@@ -22,6 +22,7 @@ import {
 	MemberService,
 	MemoryService,
 	PlanService,
+	QueueService,
 	RunService,
 	ThreadService,
 	WorkflowService,
@@ -39,6 +40,7 @@ const planService = new PlanService();
 const runService = new RunService();
 const memoryService = new MemoryService();
 const workflowService = new WorkflowService();
+const queueService = new QueueService();
 
 const chatBodySchema = z.object({
 	threadId: z.string().min(1).optional(),
@@ -137,6 +139,22 @@ export async function POST(request: Request): Promise<Response> {
 		workflowAutoApprove = wf?.autoApprove ?? false;
 	}
 	const autoApprove = bodyAutoApprove ?? workflowAutoApprove;
+
+	if (await queueService.hasActiveRun(threadId)) {
+		const queued = await queueService.enqueue({
+			threadId,
+			userId: user.id,
+			text: message,
+		});
+		return Response.json(
+			{
+				data: { queued: true, messageId: queued.id },
+				error: null,
+				meta: {},
+			},
+			{ headers: { "cache-control": "no-store" } },
+		);
+	}
 
 	const assistantMessageId = ids.chatMessage();
 	const userMessageId = ids.chatMessage();
