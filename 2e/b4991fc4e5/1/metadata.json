@@ -1,0 +1,70 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2eb4991fc4e5",
+  "session_id": "ses_f6b02450affeBPYGYG2nepzSjI",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-12T15:06:17.4937039Z",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 3,
+  "save_step_count": 3,
+  "files_touched": [
+    "apps/web/src/app/workspace/[workspaceId]/page.tsx",
+    "apps/web/src/app/workspace/layout.tsx"
+  ],
+  "agent": "OpenCode",
+  "model": "nemotron-3.5-lightning-free",
+  "turn_id": "31e4358a17db",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 180005,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2606848,
+    "output_tokens": 6161,
+    "api_call_count": 45
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-12T15:06:17.4472848Z",
+    "agent_lines": 0,
+    "agent_removed": 31,
+    "human_added": 3064,
+    "human_modified": 24,
+    "human_removed": 0,
+    "total_committed": 3077,
+    "total_lines_changed": 3167,
+    "agent_percentage": 0.9788443321755604,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 7,
+      "user_lines_removed": 7,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/page.tsx": 4,
+        "packages/ui/src/components/ui/sidebar-menu.tsx": 3
+      },
+      "user_removed_per_file": {
+        "apps/web/src/app/workspace/[workspaceId]/page.tsx": 7
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 428,
+      "agent_lines_removed": 425
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 428,
+      "agent_lines_removed": 425
+    }
+  ]
+}

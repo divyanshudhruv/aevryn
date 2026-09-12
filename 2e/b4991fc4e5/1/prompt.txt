@@ -1,0 +1,1 @@
+hi Connect real DB nav data to sidebar (pass navSections prop). D:\github-desktop\aevryn\apps\web\src\app\workspace\[workspaceId]\page.tsx , D:\github-desktop\aevryn\apps\web\src\app\workspace\layout.tsx. SEE  D:\github-desktop\aevryn\final-docs AND READ ALL THE FILES TO KNOW THE PROJECT OVERWIEW AND ALSO READ DATABASE SCHEMA FOR ADDING DATABASE
