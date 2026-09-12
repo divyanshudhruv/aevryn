@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2ba5adcb2ead",
+  "strategy": "manual-commit",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 17,
+  "files_touched": [
+    "apps/web/package.json",
+    "apps/web/src/app/api/chat/route.ts",
+    "bun.lock",
+    "package.json",
+    "packages/agent/src/chat/index.ts",
+    "packages/agent/src/chat/prompt.ts",
+    "packages/agent/src/chat/schemas.ts",
+    "packages/agent/src/chat/stream.ts",
+    "packages/agent/src/chat/tools.ts",
+    "packages/agent/src/index.ts",
+    "packages/workflow/src/index.ts",
+    "packages/workflow/src/services/thread-service.ts",
+    "packages/workflow/src/services/workflow-service.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/2b/a5adcb2ead/0/metadata.json",
+      "transcript": "/2b/a5adcb2ead/0/full.jsonl",
+      "compact_transcript": "/2b/a5adcb2ead/0/transcript.jsonl",
+      "content_hash": "/2b/a5adcb2ead/0/content_hash.txt",
+      "prompt": "/2b/a5adcb2ead/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 4548347,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 84569792,
+    "output_tokens": 594616,
+    "api_call_count": 1050
+  }
+}
