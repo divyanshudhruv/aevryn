@@ -1,41 +1,48 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1789128510821,
-      "tag": "0000_long_ronan",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1789136722572,
-      "tag": "0001_confused_bruce_banner",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1789138248869,
-      "tag": "0002_rls_policies",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1789144978189,
-      "tag": "0003_fix_rls_recursion",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1789195436165,
-      "tag": "0004_open_jean_grey",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1789128510821,
+			"tag": "0000_long_ronan",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1789136722572,
+			"tag": "0001_confused_bruce_banner",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1789138248869,
+			"tag": "0002_rls_policies",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1789144978189,
+			"tag": "0003_fix_rls_recursion",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1789195436165,
+			"tag": "0004_open_jean_grey",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1789363200000,
+			"tag": "0005_remove_group_kind_and_key_override",
+			"breakpoints": true
+		}
+	]
 }

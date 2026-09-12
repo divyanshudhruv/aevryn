@@ -32,6 +32,7 @@
 	},
 	"devDependencies": {
 		"@aevryn/config": "workspace:*",
+		"@aevryn/auth": "workspace:*",
 		"@tailwindcss/postcss": "catalog:",
 		"@types/react": "catalog:",
 		"@types/react-dom": "catalog:",

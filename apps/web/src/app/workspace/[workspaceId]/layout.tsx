@@ -8,11 +8,15 @@ import { Header } from "@/components/workspace/Header";
 
 
 
-export default function WorkspaceLayout({
+export default async function WorkspaceLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ workspaceId: string, threadId?: string }>;
 }) {
+  const { workspaceId, threadId } = await params;
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -22,7 +26,7 @@ export default function WorkspaceLayout({
           aria-label="Conversation"
           className="min-h-0 flex-1 overflow-y-auto "
         >
-          <Header />
+          <Header workspaceId={workspaceId} threadId={threadId}/>
           {children}
         </section>
       </SidebarInset>
