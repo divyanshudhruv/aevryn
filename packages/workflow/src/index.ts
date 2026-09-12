@@ -12,4 +12,5 @@ export * from "./services/run-service";
 export * from "./services/schedule-service";
 export * from "./services/thread-service";
 export * from "./services/webhook-hook-service";
+export * from "./services/workflow-service";
 export * from "./types";

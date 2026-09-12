@@ -29,16 +29,20 @@
       "name": "web",
       "version": "0.1.0",
       "dependencies": {
+        "@aevryn/agent": "workspace:*",
         "@aevryn/api": "workspace:*",
         "@aevryn/auth": "workspace:*",
+        "@aevryn/db": "workspace:*",
         "@aevryn/env": "workspace:*",
         "@aevryn/inngest": "workspace:*",
         "@aevryn/ui": "workspace:*",
         "@aevryn/workflow": "workspace:*",
+        "@ai-sdk/groq": "^4.0.37",
         "@supabase/ssr": "catalog:",
         "@supabase/supabase-js": "catalog:",
         "@swc/helpers": "^0.5.23",
         "@tanstack/react-form": "^1.33.2",
+        "ai": "^7.0.93",
         "babel-plugin-react-compiler": "^1.0.0",
         "dotenv": "catalog:",
         "evlog": "^2.27.1",
@@ -206,6 +210,11 @@
   "trustedDependencies": [
     "inngest-cli",
   ],
+  "overrides": {
+    "@ai-sdk/provider": "4.0.14",
+    "@ai-sdk/provider-utils": "5.0.40",
+    "drizzle-orm": "0.45.2",
+  },
   "catalog": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
@@ -247,9 +256,9 @@
 
     "@ai-sdk/groq": ["@ai-sdk/groq@4.0.37", "", { "dependencies": { "@ai-sdk/provider": "4.0.10", "@ai-sdk/provider-utils": "5.0.36" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-BT78XNNak2Vt5DHp46vtoTKGk1RSlgQXyfNrFAz1//KGyUeVVZBwXhQLRawWmSCUAbigwNP3KSNSyGJoFKlkiw=="],
 
-    "@ai-sdk/provider": ["@ai-sdk/provider@4.0.10", "", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-fX2ENAc7iDpZ+Wp4+Rk06Usn/Ys7dI9uAkGv0jlF6XVrW13NkRWx5Ou+U6lIM2E1fTLkCs16GGrUAaVvroag7A=="],
+    "@ai-sdk/provider": ["@ai-sdk/provider@4.0.14", "", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-yukP2tbcQQErG5gLCMBGvpvb/rM3D3KlTKG6eKKOdNHLHqtNNDEeBxdYrY/JL+O76B2ig5dXY19H/f1HFSvRiQ=="],
 
-    "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@5.0.36", "", { "dependencies": { "@ai-sdk/provider": "4.0.10", "@standard-schema/spec": "^1.1.0", "@workflow/serde": "4.1.0", "eventsource-parser": "^3.0.8", "undici": "^7.29.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-MFXBn6XDyf37PNQAge/HTatPJE8Vmg/g/w4WPtjSV53jq8FKAzoaN5+43hsdQa9bqgN+/13jxug9ChvsG+godQ=="],
+    "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@5.0.40", "", { "dependencies": { "@ai-sdk/provider": "4.0.14", "@standard-schema/spec": "^1.1.0", "@workflow/serde": "4.1.0", "eventsource-parser": "^3.0.8", "undici": "^7.29.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-zsXPwSAQ9mRJ2hvyITaLOYUyuGrBmzFhJXOg4mllGmla1PfNxZcm4GwqMiV2xQaDgcgBMdUGxXkp9xekZZNIkg=="],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.3.0", "", {}, "sha512-U4+70Pc5ZS9osnCBCE5Jha/ciHM+Yp+CNMNC/7HvYbNRk1Ldd+f7qO65W5qfhu/TCv+/ozljlXXe9Nj8419DMA=="],
 

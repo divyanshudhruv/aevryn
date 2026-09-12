@@ -26,6 +26,7 @@ export * from "./capabilities/scrape-url";
 export * from "./capabilities/search-web";
 export * from "./capabilities/wire-action";
 export * from "./capability";
+export * from "./chat";
 export * from "./planning";
 export * from "./registry";
 export * from "./runtime";

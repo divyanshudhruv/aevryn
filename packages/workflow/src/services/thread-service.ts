@@ -1,4 +1,4 @@
-import { chatMessages, db, ids, threads, type ChatMessage, type Db, type Thread, type DbTx } from "@aevryn/db";
+import { chatMessages, db, ids, threads, type ChatMessage, type Db, type DbTx, type NewChatMessage, type Thread } from "@aevryn/db";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
 export interface CreateThreadInput {
@@ -67,6 +67,18 @@ export class ThreadService {
 			orderBy: [asc(chatMessages.createdAt)],
 			limit,
 		});
+	}
+
+	async updateMessage(
+		id: string,
+		patch: Pick<Partial<NewChatMessage>, "status" | "content">,
+	): Promise<ChatMessage | undefined> {
+		const [row] = await this.scope()
+			.update(chatMessages)
+			.set(patch)
+			.where(eq(chatMessages.id, id))
+			.returning();
+		return row;
 	}
 
 	async rename(id: string, title: string): Promise<Thread | undefined> {

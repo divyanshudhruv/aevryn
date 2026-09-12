@@ -68,5 +68,10 @@
 	"trustedDependencies": [
 		"inngest-cli"
 	],
-	"packageManager": "bun@1.3.9"
+	"packageManager": "bun@1.3.9",
+	"overrides": {
+		"@ai-sdk/provider-utils": "5.0.40",
+		"@ai-sdk/provider": "4.0.14",
+		"drizzle-orm": "0.45.2"
+	}
 }
