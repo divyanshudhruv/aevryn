@@ -67,10 +67,9 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
   // The callout rests one surface step above the rail.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [workflowDeleteOpen, setWorkflowDeleteOpen] = useState<[boolean, boolean]>([
-    false,
-    false,
-  ]);
+  const [workflowDeleteOpen, setWorkflowDeleteOpen] = useState<
+    [boolean, boolean]
+  >([false, false]);
   const [renameOpen, setRenameOpen] = useState(false);
   const [sectionRenameOpen, setSectionRenameOpen] = useState(false);
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState<
@@ -163,7 +162,10 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
           <SidebarSearchField />
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton icon={BellIcon} onClick={() => setNotificationsOpen(true)}>
+              <SidebarMenuButton
+                icon={BellIcon}
+                onClick={() => setNotificationsOpen(true)}
+              >
                 Notifications
                 {/* shortcut chip, revealed on row hover */}
                 <span className="ml-auto inline-flex opacity-0 transition-opacity duration-80 group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100">
@@ -239,10 +241,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                     icon={DeleteIcon}
                     label="Delete all"
                     onSelect={() =>
-                      setWorkflowDeleteOpen([
-                        true,
-                        workflowDeleteOpen[1],
-                      ])
+                      setWorkflowDeleteOpen([true, workflowDeleteOpen[1]])
                     }
                   />
                 </DropdownContent>
@@ -251,7 +250,6 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
             <SidebarMenu className="gap-px">
               {section.items.map((item) => (
                 <SidebarMenuItem key={item.label}>
-                  {/* status drives the dot and the screen-reader "unread" text */}
                   <SidebarMenuButton
                     status={item.status}
                     isActive={item.label === active}
@@ -327,10 +325,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                           icon={DeleteIcon}
                           label="Delete"
                           onSelect={() =>
-                            setWorkflowDeleteOpen([
-                              workflowDeleteOpen[0],
-                              true,
-                            ])
+                            setWorkflowDeleteOpen([workflowDeleteOpen[0], true])
                           }
                         />
                       </DropdownContent>

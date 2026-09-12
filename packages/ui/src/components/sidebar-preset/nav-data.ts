@@ -16,6 +16,8 @@ export interface NavSection {
 }
 
 // NEWTODO change with real data via dataabse
+
+// The badge is the number of chat messages or the soemthing idk it is in final-docs directory what is it or ask me what is it
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "PERSONAL",

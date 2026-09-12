@@ -78,12 +78,37 @@ export class ThreadService {
 
 	async updateMessage(
 		id: string,
-		patch: Pick<Partial<NewChatMessage>, "status" | "content">,
+		patch: Pick<Partial<NewChatMessage>, "status" | "content" | "runId">,
 	): Promise<ChatMessage | undefined> {
 		const [row] = await this.scope()
 			.update(chatMessages)
 			.set(patch)
 			.where(eq(chatMessages.id, id))
+			.returning();
+		return row;
+	}
+
+	/**
+	 * Append a role=system line to the thread's visible chat history. System
+	 * messages are how the UI learns about lifecycle events (a run sleeping,
+	 * waiting for a webhook, or being stopped) without fabricating assistant
+	 * text.
+	 */
+	async insertSystemMessage(
+		threadId: string,
+		userId: string,
+		text: string,
+	): Promise<ChatMessage | undefined> {
+		const [row] = await this.scope()
+			.insert(chatMessages)
+			.values({
+				id: ids.chatMessage(),
+				threadId,
+				userId,
+				role: "system",
+				status: "completed",
+				content: [{ type: "text", text }] as never,
+			})
 			.returning();
 		return row;
 	}

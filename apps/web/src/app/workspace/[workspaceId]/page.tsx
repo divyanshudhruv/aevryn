@@ -1,15 +1,16 @@
-export default function WorkspaceHomePage({
-	params,
+import { ChatComposer } from "@aevryn/ui/components/chat-composer";
+
+export default function WorkspacePage({
+  params,
 }: {
-	params: Promise<{ workspaceId: string }>;
+  params: Promise<{ workspaceId: string; threadId?: string }>;
 }) {
-	return (
-		<div className="container mx-auto flex h-full max-w-2xl flex-col items-center justify-center gap-4 px-4 text-center">
-			<h1 className="text-xl font-semibold">Workspace</h1>
-			<p className="text-sm text-muted-foreground">
-				The app shell lands here — chat, sidebar, and groups wire up in the
-				UI phase.
-			</p>
-		</div>
-	);
+  return (
+  
+    
+      <div className="mx-auto flex min-h-full bg-red-400 max-w-3xl flex-col items-end">
+        <ChatComposer />e
+      </div>
+    
+  );
 }

@@ -485,6 +485,17 @@ export async function persistAndCompleteStep(
 			} catch {
 				// Best-effort.
 			}
+			try {
+				await threadService.insertSystemMessage(
+					outcome.threadId,
+					run.userId,
+					`Waiting for your approval to run: ${[
+						...new Set(created.map((a) => a.toolName)),
+					].join(", ")}.`,
+				);
+			} catch {
+				// Best-effort.
+			}
 			heldForApproval = true;
 		}
 	}
@@ -520,6 +531,15 @@ export async function persistAndCompleteStep(
 						runId: outcome.runId,
 					}),
 				});
+			} catch {
+				// Best-effort.
+			}
+			try {
+				await threadService.insertSystemMessage(
+					outcome.threadId,
+					run.userId,
+					`Run sleeping until ${sleepUntil.toISOString()}.`,
+				);
 			} catch {
 				// Best-effort.
 			}
@@ -585,6 +605,15 @@ export async function persistAndCompleteStep(
 						runId: outcome.runId,
 					}),
 				});
+			} catch {
+				// Best-effort.
+			}
+			try {
+				await threadService.insertSystemMessage(
+					outcome.threadId,
+					run.userId,
+					`Waiting for an external event (webhook: ${url}).`,
+				);
 			} catch {
 				// Best-effort.
 			}

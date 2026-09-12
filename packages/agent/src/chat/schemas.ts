@@ -77,3 +77,11 @@ export const chatToolSchemas = {
 export type ChatToolName = keyof typeof chatToolSchemas;
 
 export const CHAT_TOOL_NAMES = Object.keys(chatToolSchemas) as ChatToolName[];
+
+/**
+ * Shared exports for the web client: the composer and the question-reply form
+ * render against the same schemas the server validates with, so tool contracts
+ * can never drift between apps/web and the agent package.
+ */
+export const askQuestionSchema = chatToolSchemas.askQuestion;
+export type AskQuestionInput = z.output<typeof chatToolSchemas.askQuestion>;

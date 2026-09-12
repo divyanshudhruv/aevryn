@@ -1,8 +1,6 @@
 import { createUIMessageStreamResponse, convertToModelMessages, streamText, toUIMessageStream, type Tool, type ToolSet, type UIMessage } from "ai";
 import { createGroq } from "@ai-sdk/groq";
-import { z } from "zod";
 
-import { chatMessages, db, ids } from "@aevryn/db";
 import { requireUser } from "@aevryn/auth";
 import { env } from "@aevryn/env/server";
 import {
@@ -39,180 +37,80 @@ const memoryService = new MemoryService();
 const workflowService = new WorkflowService();
 const queueService = new QueueService();
 
-const chatBodySchema = z.object({
-	threadId: z.string().min(1).optional(),
-	workspaceId: z.string().min(1).optional(),
-	message: z.string().min(1).max(20_000),
-	autoApprove: z.boolean().optional(),
-	maxOutputTokens: z.number().int().min(64).max(32_768).optional(),
-	attachments: z
-		.array(
-			z.object({
-				id: z.string().min(1),
-				url: z.string().min(1),
-				mimeType: z.string().min(1),
-			}),
-		)
-		.max(8)
-		.optional(),
-});
-
-function userContentParts(
-	message: string,
-	attachments?: z.output<typeof chatBodySchema>["attachments"],
-): UIMessage["parts"] {
-	const parts: UIMessage["parts"] = [];
-	for (const attachment of attachments ?? []) {
-		if (attachment.mimeType.startsWith("image/")) {
-			parts.push({
-				type: "file",
-				mediaType: attachment.mimeType,
-				url: attachment.url,
-				filename: attachment.id,
-			});
-		} else {
-			parts.push({
-				type: "text",
-				text: `[Attached file: ${attachment.id} (${attachment.mimeType})]`,
-			});
-		}
-	}
-	parts.push({ type: "text", text: message });
-	return parts;
-}
-
 function jsonError(status: number, code: string, message: string): Response {
 	return Response.json(
 		{ data: null, error: { code, message, details: null }, meta: {} },
-		{
-			status,
-			headers: { "cache-control": "no-store" },
-		},
+		{ status, headers: { "cache-control": "no-store" } },
 	);
 }
 
-export async function POST(request: Request): Promise<Response> {
+/**
+ * Message-level regenerate: re-stream a fresh answer for an existing assistant
+ * message, rewriting that row in place. Uses the same live-tooling path as
+ * /api/chat (`createChatTools`, system prompt, tool-activity rows) against the
+ * history that preceded the message, keeping the message id stable so the UI
+ * can animate the replacement.
+ */
+export async function POST(
+	_request: Request,
+	ctx: { params: Promise<{ messageId: string }> },
+): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();
-	let user: { id: string; email?: string | null };
+	let user: { id: string };
 	try {
 		user = await requireUser(supabase);
 	} catch {
-		return jsonError(401, "UNAUTHENTICATED", "Sign in to use chat.");
+		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
 	}
+	const { messageId } = await ctx.params;
 
-	let body: unknown;
-	try {
-		body = await request.json();
-	} catch {
-		body = null;
+	const message = await queueService.findById(messageId);
+	if (!message) {
+		return jsonError(404, "MESSAGE_NOT_FOUND", "Message does not exist.");
 	}
-	const parsed = chatBodySchema.safeParse(body);
-	if (!parsed.success) {
-		return jsonError(400, "INVALID_PAYLOAD", "A non-empty `message` is required.");
+	if (message.role !== "assistant") {
+		return jsonError(400, "NOT_ASSISTANT", "Only assistant messages can be regenerated.");
 	}
-	const {
-		message,
-		autoApprove: bodyAutoApprove,
-		maxOutputTokens,
-		attachments,
-	} = parsed.data;
-
-	let threadId = parsed.data.threadId;
-	let workspaceId = parsed.data.workspaceId;
-
-	if (threadId) {
-		const thread = await threadService.findById(threadId);
-		if (!thread) {
-			return jsonError(404, "THREAD_NOT_FOUND", "Thread does not exist.");
-		}
-		if (thread.userId !== user.id) {
-			return jsonError(403, "FORBIDDEN", "You do not have access to this thread.");
-		}
-		workspaceId = thread.workspaceId;
-	}
-
-	if (!workspaceId) {
-		return jsonError(400, "NO_WORKSPACE", "Create a workspace first.");
-	}
-
-	const resolved = await keyService.resolveKey(workspaceId, user.id, "groq");
-	if (resolved.key === null) {
-		return jsonError(503, "NO_GROQ_KEY", "No Groq key configured for this workspace.");
-	}
-
-	if (!threadId) {
-		const thread = await threadService.create({
-			workspaceId,
-			userId: user.id,
-			title: "",
-		});
-		threadId = thread.id;
-	}
-	if (!threadId) {
-		return jsonError(404, "THREAD_NOT_FOUND", "Thread does not exist.");
-	}
-
-	const thread = await threadService.findById(threadId);
+	const thread = await threadService.findById(message.threadId);
 	if (!thread) {
 		return jsonError(404, "THREAD_NOT_FOUND", "Thread does not exist.");
 	}
+	if (thread.userId !== user.id) {
+		return jsonError(403, "FORBIDDEN", "You do not have access to this message.");
+	}
+	if (message.status === "streaming") {
+		return jsonError(409, "ALREADY_STREAMING", "This message is already streaming.");
+	}
+	if (await queueService.hasActiveRun(thread.id)) {
+		return jsonError(409, "RUN_ACTIVE", "Stop the running item before regenerating.");
+	}
+
+	const messages = await threadService.listMessagesByThread(thread.id);
+	const index = messages.findIndex((row) => row.id === messageId);
+	const prior = messages.slice(0, index);
+	if (index < 0 || prior.length === 0) {
+		return jsonError(400, "NOTHING_TO_REGENERATE", "No prior context to regenerate from.");
+	}
+	const history = buildUIMessages(prior);
+
+	const turnRun = await runService.create({
+		threadId: thread.id,
+		userId: user.id,
+		trigger: "rerun",
+		rerunOf: message.runId ?? undefined,
+	});
+	await runService.setStatus(turnRun.id, "running");
+	await threadService.updateMessage(messageId, {
+		status: "streaming",
+		content: [],
+		runId: turnRun.id,
+	});
 
 	let workflowAutoApprove = false;
 	if (thread.boundWorkflowId) {
 		const wf = await workflowService.findById(thread.boundWorkflowId);
 		workflowAutoApprove = wf?.autoApprove ?? false;
 	}
-	const autoApprove = bodyAutoApprove ?? workflowAutoApprove;
-
-	if (await queueService.hasActiveRun(threadId)) {
-		const queued = await queueService.enqueue({
-			threadId,
-			userId: user.id,
-			text: message,
-		});
-		return Response.json(
-			{
-				data: { queued: true, messageId: queued.id },
-				error: null,
-				meta: {},
-			},
-			{ headers: { "cache-control": "no-store" } },
-		);
-	}
-
-	const assistantMessageId = ids.chatMessage();
-	const userMessageId = ids.chatMessage();
-
-	await db.insert(chatMessages).values({
-		id: userMessageId,
-		threadId,
-		userId: user.id,
-		role: "user",
-		status: "completed",
-		content: userContentParts(message, attachments),
-	});
-	if (!thread.title) {
-		await threadService.autoTitle(threadId, message);
-	}
-	await threadService.touchLastMessage(threadId);
-
-	await db.insert(chatMessages).values({
-		id: assistantMessageId,
-		threadId,
-		userId: user.id,
-		role: "assistant",
-		status: "streaming",
-		content: [],
-	});
-
-	const turnRun = await runService.create({
-		threadId,
-		userId: user.id,
-		trigger: "message",
-	});
-	await runService.setStatus(turnRun.id, "running");
-
-	const history = buildUIMessages(await threadService.listMessagesByThread(threadId));
 
 	const services: ChatToolServices = {
 		plan: planService,
@@ -243,15 +141,15 @@ export async function POST(request: Request): Promise<Response> {
 
 	const tools: Record<string, Tool> = createChatTools({
 		userId: user.id,
-		workspaceId,
-		threadId,
+		workspaceId: thread.workspaceId,
+		threadId: thread.id,
 		workflowId: thread.boundWorkflowId ?? undefined,
-		autoApprove,
+		autoApprove: workflowAutoApprove,
 		services,
 		onToolActivity,
 		async onDelegateWork({ objective, instructions }) {
 			const run = await runService.create({
-				threadId,
+				threadId: thread.id,
 				userId: user.id,
 				trigger: "message",
 				promptSnapshot: objective,
@@ -259,7 +157,7 @@ export async function POST(request: Request): Promise<Response> {
 			const prompt = [objective, instructions].filter(Boolean).join("\n\n");
 			await inngest.send({
 				name: threadRunEvent,
-				data: { runId: run.id, threadId, prompt },
+				data: { runId: run.id, threadId: thread.id, prompt },
 			});
 			return { runId: run.id };
 		},
@@ -267,18 +165,40 @@ export async function POST(request: Request): Promise<Response> {
 
 	let modelName = env.GROQ_MODEL;
 	try {
-		const workspaceKey = await keyService.getWorkspaceKey(workspaceId, "groq");
+		const workspaceKey = await keyService.getWorkspaceKey(
+			thread.workspaceId,
+			"groq",
+		);
 		modelName = workspaceKey?.modelName ?? modelName;
 	} catch {
 		// Fall back to the default model when the vault key cannot be read.
+	}
+
+	const resolved = await keyService.resolveKey(
+		thread.workspaceId,
+		user.id,
+		"groq",
+	);
+	if (resolved.key === null) {
+		await threadService.updateMessage(messageId, {
+			status: "failed",
+			content: [
+				{
+					type: "text",
+					text: "Regeneration failed: no Groq key configured for this workspace.",
+				},
+			],
+		});
+		await runService.setStatus(turnRun.id, "failed");
+		return jsonError(503, "NO_GROQ_KEY", "No Groq key configured for this workspace.");
 	}
 
 	const result = streamText({
 		model: createGroq({ apiKey: resolved.key }).languageModel(modelName),
 		system: buildChatSystemPrompt({
 			workflowId: thread.boundWorkflowId ?? undefined,
-			autoApprove,
-			maxOutputTokens: maxOutputTokens ?? 4096,
+			autoApprove: workflowAutoApprove,
+			maxOutputTokens: 4096,
 			modelName,
 		}),
 		messages: await convertToModelMessages(history, {
@@ -286,19 +206,17 @@ export async function POST(request: Request): Promise<Response> {
 			ignoreIncompleteToolCalls: true,
 		}),
 		tools,
-		maxOutputTokens: maxOutputTokens ?? 4096,
+		maxOutputTokens: 4096,
 	});
 
-	void persistAssistantMessage(result, assistantMessageId, turnRun.id);
-
-	const uiStream = toUIMessageStream({
-		stream: result.stream,
-		tools,
-	});
+	void persistAssistantMessage(result, messageId, turnRun.id);
 
 	return createUIMessageStreamResponse({
 		status: 200,
-		stream: uiStream,
+		stream: toUIMessageStream({
+			stream: result.stream,
+			tools,
+		}),
 	});
 }
 
@@ -343,7 +261,7 @@ async function persistAssistantMessage(
 			status: "failed",
 			content:
 				error instanceof Error
-					? [{ type: "text", text: `Chat failed: ${error.message}` }]
+					? [{ type: "text", text: `Regeneration failed: ${error.message}` }]
 					: [],
 		});
 		await runService.setStatus(runId, "failed");
