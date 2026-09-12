@@ -3,7 +3,7 @@ import { customType, pgPolicy, pgTable, text, timestamp, uniqueIndex, uuid } fro
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { apiProviderEnum } from "./enums";
-import { isEditorOf } from "./policies";
+import { ownsWorkspace } from "./policies";
 import { workspaces } from "./workspace";
 
 const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
@@ -39,22 +39,22 @@ export const workspaceApiKeys = pgTable(
 		pgPolicy("workspace_api_keys_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: isEditorOf(table.workspaceId),
+			using: ownsWorkspace(table.workspaceId),
 		}),
 		pgPolicy("workspace_api_keys_insert", {
 			for: "insert",
 			to: authenticatedRole,
-			withCheck: sql`${isEditorOf(table.workspaceId)} and ${table.createdBy} = auth.uid()`,
+			withCheck: sql`${ownsWorkspace(table.workspaceId)} and ${table.createdBy} = auth.uid()`,
 		}),
 		pgPolicy("workspace_api_keys_update", {
 			for: "update",
 			to: authenticatedRole,
-			using: isEditorOf(table.workspaceId),
+			using: ownsWorkspace(table.workspaceId),
 		}),
 		pgPolicy("workspace_api_keys_delete", {
 			for: "delete",
 			to: authenticatedRole,
-			using: isEditorOf(table.workspaceId),
+			using: ownsWorkspace(table.workspaceId),
 		}),
 	],
 ).enableRLS();

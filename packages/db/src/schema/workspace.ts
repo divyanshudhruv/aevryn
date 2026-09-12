@@ -2,8 +2,6 @@ import { sql } from "drizzle-orm";
 import { boolean, pgPolicy, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { authenticatedRole } from "drizzle-orm/supabase";
 
-import { isMemberOf } from "./policies";
-
 // FK to auth.users (outside drizzle schema) is enforced in SQL migration.
 export const workspaces = pgTable(
 	"workspaces",
@@ -25,7 +23,7 @@ export const workspaces = pgTable(
 		pgPolicy("workspaces_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: sql`${table.createdBy} = auth.uid() or ${isMemberOf(table.id)}`,
+			using: sql`${table.createdBy} = auth.uid()`,
 		}),
 		pgPolicy("workspaces_insert", {
 			for: "insert",

@@ -5,7 +5,6 @@ const factory = monotonicFactory();
 export const ID_PREFIXES = {
 	workspace: "wp_",
 	group: "grp_",
-	workspaceMember: "wme_",
 	userProfile: "prf_",
 	thread: "thd_",
 	workflow: "wf_",
@@ -15,8 +14,6 @@ export const ID_PREFIXES = {
 	run: "run_",
 	runActivity: "act_",
 	approvalRequest: "apv_",
-	invite: "inv_",
-	threadShare: "tco_",
 	notification: "not_",
 	workspaceApiKey: "key_",
 	file: "fil_",
@@ -38,7 +35,6 @@ export function isValidId(prefix: IdPrefix, id: string): boolean {
 export const ids = {
 	workspace: () => makeId(ID_PREFIXES.workspace),
 	group: () => makeId(ID_PREFIXES.group),
-	workspaceMember: () => makeId(ID_PREFIXES.workspaceMember),
 	userProfile: () => makeId(ID_PREFIXES.userProfile),
 	thread: () => makeId(ID_PREFIXES.thread),
 	workflow: () => makeId(ID_PREFIXES.workflow),
@@ -48,8 +44,6 @@ export const ids = {
 	run: () => makeId(ID_PREFIXES.run),
 	runActivity: () => makeId(ID_PREFIXES.runActivity),
 	approvalRequest: () => makeId(ID_PREFIXES.approvalRequest),
-	invite: () => makeId(ID_PREFIXES.invite),
-	threadShare: () => makeId(ID_PREFIXES.threadShare),
 	notification: () => makeId(ID_PREFIXES.notification),
 	workspaceApiKey: () => makeId(ID_PREFIXES.workspaceApiKey),
 	file: () => makeId(ID_PREFIXES.file),

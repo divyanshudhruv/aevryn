@@ -3,7 +3,6 @@ import { boolean, index, integer, pgPolicy, pgTable, text, timestamp, uuid } fro
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { workflowStatusEnum } from "./enums";
-import { isEditorOf, isMemberOf } from "./policies";
 import { threads } from "./thread";
 import { workspaces } from "./workspace";
 
@@ -37,17 +36,17 @@ export const workflows = pgTable(
 		pgPolicy("workflows_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: sql`${table.userId} = auth.uid() or ${isMemberOf(table.workspaceId)}`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("workflows_insert", {
 			for: "insert",
 			to: authenticatedRole,
-			withCheck: sql`${table.userId} = auth.uid() and ${isEditorOf(table.workspaceId)}`,
+			withCheck: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("workflows_update", {
 			for: "update",
 			to: authenticatedRole,
-			using: sql`${table.userId} = auth.uid() or ${isEditorOf(table.workspaceId)}`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("workflows_delete", {
 			for: "delete",

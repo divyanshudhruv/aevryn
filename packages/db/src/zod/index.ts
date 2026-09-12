@@ -6,8 +6,6 @@ import {
 	API_PROVIDERS,
 	APPROVAL_STATUSES,
 	GROUP_KINDS,
-	INVITE_KINDS,
-	INVITE_STATUSES,
 	MESSAGE_ROLES,
 	MESSAGE_STATUSES,
 	NOTIFICATION_TYPES,
@@ -16,16 +14,11 @@ import {
 	PLAN_STEP_STATUSES,
 	RUN_STATUSES,
 	RUN_TRIGGERS,
-	THREAD_ROLES,
 	WORKFLOW_STATUSES,
 } from "../domain";
 
-export const roleSchema = z.enum(["owner", "editor", "viewer"]);
-export const threadRoleSchema = z.enum(THREAD_ROLES);
 export const planLevelSchema = z.enum(PLAN_LEVELS);
 export const groupKindSchema = z.enum(GROUP_KINDS);
-export const inviteKindSchema = z.enum(INVITE_KINDS);
-export const inviteStatusSchema = z.enum(INVITE_STATUSES);
 export const workflowStatusSchema = z.enum(WORKFLOW_STATUSES);
 export const messageRoleSchema = z.enum(MESSAGE_ROLES);
 export const messageStatusSchema = z.enum(MESSAGE_STATUSES);

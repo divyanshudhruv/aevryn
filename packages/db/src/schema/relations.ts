@@ -4,7 +4,6 @@ import { approvalRequests } from "./approval-request";
 import { chatMessages } from "./chat-message";
 import { files } from "./file";
 import { groups } from "./group";
-import { invites } from "./invite";
 import { notifications } from "./notification";
 import { plans } from "./plan";
 import { planSteps } from "./plan-step";
@@ -12,18 +11,15 @@ import { runs } from "./run";
 import { runActivities } from "./run-activity";
 import { schedules } from "./schedule";
 import { threads } from "./thread";
-import { threadShares } from "./thread-share";
 import { webhookHooks } from "./webhook-hook";
 import { workspaceApiKeys } from "./workspace-api-key";
-import { workspaceMembers } from "./workspace-member";
 import { workspaces } from "./workspace";
 import { workflows } from "./workflow";
 
-// ── workspaces ──────────────────────────────────────────────────────
+// ── workspaces ───────────────────────────────────────────────────────
 
 export const workspaceRelations = relations(workspaces, ({ many }) => ({
 	groups: many(groups),
-	members: many(workspaceMembers),
 	threads: many(threads),
 	workflows: many(workflows),
 	notifications: many(notifications),
@@ -39,15 +35,6 @@ export const groupRelations = relations(groups, ({ one, many }) => ({
 		references: [workspaces.id],
 	}),
 	threads: many(threads),
-}));
-
-// ── workspace_members ───────────────────────────────────────────────
-
-export const workspaceMemberRelations = relations(workspaceMembers, ({ one }) => ({
-	workspace: one(workspaces, {
-		fields: [workspaceMembers.workspaceId],
-		references: [workspaces.id],
-	}),
 }));
 
 // ── threads ─────────────────────────────────────────────────────────
@@ -66,8 +53,6 @@ export const threadRelations = relations(threads, ({ one, many }) => ({
 	runs: many(runs),
 	schedules: many(schedules),
 	webhookHooks: many(webhookHooks),
-	shares: many(threadShares),
-	invites: many(invites),
 }));
 
 // ── workflows ───────────────────────────────────────────────────────
@@ -167,32 +152,6 @@ export const approvalRequestRelations = relations(approvalRequests, ({ one }) =>
 	thread: one(threads, {
 		fields: [approvalRequests.threadId],
 		references: [threads.id],
-	}),
-}));
-
-// ── invites ─────────────────────────────────────────────────────────
-
-export const inviteRelations = relations(invites, ({ one }) => ({
-	workspace: one(workspaces, {
-		fields: [invites.workspaceId],
-		references: [workspaces.id],
-	}),
-	thread: one(threads, {
-		fields: [invites.threadId],
-		references: [threads.id],
-	}),
-}));
-
-// ── thread_shares ──────────────────────────────────────────────────
-
-export const threadShareRelations = relations(threadShares, ({ one }) => ({
-	thread: one(threads, {
-		fields: [threadShares.threadId],
-		references: [threads.id],
-	}),
-	invite: one(invites, {
-		fields: [threadShares.inviteId],
-		references: [invites.id],
 	}),
 }));
 

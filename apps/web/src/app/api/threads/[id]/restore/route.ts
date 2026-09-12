@@ -1,5 +1,5 @@
 import { requireUser } from "@aevryn/auth";
-import { MemberService, ThreadService } from "@aevryn/workflow";
+import { ThreadService } from "@aevryn/workflow";
 
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
@@ -7,7 +7,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const threadService = new ThreadService();
-const memberService = new MemberService();
 
 function jsonError(status: number, code: string, message: string): Response {
 	return Response.json(
@@ -32,11 +31,7 @@ export async function POST(
 	if (!thread) {
 		return jsonError(404, "THREAD_NOT_FOUND", "Thread does not exist.");
 	}
-	const members = await memberService.listByUser(user.id);
-	const canAccess =
-		thread.userId === user.id ||
-		members.some((m) => m.workspaceId === thread.workspaceId);
-	if (!canAccess) {
+	if (thread.userId !== user.id) {
 		return jsonError(403, "FORBIDDEN", "You do not have access to this thread.");
 	}
 	await threadService.restore(id);

@@ -32,9 +32,7 @@ import { cn } from "@aevryn/ui/lib/utils";
 import { fontWeights } from "@aevryn/ui/lib/font-weight";
 import { WorkflowDelConfirmationDialog } from "./workflow-del-confirmation-dialog";
 import { EntityActionDialog } from "./entity-action-dialog";
-import InputCopy from "../ui/input-copy";
 import {
-
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
@@ -65,12 +63,6 @@ const SECTIONS: WorkflowSection[] = [
     label: "General",
     icon: "settings",
     description: "General settings for this workflow.",
-  },
-  {
-    id: "share",
-    label: "Share",
-    icon: "share",
-    description: "Share this workflow with others.",
   },
   {
     id: "plan",
@@ -219,10 +211,6 @@ export function WorkflowDialog({
 // control on the right.
 // ---------------------------------------------------------------------------
 
-// Switches carry their own (required) label for assistive tech; the row
-// already shows it, so the switch's copy is visually hidden.
-const SWITCH_LABEL_HIDDEN = "[&>span:last-child]:sr-only";
-
 function SettingRow({
   label,
   description,
@@ -256,8 +244,6 @@ function SettingRow({
 
 function SectionPanel({ id }: { id: string }) {
   switch (id) {
-    case "share":
-      return <SharePanel />;
     case "plan":
       return <PlanPanel />;
     case "instructions":
@@ -325,45 +311,6 @@ function GeneralPanel() {
   );
 }
 
-function SharePanel() {
-  const MEMBERS = [{ name: "Jane Doe", email: "jane@acme.com", role: "owner" }];
-  const [roles, setRoles] = useState<Record<string, string>>(
-    MEMBERS.reduce((acc, m) => ({ ...acc, [m.email]: m.role }), {}),
-  );
-  return (
-    <div className="flex flex-col">
-      <InputCopy
-        label="Copy the link and share it with your team"
-        variant="button"
-        value="https://www.fluidfunctionalism.com/r/input-copy.json"
-      />
-      <div className="mt-4"></div>
-      {/* <span className="text-[13px] text-muted-foreground">All members</span>
-      {MEMBERS.map((m) => (
-        <SettingRow key={m.email} label={m.name} description={m.email}>
-          <Select
-            value={roles[m.email]}
-            onValueChange={(v) => setRoles((r) => ({ ...r, [m.email]: v }))}
-          >
-            <SelectTrigger placeholder="Role" variant="borderless" />
-            <SelectContent>
-              <SelectItem index={0} value="owner">
-                Owner
-              </SelectItem>
-              <SelectItem index={1} value="admin">
-                Admin
-              </SelectItem>
-              <SelectItem index={2} value="member">
-                Member
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingRow>
-      ))} */}
-    </div>
-  );
-}
-
 function PlanPanel() {
   const [addPlanOpen, setAddPlanOpen] = useState(false);
   const items = [
@@ -405,29 +352,10 @@ function PlanPanel() {
     },
   ];
 
-  const [itemTitles, setItemTitles] = useState(items.map((i) => i.title));
-  const [itemContents, setItemContents] = useState(items.map((i) => i.content));
-
-  const setItemTitle = (index: number, value: string) => {
-    setItemTitles((titles) => {
-      const newTitles = [...titles];
-      newTitles[index] = value;
-      return newTitles;
-    });
-  };
-
-  const setItemContent = (index: number, value: string) => {
-    setItemContents((contents) => {
-      const newContents = [...contents];
-      newContents[index] = value;
-      return newContents;
-    });
-  };
-
   return (
     <div className="flex flex-col">
       <div className="flex flex-col">
-        {items.map((m, i) => (
+        {items.map((m) => (
           <SettingRow key={m.id} label={m.id} description={m.content}>
             <div className="flex items-center gap-1">
               <Button variant="secondary" size="icon-compact">
@@ -478,12 +406,6 @@ function InstructionsPanel() {
     </div>
   );
 }
-
-const MEMBERS = [
-  { name: "Jane Doe", email: "jane@acme.com", role: "owner" },
-  { name: "Sam Park", email: "sam@acme.com", role: "admin" },
-  { name: "Ravi Patel", email: "ravi@acme.com", role: "member" },
-];
 
 function MemoriesPanel() {
   const [addMemoryOpen, setAddMemoryOpen] = useState(false);

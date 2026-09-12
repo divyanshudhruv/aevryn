@@ -1,7 +1,6 @@
 export * from "./enums";
 export * from "./workspace";
 export * from "./group";
-export * from "./workspace-member";
 export * from "./user-profile";
 export * from "./thread";
 export * from "./workflow";
@@ -11,8 +10,6 @@ export * from "./chat-message";
 export * from "./run";
 export * from "./run-activity";
 export * from "./approval-request";
-export * from "./invite";
-export * from "./thread-share";
 export * from "./notification";
 export * from "./workspace-api-key";
 export * from "./file";

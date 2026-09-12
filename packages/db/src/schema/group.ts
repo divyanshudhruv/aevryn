@@ -3,7 +3,6 @@ import { index, integer, pgPolicy, pgTable, text, timestamp, uniqueIndex, uuid }
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { groupKindEnum } from "./enums";
-import { isEditorOf, isMemberOf } from "./policies";
 import { workspaces } from "./workspace";
 
 export const groups = pgTable(
@@ -31,22 +30,22 @@ export const groups = pgTable(
 		pgPolicy("groups_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: sql`${table.userId} = auth.uid() or ${isMemberOf(table.workspaceId)}`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("groups_insert", {
 			for: "insert",
 			to: authenticatedRole,
-			withCheck: sql`${table.userId} = auth.uid() and ${isEditorOf(table.workspaceId)}`,
+			withCheck: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("groups_update", {
 			for: "update",
 			to: authenticatedRole,
-			using: sql`${table.userId} = auth.uid() or ${isEditorOf(table.workspaceId)}`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("groups_delete", {
 			for: "delete",
 			to: authenticatedRole,
-			using: sql`${table.kind} = 'custom' and (${table.userId} = auth.uid() or ${isEditorOf(table.workspaceId)})`,
+			using: sql`${table.kind} = 'custom' and ${table.userId} = auth.uid()`,
 		}),
 	],
 ).enableRLS();

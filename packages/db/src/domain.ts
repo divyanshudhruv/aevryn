@@ -1,25 +1,8 @@
-export const ROLES = ["owner", "editor", "viewer"] as const;
-export type Role = (typeof ROLES)[number];
-
-export const THREAD_ROLES = ["editor", "viewer"] as const;
-export type ThreadRole = (typeof THREAD_ROLES)[number];
-
 export const PLAN_LEVELS = ["free", "pro"] as const;
 export type PlanLevel = (typeof PLAN_LEVELS)[number];
 
 export const GROUP_KINDS = ["custom", "system"] as const;
 export type GroupKind = (typeof GROUP_KINDS)[number];
-
-export const INVITE_KINDS = ["workspace", "thread"] as const;
-export type InviteKind = (typeof INVITE_KINDS)[number];
-
-export const INVITE_STATUSES = [
-	"pending",
-	"accepted",
-	"revoked",
-	"expired",
-] as const;
-export type InviteStatus = (typeof INVITE_STATUSES)[number];
 
 export const WORKFLOW_STATUSES = [
 	"waiting",

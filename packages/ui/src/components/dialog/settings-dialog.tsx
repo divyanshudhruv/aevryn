@@ -78,12 +78,6 @@ const SECTIONS: SettingsSection[] = [
     icon: "shield",
     description: "Sign-in protection and active sessions.",
   },
-  {
-    id: "members",
-    label: "Members",
-    icon: "users",
-    description: "Who can access this workspace.",
-  },
 ];
 
 export interface SettingsDialogProps {
@@ -256,8 +250,6 @@ function SectionPanel({ id }: { id: string }) {
       return <AppearancePanel />;
     case "security":
       return <SecurityPanel />;
-    case "members":
-      return <MembersPanel />;
     default:
       return <GeneralPanel />;
   }
@@ -265,7 +257,6 @@ function SectionPanel({ id }: { id: string }) {
 
 function GeneralPanel() {
   const [name, setName] = useState("Acme Inc");
-  const [language, setLanguage] = useState("en");
   const [timezone, setTimezone] = useState("utc+1");
   const [telemetry, setTelemetry] = useState(false);
   return (
@@ -445,47 +436,6 @@ function SecurityPanel() {
           Sign out everywhere
         </Button>
       </SettingRow>
-    </div>
-  );
-}
-
-const MEMBERS = [
-  { name: "Jane Doe", email: "jane@acme.com", role: "owner" },
-
-];
-
-function MembersPanel() {
-  const [roles, setRoles] = useState<Record<string, string>>(
-    Object.fromEntries(MEMBERS.map((m) => [m.email, m.role])),
-  );
-  return (
-    <div className="flex flex-col">
-      {MEMBERS.map((m) => (
-        <SettingRow key={m.email} label={m.name} description={m.email}>
-          <Select
-            value={roles[m.email]}
-            onValueChange={(v) => setRoles((r) => ({ ...r, [m.email]: v }))}
-          >
-            <SelectTrigger placeholder="Role" variant="borderless" />
-            <SelectContent>
-              <SelectItem index={0} value="owner">
-                Owner
-              </SelectItem>
-              <SelectItem index={1} value="admin">
-                Admin
-              </SelectItem>
-              <SelectItem index={2} value="member">
-                Member
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingRow>
-      ))}
-      <div className="pt-4">
-        <Button variant="secondary" size="sm">
-          Invite people
-        </Button>
-      </div>
     </div>
   );
 }

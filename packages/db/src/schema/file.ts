@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm";
 import { bigint, boolean, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { authenticatedRole } from "drizzle-orm/supabase";
 
-import { isMemberOf } from "./policies";
 import { threads } from "./thread";
 import { workspaces } from "./workspace";
 
@@ -30,7 +29,7 @@ export const files = pgTable(
 		pgPolicy("files_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: sql`${table.userId} = auth.uid() or ${isMemberOf(table.workspaceId)}`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("files_insert", {
 			for: "insert",

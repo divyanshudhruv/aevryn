@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgPolicy, pgTable, text, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core";
 import { authenticatedRole } from "drizzle-orm/supabase";
 
-import { isMemberOf } from "./policies";
 import { runs } from "./run";
 import { threads } from "./thread";
 import { workspaces } from "./workspace";
@@ -44,17 +43,17 @@ export const schedules = pgTable(
 		pgPolicy("schedules_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: sql`${table.userId} = auth.uid() or ${isMemberOf(table.workspaceId)}`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("schedules_insert", {
 			for: "insert",
 			to: authenticatedRole,
-			withCheck: sql`${table.userId} = auth.uid() or ${isMemberOf(table.workspaceId)}`,
+			withCheck: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("schedules_update", {
 			for: "update",
 			to: authenticatedRole,
-			using: sql`${table.userId} = auth.uid() or ${isMemberOf(table.workspaceId)}`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("schedules_delete", {
 			for: "delete",

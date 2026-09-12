@@ -1,9 +1,8 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { groups } from "./group";
-import { isEditorOf, isMemberOf } from "./policies";
 import { workspaces } from "./workspace";
 
 export const threads = pgTable(
@@ -19,7 +18,6 @@ export const threads = pgTable(
 		userId: uuid("user_id").notNull(),
 		title: text("title").notNull().default(""),
 		deletedAt: timestamp("deleted_at", { withTimezone: true }),
-		shareEnabled: boolean("share_enabled").notNull().default(false),
 		boundWorkflowId: text("bound_workflow_id"),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
@@ -40,17 +38,17 @@ export const threads = pgTable(
 		pgPolicy("threads_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: sql`${table.userId} = auth.uid() or ${isMemberOf(table.workspaceId)} or exists (select 1 from "thread_shares" ts where ts."thread_id" = ${table.id} and ts."user_id" = auth.uid())`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("threads_insert", {
 			for: "insert",
 			to: authenticatedRole,
-			withCheck: sql`${table.userId} = auth.uid() and ${isEditorOf(table.workspaceId)}`,
+			withCheck: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("threads_update", {
 			for: "update",
 			to: authenticatedRole,
-			using: sql`${table.userId} = auth.uid() or ${isEditorOf(table.workspaceId)}`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 		pgPolicy("threads_delete", {
 			for: "delete",

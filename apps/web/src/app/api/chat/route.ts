@@ -19,7 +19,6 @@ import {
 } from "@aevryn/agent";
 import {
 	KeyService,
-	MemberService,
 	MemoryService,
 	PlanService,
 	QueueService,
@@ -34,7 +33,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const threadService = new ThreadService();
-const memberService = new MemberService();
 const keyService = new KeyService();
 const planService = new PlanService();
 const runService = new RunService();
@@ -81,8 +79,6 @@ export async function POST(request: Request): Promise<Response> {
 	}
 	const { message, autoApprove: bodyAutoApprove, maxOutputTokens } = parsed.data;
 
-	const members = await memberService.listByUser(user.id);
-
 	let threadId = parsed.data.threadId;
 	let workspaceId = parsed.data.workspaceId;
 
@@ -91,24 +87,14 @@ export async function POST(request: Request): Promise<Response> {
 		if (!thread) {
 			return jsonError(404, "THREAD_NOT_FOUND", "Thread does not exist.");
 		}
-		const canAccess =
-			thread.userId === user.id ||
-			members.some((m) => m.workspaceId === thread.workspaceId);
-		if (!canAccess) {
+		if (thread.userId !== user.id) {
 			return jsonError(403, "FORBIDDEN", "You do not have access to this thread.");
 		}
 		workspaceId = thread.workspaceId;
 	}
 
 	if (!workspaceId) {
-		const firstMember = members[0];
-		if (!firstMember) {
-			return jsonError(400, "NO_WORKSPACE", "Create or join a workspace first.");
-		}
-		workspaceId = firstMember.workspaceId;
-	}
-	if (!workspaceId) {
-		return jsonError(400, "NO_WORKSPACE", "Create or join a workspace first.");
+		return jsonError(400, "NO_WORKSPACE", "Create a workspace first.");
 	}
 
 	const resolved = await keyService.resolveKey(workspaceId, user.id, "groq");

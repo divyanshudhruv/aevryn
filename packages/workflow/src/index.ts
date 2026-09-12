@@ -4,7 +4,6 @@ export * from "./recovery";
 export * from "./schedule-utils";
 export * from "./services/approval-service";
 export * from "./services/key-service";
-export * from "./services/member-service";
 export * from "./services/memory-service";
 export * from "./services/notification-service";
 export * from "./services/plan-service";

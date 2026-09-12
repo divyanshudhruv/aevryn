@@ -151,18 +151,6 @@ export class ThreadService {
 		return row;
 	}
 
-	async setShareEnabled(
-		id: string,
-		shareEnabled: boolean,
-	): Promise<Thread | undefined> {
-		const [row] = await this.scope()
-			.update(threads)
-			.set({ shareEnabled })
-			.where(eq(threads.id, id))
-			.returning();
-		return row;
-	}
-
 	async touchLastMessage(id: string, at = new Date()): Promise<void> {
 		await this.scope()
 			.update(threads)
