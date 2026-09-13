@@ -1,0 +1,60 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "af080e58fce0",
+  "strategy": "manual-commit",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "apps/web/package.json",
+    "apps/web/public/placeholder.png",
+    "apps/web/src/app/auth/callback/route.ts",
+    "apps/web/src/app/old-workspace/page.tsx",
+    "apps/web/src/app/onboarding/page.tsx",
+    "apps/web/src/app/workspace/[workspaceId]/[threadId]/page.tsx",
+    "apps/web/src/app/workspace/[workspaceId]/layout.tsx",
+    "apps/web/src/app/workspace/[workspaceId]/page.tsx",
+    "apps/web/src/components/login-screen.tsx",
+    "apps/web/src/components/providers.tsx",
+    "apps/web/src/lib/profile.ts",
+    "apps/web/src/onboarding/questions.json",
+    "apps/web/src/proxy.ts",
+    "bun.lock",
+    "packages/auth/src/user.ts",
+    "packages/db/src/migrations/0006_nappy_bug.sql",
+    "packages/db/src/migrations/0007_conscious_xorn.sql",
+    "packages/db/src/migrations/0008_black_power_pack.sql",
+    "packages/db/src/migrations/meta/0006_snapshot.json",
+    "packages/db/src/migrations/meta/0007_snapshot.json",
+    "packages/db/src/migrations/meta/0008_snapshot.json",
+    "packages/db/src/migrations/meta/_journal.json",
+    "packages/db/src/schema/user-profile.ts",
+    "packages/ui/src/components/dialog/entity-action-dialog.tsx",
+    "packages/ui/src/components/dialog/new-group-dialog.tsx",
+    "packages/ui/src/components/dialog/new-thread-dialog.tsx",
+    "packages/ui/src/components/dialog/notifications-dialog.tsx",
+    "packages/ui/src/components/dialog/settings-dialog.tsx",
+    "packages/ui/src/components/dialog/settings-sections.tsx",
+    "packages/ui/src/components/dialog/workflow-del-confirmation-dialog.tsx",
+    "packages/ui/src/components/dialog/workflow-dialog.tsx",
+    "packages/ui/src/components/dialog/workflow-sections.tsx",
+    "packages/ui/src/components/sidebar-app/workspace-header.tsx",
+    "packages/ui/src/components/sidebar-preset/app-sidebar.tsx",
+    "packages/ui/src/components/sidebar-preset/use-sidebar-data.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/af/080e58fce0/0/metadata.json",
+      "transcript": "/af/080e58fce0/0/full.jsonl",
+      "compact_transcript": "/af/080e58fce0/0/transcript.jsonl",
+      "content_hash": "/af/080e58fce0/0/content_hash.txt",
+      "prompt": "/af/080e58fce0/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 97461,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1033600,
+    "output_tokens": 2052,
+    "api_call_count": 19
+  }
+}

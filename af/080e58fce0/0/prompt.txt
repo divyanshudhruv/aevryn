@@ -1,0 +1,51 @@
+fix ## Error Type
+Console Error
+
+## Error Message
+Encountered a script tag while rendering React component. Scripts inside React components are never executed when rendering on the client. Consider using template tag instead (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/template).
+
+
+    at script (<anonymous>:null:null)
+    at ThemeProvider (file://D:/github-desktop/aevryn/apps/web/.next/dev/static/chunks/_10loqfj._.js:101:285)
+    at Providers (file://D:/github-desktop/aevryn/apps/web/.next/dev/static/chunks/_10loqfj._.js:40:283)
+    at RootLayout (src\app\layout.tsx:26:5)
+
+## Code Frame
+  24 | 		<html lang="en" suppressHydrationWarning>
+  25 | 			<body className={`${inter.variable} antialiased`}>
+> 26 | 				<Providers>
+     | ^
+  27 | 					<div className="grid h-svh grid-rows-[auto_1fr]">
+  28 | 						{children}
+  29 | 					</div>
+
+Next.js version: 16.3.5 (Turbopack) , ## Error Type
+Runtime Error
+
+## Error Message
+useDropdown must be used within a Dropdown
+
+
+    at useDropdown (file://D:/github-desktop/aevryn/apps/web/.next/dev/static/chunks/packages_ui_src_components_ui_059cll5._.js:6076:15)
+    at MenuItem (file://D:/github-desktop/aevryn/apps/web/.next/dev/static/chunks/packages_ui_src_components_ui_059cll5._.js:6097:99)
+    at AppSidebar (file://D:/github-desktop/aevryn/apps/web/.next/dev/static/chunks/packages_ui_src_components_sidebar-preset_04imel6._.js:558:294)
+    at Tooltip (file://D:/github-desktop/aevryn/apps/web/.next/dev/static/chunks/packages_ui_src_components_ui_059cll5._.js:13339:285)
+    at AppSidebar (file://D:/github-desktop/aevryn/apps/web/.next/dev/static/chunks/packages_ui_src_components_sidebar-preset_04imel6._.js:555:286)
+    at WorkspaceLayout (src\app\workspace\[workspaceId]\layout.tsx:19:7)
+
+## Code Frame
+  17 |   return (
+  18 |     <SidebarProvider>
+> 19 |       <AppSidebar workspaceId={workspaceId} />
+     |       ^
+  20 |
+  21 |       <SidebarInset>
+  22 |         <section
+
+Next.js version: 16.3.5 (Turbopack) and Type 'Dispatch<SetStateAction<WorkflowSectionId>>' is not assignable to type '(value: string) => void'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'string' is not assignable to type 'SetStateAction<WorkflowSectionId>'. in workflow-dialog.tsx
+
+---
+
+continue
