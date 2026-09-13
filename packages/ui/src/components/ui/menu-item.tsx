@@ -116,7 +116,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
       onClick,
       ...props
     },
-    ref,
+    ref
   ) => {
     const internalRef = useRef<HTMLDivElement>(null);
     const hasMounted = useRef(false);
@@ -141,11 +141,9 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
     const sizeClasses = useSize();
 
     const mergeRef = (node: HTMLDivElement | null) => {
-      (internalRef as React.MutableRefObject<HTMLDivElement | null>).current =
-        node;
+      (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       if (typeof ref === "function") ref(node);
-      else if (ref)
-        (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
     };
 
     const handleActivate = disabled
@@ -162,7 +160,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
       // compresses rows to fit instead of scrolling.
       `relative z-10 flex ${sizeClasses.control} shrink-0 items-center ${sizeClasses.gap} ${shape.item} ${sizeClasses.itemPx} cursor-pointer outline-none`,
       disabled && "opacity-50 pointer-events-none",
-      className,
+      className
     );
 
     const content = (
@@ -179,7 +177,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
                 "col-start-1 row-start-1 transition-[color,stroke-width] duration-80",
                 isActive || checked
                   ? "text-foreground"
-                  : "text-muted-foreground",
+                  : "text-muted-foreground"
               )}
             />
           </span>
@@ -197,7 +195,9 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
           <span
             className={cn(
               "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
-              isActive || checked ? "text-foreground" : "text-muted-foreground",
+              isActive || checked
+                ? "text-foreground"
+                : "text-muted-foreground"
             )}
             style={{
               fontVariationSettings: checked
@@ -280,9 +280,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
         data-fluid-hover-index={index}
         // Disabled items are never the roving tab stop.
         tabIndex={
-          !disabled && index === (checkedIndex ?? checkedIndices?.[0] ?? 0)
-            ? 0
-            : -1
+          !disabled && index === (checkedIndex ?? checkedIndices?.[0] ?? 0) ? 0 : -1
         }
         role={
           isCheckbox
@@ -308,7 +306,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
         {content}
       </div>
     );
-  },
+  }
 );
 
 MenuItem.displayName = "MenuItem";

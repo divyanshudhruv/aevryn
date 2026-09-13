@@ -330,7 +330,7 @@ export {
   SIDEBAR_KEYBOARD_SHORTCUT_RIGHT,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_MAX_WIDTH,
-} from "@aevryn/ui/components/ui/sidebar-core";
+} from "@aevryn/ui/components/sidebar-core";
 export type {
   SidebarContextValue,
   SidebarProviderProps,
@@ -344,7 +344,7 @@ export type {
   SidebarSide,
   SidebarVariant,
   SidebarCollapsible,
-} from "@aevryn/ui/components/ui/sidebar-core";
+} from "@aevryn/ui/components/sidebar-core";
 export {
   SidebarMenu,
   SidebarMenuItem,
@@ -357,7 +357,7 @@ export {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
   sidebarMenuButtonVariants,
-} from "@aevryn/ui/components/ui/sidebar-menu";
+} from "@aevryn/ui/components/sidebar-menu";
 export type {
   SidebarMenuProps,
   SidebarMenuItemProps,
@@ -368,4 +368,4 @@ export type {
   SidebarMenuSubProps,
   SidebarMenuSubItemProps,
   SidebarMenuSubButtonProps,
-} from "@aevryn/ui/components/ui/sidebar-menu";
+} from "@aevryn/ui/components/sidebar-menu";

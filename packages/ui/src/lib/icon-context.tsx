@@ -75,6 +75,7 @@ import {
   ArrowUpFromLine ,
   ArrowDownFromLine,
   Database,
+  Command,
   
 } from "lucide-react";
 
@@ -152,7 +153,8 @@ export type IconName =
   | "bot"
   | "arrowupfromline"
   |"arrowdownfromline"
-  | "share";
+  | "share"
+  |"command";
 
 export const defaultIcons: Record<IconName, IconComponent> = {
   "chevron-right": ChevronRight,
@@ -221,6 +223,7 @@ export const defaultIcons: Record<IconName, IconComponent> = {
   share: Share2,
   arrowupfromline: ArrowUpFromLine,
   arrowdownfromline: ArrowDownFromLine,
+  command: Command,
 };
 
 const IconContext = createContext<Record<IconName, IconComponent> | null>(null);

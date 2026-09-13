@@ -48,7 +48,7 @@ import {
   useDropdownSearchHost,
   type DropdownSearchProps,
 } from "@aevryn/ui/components/ui/dropdown-search";
-import { FluidHoverHighlight } from "@aevryn/ui/components/ui/fluid-hover-highlight";
+import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
 
 // Dropdown opts out of the global pill/rounded shape context — popover surfaces
 // look cleaner with the smaller "rounded" radii regardless of how the rest of
@@ -172,7 +172,7 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
           }}
           role="group"
           className={cn(
-            `relative flex flex-col gap-0.5 w-72 max-w-full ${shape.container} p-1 select-none`,
+            `relative flex flex-col w-72 max-w-full  p-1 select-none`,
             className
           )}
           {...props}
@@ -605,7 +605,7 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                 <ScrollArea className={popupScrollAreaClass} viewportClassName={cn(popupViewportClass, !searchMounted && "scroll-fade")}>
                   <div
                     ref={containerRef}
-                    className="relative flex flex-col gap-0.5 p-1"
+                    className="relative flex flex-col p-1"
                   >
                 {/* Selected backgrounds — merged runs in multiple mode */}
                 {multiple && <SelectionBackgrounds blocks={blocks} />}
