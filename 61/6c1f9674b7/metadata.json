@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "616c1f9674b7",
+  "strategy": "manual-commit",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 25,
+  "files_touched": [
+    "packages/db/src/migrations/0005_remove_group_kind_and_key_override.sql",
+    "packages/db/src/migrations/meta/0005_snapshot.json",
+    "packages/db/supabase/migrations/20260912130000_remove_system_groups.sql"
+  ],
+  "sessions": [
+    {
+      "metadata": "/61/6c1f9674b7/0/metadata.json",
+      "transcript": "/61/6c1f9674b7/0/full.jsonl",
+      "compact_transcript": "/61/6c1f9674b7/0/transcript.jsonl",
+      "content_hash": "/61/6c1f9674b7/0/content_hash.txt",
+      "prompt": "/61/6c1f9674b7/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1843207,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9728896,
+    "output_tokens": 23837,
+    "api_call_count": 159
+  }
+}
