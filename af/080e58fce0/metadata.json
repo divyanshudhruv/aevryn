@@ -3,7 +3,7 @@
   "checkpoint_id": "af080e58fce0",
   "strategy": "manual-commit",
   "branch": "backend/rewrite",
-  "checkpoints_count": 28,
+  "checkpoints_count": 31,
   "files_touched": [
     "apps/web/package.json",
     "apps/web/public/placeholder.png",
@@ -42,7 +42,8 @@
     "packages/ui/src/components/sidebar-app/workspace-header.tsx",
     "packages/ui/src/components/sidebar-preset/app-sidebar.tsx",
     "packages/ui/src/components/sidebar-preset/nav-data.ts",
-    "packages/ui/src/components/sidebar-preset/use-sidebar-data.ts"
+    "packages/ui/src/components/sidebar-preset/use-sidebar-data.ts",
+    "packages/ui/src/components/ui/sidebar-menu.tsx"
   ],
   "sessions": [
     {
@@ -58,13 +59,20 @@
       "compact_transcript": "/af/080e58fce0/1/transcript.jsonl",
       "content_hash": "/af/080e58fce0/1/content_hash.txt",
       "prompt": "/af/080e58fce0/1/prompt.txt"
+    },
+    {
+      "metadata": "/af/080e58fce0/2/metadata.json",
+      "transcript": "/af/080e58fce0/2/full.jsonl",
+      "compact_transcript": "/af/080e58fce0/2/transcript.jsonl",
+      "content_hash": "/af/080e58fce0/2/content_hash.txt",
+      "prompt": "/af/080e58fce0/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 1940668,
+    "input_tokens": 2120673,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 10762496,
-    "output_tokens": 25889,
-    "api_call_count": 178
+    "cache_read_tokens": 13369344,
+    "output_tokens": 32050,
+    "api_call_count": 223
   }
 }
