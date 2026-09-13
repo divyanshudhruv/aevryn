@@ -7,9 +7,13 @@ import {
 } from "@aevryn/agent";
 import { env } from "@aevryn/env/server";
 import {
+	ActivityService,
 	ApprovalService,
 	classifyFailure,
+	MessageService,
 	NotificationService,
+	PromptAssembler,
+	RunTransition,
 	RunService,
 	ThreadService,
 	WebhookHookService,
@@ -32,13 +36,21 @@ import {
 	storeEpisodicMemory,
 	storeProceduralMemory,
 } from "./helpers/memory";
-import { buildRunInstructions } from "./helpers/prompts";
-
 const runService = new RunService();
+const runTransition = new RunTransition();
 const threadService = new ThreadService();
+const messageService = new MessageService();
+const activityService = new ActivityService();
 const notificationService = new NotificationService();
 const approvalService = new ApprovalService();
+const promptAssembler = new PromptAssembler();
 const webhookHookService = new WebhookHookService();
+
+const runGate = new Set([
+	"completed",
+	"failed",
+	"awaiting_approval",
+]);
 
 const failureEventSchema = z.object({
 	data: z.object({
@@ -88,7 +100,7 @@ async function maybeScheduleRecovery(
 			result: "failed",
 			detail: { reason: failure.reason },
 		});
-		await runService.setStatus(data.runId, "failed");
+		await runTransition.fail(data.runId, failure.reason);
 		try {
 			await notificationService.create({
 				userId: data.userId,
@@ -145,25 +157,20 @@ function createActivityAccumulator(runId: string) {
 	let toolCounter = 0;
 	const activeByIndex = new Map<number, string>();
 	const activeByName = new Map<string, number[]>();
-	const createTool = async (tool: string, input: unknown): Promise<string> => {
-		const row = await runService.createActivity({
-			runId,
-			type: "tool",
-			status: "active",
-			stepLabel: tool,
-			title: tool,
-			detail: { input },
-		});
-		return row.id;
-	};
-
 	return {
 		async apply(activity: AgentActivity): Promise<void> {
 			switch (activity.type) {
 				case "tool-start": {
 					const index = toolCounter++;
-					const activityId = await createTool(activity.tool, activity.input);
-					activeByIndex.set(index, activityId);
+					const row = await activityService.record({
+						runId,
+						type: "tool",
+						status: "running",
+						stepLabel: activity.tool,
+						title: activity.tool,
+						detail: { input: activity.input },
+					});
+					activeByIndex.set(index, row.id);
 					activeByName.set(activity.tool, [
 						...(activeByName.get(activity.tool) ?? []),
 						index,
@@ -178,18 +185,18 @@ function createActivityAccumulator(runId: string) {
 						activeByIndex.delete(index);
 					}
 					if (activityId) {
-						await runService.updateActivityStatus(
+						await activityService.updateStatus(
 							activityId,
-							activity.status === "completed" ? "complete" : "failed",
+							activity.status === "completed" ? "completed" : "failed",
 						);
 					}
 					break;
 				}
 				case "step-end": {
-					await runService.createActivity({
+					await activityService.record({
 						runId,
 						type: "thinking",
-						status: "complete",
+						status: "completed",
 						stepLabel: `step-${activity.step}`,
 						title: "Step summary",
 						detail: { step: activity.step, text: activity.text },
@@ -217,13 +224,7 @@ export async function resolveRunState(data: unknown): Promise<{
 	if (!run) {
 		throw new NonRetriableError(`Run not found: ${parsed.runId}`);
 	}
-	if (
-		run.status === "completed" ||
-		run.status === "failed" ||
-		run.status === "stopped" ||
-		run.status === "sleeping" ||
-		run.status === "awaiting_approval"
-	) {
+	if (runGate.has(run.status)) {
 		return {
 			runId: parsed.runId,
 			threadId: parsed.threadId,
@@ -255,13 +256,7 @@ export async function runAgentStep(data: unknown): Promise<{
 	if (!run) {
 		throw new NonRetriableError(`Run not found: ${parsed.runId}`);
 	}
-	if (
-		run.status === "completed" ||
-		run.status === "failed" ||
-		run.status === "stopped" ||
-		run.status === "sleeping" ||
-		run.status === "awaiting_approval"
-	) {
+	if (runGate.has(run.status)) {
 		return {
 			runId: parsed.runId,
 			threadId: parsed.threadId,
@@ -269,7 +264,7 @@ export async function runAgentStep(data: unknown): Promise<{
 			reason: `run already ${run.status}`,
 		};
 	}
-const elapsedSeconds = (Date.now() - run.createdAt.getTime()) / 1000;
+	const elapsedSeconds = (Date.now() - run.createdAt.getTime()) / 1000;
 	const thread = await threadService.findById(parsed.threadId);
 	if (!thread) {
 		throw new NonRetriableError(`Thread not found: ${parsed.threadId}`);
@@ -309,19 +304,22 @@ const elapsedSeconds = (Date.now() - run.createdAt.getTime()) / 1000;
 	);
 	const memory = await retrieveRelevantMemory({
 		userId: run.userId,
-		workflowId: thread.boundWorkflowId ?? undefined,
 		threadId: parsed.threadId,
 		workspaceId: thread.workspaceId,
 		query: parsed.prompt,
 		preferProcedural: parsed.recoveryContext !== undefined,
 	});
-	const instructions = buildRunInstructions({
-		recoveryContext: parsed.recoveryContext,
-		conversationContext: [conversation, memory].filter(Boolean).join("\n\n"),
+	const boundWorkflowId = await threadService.getBoundWorkflowId(parsed.threadId);
+	const instructions = await promptAssembler.assemble({
+		workspaceId,
+		threadId: parsed.threadId,
+		durable: true,
+		planning: boundWorkflowId != null,
+		contextBlocks: [conversation, memory].filter(Boolean) as string[],
 	});
 	const result = await runAgent({
 		registry: withExecutionCapabilities(createDefaultRegistry(), {
-			workflowId: thread.boundWorkflowId ?? undefined,
+			workflowId: boundWorkflowId ?? undefined,
 			threadId: parsed.threadId,
 			workspaceId: thread.workspaceId,
 			userId: run.userId,
@@ -408,25 +406,19 @@ export async function persistAndCompleteStep(
 		return {
 			runId: outcome.runId,
 			threadId: outcome.threadId,
-			status: "skipped",
-			summary: "",
+			status: "completed",
+			summary: outcome.reason ?? "skipped",
 			stepCount: 0,
 			toolCount: 0,
 		};
 	}
 	const run = await runService.findById(outcome.runId);
-	if (
-		!run ||
-		run.status === "completed" ||
-		run.status === "failed" ||
-		run.status === "stopped" ||
-		run.status === "sleeping"
-	) {
+	if (!run || runGate.has(run.status)) {
 		return {
 			runId: outcome.runId,
 			threadId: outcome.threadId,
-			status: "skipped",
-			summary: "",
+			status: "completed",
+			summary: "skipped",
 			stepCount: 0,
 			toolCount: 0,
 		};
@@ -445,15 +437,20 @@ export async function persistAndCompleteStep(
 		(count, step) => count + step.toolCalls.length,
 		0,
 	);
-	let finalizedStatus: ThreadRunResult["status"] = "completed";
+	// Write back the assistant message through the shared message service.
+	const assistantMessage = await messageService.startAssistant({
+		threadId: outcome.threadId,
+		userId: run.userId,
+		runId: outcome.runId,
+	});
+
 	const decision = extractDecision(result.text);
-	let heldForApproval = false;
+	let finalizedStatus: ThreadRunResult["status"] = "completed";
 
 	const requiredApprovals = result.pendingApprovals.filter(
 		(p) => p.input !== undefined && p.input !== null,
 	);
 	if (requiredApprovals.length > 0) {
-		const created: Array<{ toolName: string }> = [];
 		for (const pending of requiredApprovals) {
 			const row = await approvalService.create({
 				runId: outcome.runId,
@@ -461,45 +458,45 @@ export async function persistAndCompleteStep(
 				toolName: pending.toolName,
 				input: pending.input,
 				threadId: outcome.threadId,
-				workflowId: thread.boundWorkflowId ?? undefined,
 			});
-			created.push({ toolName: row.toolName });
+			await runTransition.pauseForApproval(
+				outcome.runId,
+				row.id,
+				`${pending.toolName}: ${JSON.stringify(pending.input).slice(0, 200)}`,
+			);
 		}
-		if (created.length > 0) {
-			await runService.setStatus(outcome.runId, "awaiting_approval");
-			try {
-				await notificationService.create({
-					userId: run.userId,
-					workspaceId: thread.workspaceId,
-					threadId: outcome.threadId,
-					type: "system",
-					title: "Awaiting approval",
-					body: JSON.stringify({
-						tools: [...new Set(created.map((a) => a.toolName))],
-						runId: outcome.runId,
-					}),
-				});
-			} catch {
-				// Best-effort.
-			}
-			try {
-				await threadService.insertSystemMessage(
-					outcome.threadId,
-					run.userId,
-					`Waiting for your approval to run: ${[
-						...new Set(created.map((a) => a.toolName)),
-					].join(", ")}.`,
-				);
-			} catch {
-				// Best-effort.
-			}
-			heldForApproval = true;
+		await messageService.completeAssistant(assistantMessage.id, [
+			{
+				type: "text",
+				text: `Waiting for your approval to run: ${[...new Set(requiredApprovals.map((a) => a.toolName))].join(", ")}.`,
+			},
+		]);
+		try {
+			await notificationService.create({
+				userId: run.userId,
+				workspaceId: thread.workspaceId,
+				threadId: outcome.threadId,
+				type: "run",
+				title: "Awaiting approval",
+				body: JSON.stringify({
+					tools: [...new Set(requiredApprovals.map((a) => a.toolName))],
+					runId: outcome.runId,
+				}),
+			});
+		} catch {
+			// Best-effort.
 		}
+		return {
+			runId: outcome.runId,
+			threadId: outcome.threadId,
+			status: "awaiting_approval",
+			summary: result.text.slice(0, 500),
+			stepCount: result.steps.length,
+			toolCount: toolCallCount,
+		};
 	}
 
-	if (decision && heldForApproval) {
-		finalizedStatus = "awaiting_approval";
-	} else if (decision) {
+	if (decision) {
 		if (decision.action === "sleep") {
 			let sleepUntil = decision.sleepUntil;
 			if (!sleepUntil) {
@@ -514,53 +511,33 @@ export async function persistAndCompleteStep(
 				);
 			}
 			await runService.sleepUntil(outcome.runId, sleepUntil, decision.reason);
-			finalizedStatus = "sleeping";
-			try {
-				await notificationService.create({
-					userId: run.userId,
-					workspaceId: thread.workspaceId,
-					threadId: outcome.threadId,
-					type: "run",
-					title: "Run sleeping",
-					body: JSON.stringify({
-						sleepUntil: sleepUntil.toISOString(),
-						reason: decision.reason,
-						runId: outcome.runId,
-					}),
-				});
-			} catch {
-				// Best-effort.
-			}
-			try {
-				await threadService.insertSystemMessage(
-					outcome.threadId,
-					run.userId,
-					`Run sleeping until ${sleepUntil.toISOString()}.`,
-				);
-			} catch {
-				// Best-effort.
-			}
+			await messageService.completeAssistant(assistantMessage.id, [
+				{ type: "text", text: result.text },
+			]);
+			await threadService.insertSystemMessage(
+				outcome.threadId,
+				run.userId,
+				`Run sleeping until ${sleepUntil.toISOString()}.`,
+			);
+			finalizedStatus = "awaiting_approval";
 		} else if (decision.action === "notify") {
 			const isWebhook = decision.notification?.channel === "webhook";
 			if (decision.notification) {
-				const deliveryType = isWebhook ? "webhook" : "run";
 				try {
 					const row = await notificationService.create({
 						userId: run.userId,
 						workspaceId: thread.workspaceId,
 						threadId: outcome.threadId,
-						type: deliveryType,
+						type: "run",
 						title:
 							decision.notification.subject ??
 							decision.reason ??
 							"Notification",
-						body: isWebhook
-							? JSON.stringify(decision.notification.body ?? {})
-							: JSON.stringify({
-									...(decision.notification.body ?? {}),
-									reason: decision.reason,
-									runId: outcome.runId,
-								}),
+						body: JSON.stringify({
+							...(decision.notification.body ?? {}),
+							reason: decision.reason,
+							runId: outcome.runId,
+						}),
 					});
 					if (isWebhook) {
 						await inngest.send({
@@ -572,13 +549,12 @@ export async function persistAndCompleteStep(
 					// Best-effort.
 				}
 			}
-			await runService.setStatus(outcome.runId, "completed");
+			await runTransition.complete(outcome.runId, decision.reason);
+			await messageService.completeAssistant(assistantMessage.id, [
+				{ type: "text", text: result.text },
+			]);
 			finalizedStatus = "completed";
-		} else if (decision.action === "stop") {
-			await runService.setStatus(outcome.runId, "stopped");
-			finalizedStatus = "stopped";
 		} else if (decision.action === "wait") {
-			await runService.setStatus(outcome.runId, "awaiting_approval");
 			const { url } = await webhookHookService.mint({
 				runId: outcome.runId,
 				workspaceId: thread.workspaceId,
@@ -588,78 +564,56 @@ export async function persistAndCompleteStep(
 				expiresInSeconds: decision.waitFor?.expiresInSeconds,
 				reason: decision.reason,
 			});
-			try {
-				await notificationService.create({
-					userId: run.userId,
-					workspaceId: thread.workspaceId,
-					threadId: outcome.threadId,
-					type: "system",
-					title: "Awaiting external event",
-					body: JSON.stringify({
-						url,
-						instruction: decision.waitFor?.description,
-						reason: decision.reason,
-						runId: outcome.runId,
-					}),
-				});
-			} catch {
-				// Best-effort.
-			}
-			try {
-				await threadService.insertSystemMessage(
-					outcome.threadId,
-					run.userId,
-					`Waiting for an external event (webhook: ${url}).`,
-				);
-			} catch {
-				// Best-effort.
-			}
+			await runTransition.pauseForApproval(
+				outcome.runId,
+				"webhook",
+				decision.waitFor?.description ?? "Waiting for external event",
+			);
+			await messageService.completeAssistant(assistantMessage.id, [
+				{ type: "text", text: result.text },
+			]);
+			await threadService.insertSystemMessage(
+				outcome.threadId,
+			run.userId,
+				`Waiting for an external event (webhook: ${url}).`,
+			);
 			finalizedStatus = "awaiting_approval";
 		} else {
-			await runService.setStatus(outcome.runId, "completed");
+			// stop / complete / anything else
+			await runTransition.complete(outcome.runId, decision.reason);
+			await messageService.completeAssistant(assistantMessage.id, [
+				{ type: "text", text: result.text },
+			]);
 			finalizedStatus = "completed";
 		}
-		if (decision.planProgress) {
-			try {
-				await runService.createActivity({
-					runId: outcome.runId,
-					type: "system",
-					status: "complete",
-					stepLabel: "plan.progress",
-					title: `Step ${decision.planProgress.currentStep}`,
-					detail: decision.planProgress,
-				});
-			} catch {
-				// Best-effort.
-			}
-		}
 	} else {
-		await runService.setStatus(outcome.runId, "completed");
+		await runTransition.complete(outcome.runId, result.text.slice(0, 200));
+		await messageService.completeAssistant(assistantMessage.id, [
+			{ type: "text", text: result.text },
+		]);
 		finalizedStatus = "completed";
 	}
 
 	const summary = result.text.slice(0, 500);
-	if (finalizedStatus === "completed" && outcome.recoveryContext) {
-		await runService.updateRecoveryResult(
-			outcome.runId,
-			outcome.recoveryContext.attempt,
-			"completed",
-			{ failureCode: outcome.recoveryContext.failureCode },
-		);
-		await storeProceduralMemory({
-			userId: run.userId,
-			workflowId: thread.boundWorkflowId ?? undefined,
-			threadId: outcome.threadId,
-			workspaceId: thread.workspaceId,
-			runId: outcome.runId,
-			threadTitle: thread.title,
-			recoveryContext: outcome.recoveryContext,
-		});
-	}
 	if (finalizedStatus === "completed") {
+		if (outcome.recoveryContext) {
+			await runService.updateRecoveryResult(
+				outcome.runId,
+				outcome.recoveryContext.attempt,
+				"completed",
+				{ failureCode: outcome.recoveryContext.failureCode },
+			);
+			await storeProceduralMemory({
+				userId: run.userId,
+				threadId: outcome.threadId,
+				workspaceId: thread.workspaceId,
+				runId: outcome.runId,
+				threadTitle: thread.title,
+				recoveryContext: outcome.recoveryContext,
+			});
+		}
 		await storeEpisodicMemory({
 			userId: run.userId,
-			workflowId: thread.boundWorkflowId ?? undefined,
 			threadId: outcome.threadId,
 			workspaceId: thread.workspaceId,
 			runId: outcome.runId,
@@ -704,14 +658,9 @@ export const threadRun = inngest.createFunction(
 			const { runId, threadId, prompt, modelContextCapChars } =
 				parsed.data.data.event.data;
 			const run = await runService.findById(runId);
-	if (
-		!run ||
-		run.status === "completed" ||
-		run.status === "failed" ||
-		run.status === "stopped"
-	) {
-		return;
-	}
+			if (!run || run.status === "completed" || run.status === "failed") {
+				return;
+			}
 			const reason = (
 				parsed.data.data.error?.message ??
 				error.message ??
@@ -745,7 +694,7 @@ export const threadRun = inngest.createFunction(
 			return {
 				runId: resolved.runId,
 				threadId: resolved.threadId,
-				status: "skipped" as const,
+				status: "completed" as const,
 				summary: resolved.reason ?? "skipped",
 				stepCount: 0,
 				toolCount: 0,

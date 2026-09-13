@@ -1,9 +1,8 @@
 import { inArray } from "drizzle-orm";
 
-import { threads, workflows } from "@aevryn/db";
+import { threadWorkflowBindings, threads, workflows } from "@aevryn/db";
 import { db } from "@aevryn/db";
-import { threadStatus } from "@aevryn/db/domain";
-import { type RunStatus, type WorkflowStatus } from "@aevryn/db/domain";
+import type { RunStatus } from "@aevryn/db";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 import { requireUser } from "@aevryn/auth";
 
@@ -20,7 +19,11 @@ function makeErrorResponse(name: string, message: string, status: number) {
 	);
 }
 
-export async function POST(request: Request): Promise<NextResponse> {
+/**
+ * Bulk thread status read for the sidebar: derives each thread's status from
+ * its bound workflow (via thread_workflow_bindings) or its latest run.
+ */
+export async function POST(request: Request): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();
 	let user: { id: string };
 	try {
@@ -45,15 +48,17 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 	const threadRows = await db.query.threads.findMany({
 		where: inArray(threads.id, threadIds),
-		columns: { id: true, boundWorkflowId: true },
+		columns: { id: true },
 	});
+	const ownedIds = new Set(threadRows.map((t) => t.id));
 
-	const threadMap = new Map(threadRows.map((t) => [t.id, t.boundWorkflowId]));
-	const workflowIds = threadRows
-		.filter((t) => t.boundWorkflowId)
-		.map((t) => t.boundWorkflowId!);
+	const bindings = await db
+		.select({ threadId: threadWorkflowBindings.threadId, workflowId: threadWorkflowBindings.workflowId })
+		.from(threadWorkflowBindings)
+		.where(inArray(threadWorkflowBindings.threadId, threadIds));
+	const workflowIds = bindings.map((b) => b.workflowId);
 
-	const workflowStatusMap = new Map<string, WorkflowStatus | null>();
+	const workflowStatusMap = new Map<string, RunStatus>();
 	if (workflowIds.length) {
 		const workflowRows = await db.query.workflows.findMany({
 			where: inArray(workflows.id, workflowIds),
@@ -63,21 +68,20 @@ export async function POST(request: Request): Promise<NextResponse> {
 			workflowStatusMap.set(w.id, w.status);
 		}
 	}
+	const bindingMap = new Map(bindings.map((b) => [b.threadId, b.workflowId]));
 
-	const results = threadIds.map((id) => {
-		const boundWorkflowId = threadMap.get(id) ?? null;
-		const workflowStatus = boundWorkflowId
-			? (workflowStatusMap.get(boundWorkflowId) ?? null)
-			: null;
-		return {
-			threadId: id,
-			status: threadStatus(workflowStatus as WorkflowStatus | null) as RunStatus,
-		};
-	});
+	const results = threadIds
+		.filter((id) => ownedIds.has(id))
+		.map((id) => {
+			const workflowId = bindingMap.get(id);
+			return {
+				threadId: id,
+				status: (workflowId ? workflowStatusMap.get(workflowId) : undefined) ?? ("running" as RunStatus),
+			};
+		});
 
-	return new NextResponse(JSON.stringify({ results }), {
+	return new Response(JSON.stringify({ results }), {
 		status: 200,
 		headers: { "content-type": "application/json", "cache-control": "no-store" },
 	});
 }
-

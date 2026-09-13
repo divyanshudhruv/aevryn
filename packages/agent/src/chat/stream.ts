@@ -6,7 +6,7 @@ export function isCompletedMessage(row: ChatMessage): boolean {
 }
 
 export function chatRowToUIMessage(row: ChatMessage): UIMessage | null {
-	if (!isCompletedMessage(row) || row.role === "tool") {
+	if (!isCompletedMessage(row)) {
 		return null;
 	}
 	const parts = row.content as UIMessage["parts"];

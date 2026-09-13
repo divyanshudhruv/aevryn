@@ -105,11 +105,22 @@ export function createChatTools(ctx: ChatToolContext): Record<string, Tool> {
 		if (!ctx.workflowId) {
 			return { ok: false, plan: null };
 		}
-		const plan = await services.plan.getPlanWithSteps(ctx.workflowId);
-		if (!plan) {
+		const steps = await services.plan.listSteps(ctx.workflowId);
+		if (steps.length === 0) {
 			return { ok: true, plan: null };
 		}
-		return { ok: true, plan: formatPlan(plan.plan, plan.steps) };
+		return {
+			ok: true,
+			plan: formatPlan(
+				{
+					id: ctx.workflowId,
+					title: "Bound workflow plan",
+					objective: steps[0]?.objective ?? null,
+					status: "accepted",
+				},
+				steps,
+			),
+		};
 	};
 
 	const listCapabilitiesExec = async () => {
@@ -163,13 +174,14 @@ export function createChatTools(ctx: ChatToolContext): Record<string, Tool> {
 				if (!input.title) {
 					return { ok: false, error: "title is required for update_title." };
 				}
-				await services.plan.update(plan.planId, { title: input.title });
+				// Steps hang directly off the workflow; title lives on the workflow row.
+				await services.plan.setPlanObjective(ctx.workflowId, input.title);
 			} else if (input.action === "add_step") {
 				if (!input.title) {
 					return { ok: false, error: "title is required for add_step." };
 				}
 				await services.plan.addStep({
-					planId: plan.planId,
+					workflowId: ctx.workflowId,
 					title: input.title,
 					description: input.description,
 				});
@@ -208,7 +220,6 @@ export function createChatTools(ctx: ChatToolContext): Record<string, Tool> {
 				.insert(workflows)
 				.values({
 					id: ids.workflow(),
-					threadId: ctx.threadId,
 					workspaceId: ctx.workspaceId,
 					userId: ctx.userId,
 					title: input.title,
@@ -219,31 +230,27 @@ export function createChatTools(ctx: ChatToolContext): Record<string, Tool> {
 			if (!wf) {
 				return { ok: false, error: "Could not create workflow." };
 			}
-			const plan = await services.plan.create({
-				workflowId: wf.id,
-				title: input.title,
-				objective: input.objective,
-			});
 			for (const [i, step] of input.steps.entries()) {
 				await services.plan.addStep({
-					planId: plan.id,
+					workflowId: wf.id,
 					title: step.title,
 					description: step.description,
+					objective: input.objective,
 					position: i,
 				});
 			}
 			await services.thread.bindWorkflow(ctx.threadId, wf.id);
-			const steps = await services.plan.listSteps(plan.id);
+			const steps = await services.plan.listSteps(wf.id);
 			return {
 				ok: true,
 				alreadyBound: false,
 				workflowId: wf.id,
 				plan: formatPlan(
 					{
-						id: plan.id,
-						title: plan.title,
-						objective: plan.objective,
-						status: plan.status,
+						id: wf.id,
+						title: input.title,
+						objective: input.objective ?? null,
+						status: "accepted",
 					},
 					steps,
 				),

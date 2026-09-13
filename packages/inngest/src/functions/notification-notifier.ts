@@ -49,7 +49,7 @@ async function markDelivered(
 	await runService.createActivity({
 		runId,
 		type: "system",
-		status: "complete",
+		status: "completed",
 		stepLabel: "notification.delivered",
 		title: "Webhook delivered",
 		detail: { notificationId },
@@ -72,7 +72,7 @@ export async function publishNotification(data: unknown): Promise<{
 	if (!notification) {
 		return { notificationId, outcome: "not-found" };
 	}
-	if (notification.type !== "webhook") {
+	if (notification.type !== "run") {
 		return { notificationId, outcome: "skipped" };
 	}
 	if (await hasMarkedDelivered(runId, notificationId)) {

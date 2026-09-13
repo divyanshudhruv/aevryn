@@ -1,29 +1,14 @@
-import { createUIMessageStreamResponse, convertToModelMessages, streamText, toUIMessageStream, type Tool, type ToolSet, type UIMessage } from "ai";
-import { createGroq } from "@ai-sdk/groq";
 import { z } from "zod";
 
-import { chatMessages, db, ids } from "@aevryn/db";
 import { requireUser } from "@aevryn/auth";
-import { env } from "@aevryn/env/server";
+import { inngest, threadRunEvent } from "@aevryn/inngest";
 import {
-	inngest,
-	threadRunEvent,
-} from "@aevryn/inngest";
-import {
-	buildChatSystemPrompt,
-	buildUIMessages,
-	createChatTools,
-	type ChatToolActivity,
-	type ChatToolServices,
-} from "@aevryn/agent";
-import {
-	KeyService,
-	MemoryService,
-	PlanService,
+	MessageService,
 	QueueService,
 	RunService,
+	RunTransition,
 	ThreadService,
-	WorkflowService,
+	hooks,
 } from "@aevryn/workflow";
 
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
@@ -32,54 +17,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const threadService = new ThreadService();
-const keyService = new KeyService();
-const planService = new PlanService();
+const messageService = new MessageService();
 const runService = new RunService();
-const memoryService = new MemoryService();
-const workflowService = new WorkflowService();
 const queueService = new QueueService();
+const runTransition = new RunTransition();
 
 const chatBodySchema = z.object({
 	threadId: z.string().min(1).optional(),
 	workspaceId: z.string().min(1).optional(),
 	message: z.string().min(1).max(20_000),
-	autoApprove: z.boolean().optional(),
-	maxOutputTokens: z.number().int().min(64).max(32_768).optional(),
-	attachments: z
-		.array(
-			z.object({
-				id: z.string().min(1),
-				url: z.string().min(1),
-				mimeType: z.string().min(1),
-			}),
-		)
-		.max(8)
-		.optional(),
 });
-
-function userContentParts(
-	message: string,
-	attachments?: z.output<typeof chatBodySchema>["attachments"],
-): UIMessage["parts"] {
-	const parts: UIMessage["parts"] = [];
-	for (const attachment of attachments ?? []) {
-		if (attachment.mimeType.startsWith("image/")) {
-			parts.push({
-				type: "file",
-				mediaType: attachment.mimeType,
-				url: attachment.url,
-				filename: attachment.id,
-			});
-		} else {
-			parts.push({
-				type: "text",
-				text: `[Attached file: ${attachment.id} (${attachment.mimeType})]`,
-			});
-		}
-	}
-	parts.push({ type: "text", text: message });
-	return parts;
-}
 
 function jsonError(status: number, code: string, message: string): Response {
 	return Response.json(
@@ -91,9 +38,15 @@ function jsonError(status: number, code: string, message: string): Response {
 	);
 }
 
+/**
+ * Submission/orchestration path — deliberately thin. It authenticates,
+ * persists the user message, ensures thread + run exist, applies queue
+ * backpressure when the thread is busy, and hands durable work to the
+ * Inngest thread-run agent executor. It never runs the agent itself.
+ */
 export async function POST(request: Request): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();
-	let user: { id: string; email?: string | null };
+	let user: { id: string };
 	try {
 		user = await requireUser(supabase);
 	} catch {
@@ -110,12 +63,7 @@ export async function POST(request: Request): Promise<Response> {
 	if (!parsed.success) {
 		return jsonError(400, "INVALID_PAYLOAD", "A non-empty `message` is required.");
 	}
-	const {
-		message,
-		autoApprove: bodyAutoApprove,
-		maxOutputTokens,
-		attachments,
-	} = parsed.data;
+	const { message } = parsed.data;
 
 	let threadId = parsed.data.threadId;
 	let workspaceId = parsed.data.workspaceId;
@@ -135,11 +83,6 @@ export async function POST(request: Request): Promise<Response> {
 		return jsonError(400, "NO_WORKSPACE", "Create a workspace first.");
 	}
 
-	const resolved = await keyService.resolveKey(workspaceId, user.id, "groq");
-	if (resolved.key === null) {
-		return jsonError(503, "NO_GROQ_KEY", "No Groq key configured for this workspace.");
-	}
-
 	if (!threadId) {
 		const thread = await threadService.create({
 			workspaceId,
@@ -148,23 +91,13 @@ export async function POST(request: Request): Promise<Response> {
 		});
 		threadId = thread.id;
 	}
-	if (!threadId) {
-		return jsonError(404, "THREAD_NOT_FOUND", "Thread does not exist.");
-	}
-
 	const thread = await threadService.findById(threadId);
 	if (!thread) {
 		return jsonError(404, "THREAD_NOT_FOUND", "Thread does not exist.");
 	}
 
-	let workflowAutoApprove = false;
-	if (thread.boundWorkflowId) {
-		const wf = await workflowService.findById(thread.boundWorkflowId);
-		workflowAutoApprove = wf?.autoApprove ?? false;
-	}
-	const autoApprove = bodyAutoApprove ?? workflowAutoApprove;
-
-	if (await queueService.hasActiveRun(threadId)) {
+	// Backpressure: thread busy → queue the message instead of starting a run.
+	if (await hooks.isThreadBusy(threadId)) {
 		const queued = await queueService.enqueue({
 			threadId,
 			userId: user.id,
@@ -172,7 +105,7 @@ export async function POST(request: Request): Promise<Response> {
 		});
 		return Response.json(
 			{
-				data: { queued: true, messageId: queued.id },
+				data: { queued: true, threadId, messageId: queued.id, runId: null },
 				error: null,
 				meta: {},
 			},
@@ -180,172 +113,37 @@ export async function POST(request: Request): Promise<Response> {
 		);
 	}
 
-	const assistantMessageId = ids.chatMessage();
-	const userMessageId = ids.chatMessage();
-
-	await db.insert(chatMessages).values({
-		id: userMessageId,
+	// Persist the user message and touch thread state.
+	await messageService.saveUser({
 		threadId,
 		userId: user.id,
-		role: "user",
-		status: "completed",
-		content: userContentParts(message, attachments),
+		text: message,
 	});
 	if (!thread.title) {
 		await threadService.autoTitle(threadId, message);
 	}
 	await threadService.touchLastMessage(threadId);
 
-	await db.insert(chatMessages).values({
-		id: assistantMessageId,
-		threadId,
-		userId: user.id,
-		role: "assistant",
-		status: "streaming",
-		content: [],
-	});
-
-	const turnRun = await runService.create({
+	// Create the run and hand off to the durable agent executor.
+	const run = await runService.create({
 		threadId,
 		userId: user.id,
 		trigger: "message",
+		promptSnapshot: message.slice(0, 2000),
 	});
-	await runService.setStatus(turnRun.id, "running");
+	await runTransition.start(run.id);
 
-	const history = buildUIMessages(await threadService.listMessagesByThread(threadId));
+	await inngest.send({
+		name: threadRunEvent,
+		data: { runId: run.id, threadId, prompt: message.slice(0, 2000) },
+	});
 
-	const services: ChatToolServices = {
-		plan: planService,
-		run: runService,
-		thread: threadService,
-		memory: memoryService,
-	};
-
-	const onToolActivity = async (activity: ChatToolActivity): Promise<void> => {
-		try {
-			await runService.createActivity({
-				runId: turnRun.id,
-				type: "tool",
-				status: activity.ok ? "complete" : "failed",
-				stepLabel: `chat.${activity.tool}`,
-				title: activity.tool,
-				detail: {
-					input: activity.input,
-					output: activity.output ?? null,
-					error: activity.error ?? null,
-					durationMs: activity.durationMs ?? null,
-				},
-			});
-		} catch {
-			// Activity bookkeeping is best-effort.
-		}
-	};
-
-	const tools: Record<string, Tool> = createChatTools({
-		userId: user.id,
-		workspaceId,
-		threadId,
-		workflowId: thread.boundWorkflowId ?? undefined,
-		autoApprove,
-		services,
-		onToolActivity,
-		async onDelegateWork({ objective, instructions }) {
-			const run = await runService.create({
-				threadId,
-				userId: user.id,
-				trigger: "message",
-				promptSnapshot: objective,
-			});
-			const prompt = [objective, instructions].filter(Boolean).join("\n\n");
-			await inngest.send({
-				name: threadRunEvent,
-				data: { runId: run.id, threadId, prompt },
-			});
-			return { runId: run.id };
+	return Response.json(
+		{
+			data: { queued: false, threadId, messageId: null, runId: run.id },
+			error: null,
+			meta: {},
 		},
-	});
-
-	let modelName = env.GROQ_MODEL;
-	try {
-		const workspaceKey = await keyService.getWorkspaceKey(workspaceId, "groq");
-		modelName = workspaceKey?.modelName ?? modelName;
-	} catch {
-		// Fall back to the default model when the vault key cannot be read.
-	}
-
-	const result = streamText({
-		model: createGroq({ apiKey: resolved.key }).languageModel(modelName),
-		system: buildChatSystemPrompt({
-			workflowId: thread.boundWorkflowId ?? undefined,
-			autoApprove,
-			maxOutputTokens: maxOutputTokens ?? 4096,
-			modelName,
-		}),
-		messages: await convertToModelMessages(history, {
-			tools: tools as ToolSet,
-			ignoreIncompleteToolCalls: true,
-		}),
-		tools,
-		maxOutputTokens: maxOutputTokens ?? 4096,
-	});
-
-	void persistAssistantMessage(result, assistantMessageId, turnRun.id);
-
-	const uiStream = toUIMessageStream({
-		stream: result.stream,
-		tools,
-	});
-
-	return createUIMessageStreamResponse({
-		status: 200,
-		stream: uiStream,
-	});
-}
-
-async function persistAssistantMessage(
-	result: Awaited<ReturnType<typeof streamText>>,
-	messageId: string,
-	runId: string,
-): Promise<void> {
-	try {
-		const [text, toolResults] = await Promise.all([
-			result.text,
-			result.toolResults,
-		]);
-		const parts: UIMessage["parts"] = [];
-		for (const call of toolResults) {
-			parts.push({
-				type: `tool-${call.toolName}`,
-				toolCallId: call.toolCallId,
-				input: call.input,
-				output: call.output,
-				state: "output-available",
-				providerExecuted: true,
-			} as unknown as UIMessage["parts"][number]);
-		}
-		if (text.length > 0) {
-			parts.push({ type: "text", text });
-		}
-		await threadService.updateMessage(messageId, {
-			status: "completed",
-			content: parts,
-		});
-		await runService.setStatus(runId, "completed");
-		const usage = await result.usage;
-		await runService.recordUsage(runId, {
-			tokenCount:
-				usage.totalTokens ??
-				(usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
-			costUsd: "0",
-		});
-	} catch (error) {
-		await threadService.updateMessage(messageId, {
-			status: "failed",
-			content:
-				error instanceof Error
-					? [{ type: "text", text: `Chat failed: ${error.message}` }]
-					: [],
-		});
-		await runService.setStatus(runId, "failed");
-	}
+		{ headers: { "cache-control": "no-store" } },
+	);
 }

@@ -91,7 +91,7 @@ export async function POST(
 		await runService.createActivity({
 			runId: run.id,
 			type: "system",
-			status: "complete",
+			status: "completed",
 			stepLabel: "webhook.resume",
 			title: "Resumed by webhook",
 			detail: {

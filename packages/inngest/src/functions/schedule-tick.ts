@@ -53,14 +53,12 @@ export const scheduleTick = inngest.createFunction(
 				const prompt = (
 					((schedule.config ?? {}) as { prompt?: string }).prompt ??
 					thread.title
-				).slice(0, 2000);
-				const { id: runId } = await runService.create({
-					threadId: thread.id,
-					userId: schedule.userId,
-					trigger: "schedule",
-					workflowId: thread.boundWorkflowId ?? undefined,
-					promptSnapshot: { prompt },
-				});
+				).slice(0, 2000);					const { id: runId } = await runService.create({
+						threadId: thread.id,
+						userId: schedule.userId,
+						trigger: "schedule",
+						promptSnapshot: { prompt },
+					});
 				await inngest.send({
 					name: threadRunEvent,
 					data: {

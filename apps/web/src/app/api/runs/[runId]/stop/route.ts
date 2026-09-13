@@ -15,7 +15,7 @@ const runService = new RunService();
 const threadService = new ThreadService();
 const approvalService = new ApprovalService();
 
-const TERMINAL = new Set(["completed", "failed", "stopped"]);
+const TERMINAL = new Set(["completed", "failed"]);
 
 function jsonError(status: number, code: string, message: string): Response {
 	return Response.json(
@@ -25,9 +25,8 @@ function jsonError(status: number, code: string, message: string): Response {
 }
 
 /**
- * Stop an in-flight run. Covers `running`, `awaiting_approval`, and
- * `sleeping`. The run is flipped to `stopped` so the thread-runner's gate
- * treats any late event as a no-op; pending approval requests for it are
+ * Stop an in-flight run. The run is flipped to `failed` so the thread-runner's
+ * gate treats any late event as a no-op; pending approval requests for it are
  * denied; a system chat message is appended and the queue drain is re-armed
  * so queued messages can proceed.
  */
@@ -59,11 +58,11 @@ export async function POST(
 		return jsonError(409, "RUN_ALREADY_FINISHED", "This run has already finished.");
 	}
 
-	await runService.setStatus(runId, "stopped");
+	await runService.setStatus(runId, "failed");
 	await runService.createActivity({
 		runId: runId,
 		type: "system",
-		status: "complete",
+		status: "completed",
 		stepLabel: "stop",
 		title: "Run stopped",
 		detail: { requestedBy: user.id },
@@ -87,7 +86,7 @@ export async function POST(
 			data: {
 				runId,
 				threadId: thread.id,
-				status: "stopped",
+				status: "failed",
 				approvalsDenied: approvalRequests.length,
 			},
 			error: null,

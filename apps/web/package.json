@@ -23,6 +23,7 @@
 		"@swc/helpers": "^0.5.23",
 		"@tanstack/react-form": "^1.33.2",
 		"ai": "^7.0.93",
+		"drizzle-orm": "^0.45.2",
 		"babel-plugin-react-compiler": "^1.0.0",
 		"dotenv": "catalog:",
 		"evlog": "^2.27.1",

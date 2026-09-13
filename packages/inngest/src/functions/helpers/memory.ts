@@ -135,7 +135,7 @@ export async function getConversationContext(
 
 	const turns: Array<{ prompt: string; answer: string }> = [];
 	for (const message of messages) {
-		if (message.runId === excludeRunId || message.role === "system" || message.role === "tool") {
+		if (message.runId === excludeRunId || message.role === "system") {
 			continue;
 		}
 		const text = extractTextFromContent(message.content);

@@ -33,13 +33,7 @@ export type NotificationPublishEventData = z.infer<
 export const threadRunResultSchema = z.object({
 	runId: z.string().min(1),
 	threadId: z.string().min(1),
-	status: z.enum([
-		"completed",
-		"failed",
-		"stopped",
-		"sleeping",
-		"awaiting_approval",
-	]),
+	status: z.enum(["completed", "failed", "awaiting_approval"]),
 	summary: z.string(),
 	stepCount: z.number().int().nonnegative(),
 	toolCount: z.number().int().nonnegative(),
