@@ -5,78 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1789128510821,
-      "tag": "0000_long_ronan",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1789136722572,
-      "tag": "0001_confused_bruce_banner",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1789138248869,
-      "tag": "0002_rls_policies",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1789144978189,
-      "tag": "0003_fix_rls_recursion",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1789195436165,
-      "tag": "0004_open_jean_grey",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1789363200000,
-      "tag": "0005_remove_group_kind_and_key_override",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1789225608871,
-      "tag": "0006_nappy_bug",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1789225895329,
-      "tag": "0007_conscious_xorn",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1789226083391,
-      "tag": "0008_black_power_pack",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1789239359783,
-      "tag": "0009_curved_deathbird",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1789246706810,
-      "tag": "0010_parallel_the_call",
+      "when": 1789299673317,
+      "tag": "0000_silky_living_lightning",
       "breakpoints": true
     }
   ]

@@ -5,16 +5,17 @@ const uuidText = sql`(concat('pls_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { planStepStatusEnum } from "./enums";
-import { stepViaEditableWorkflow, stepViaOwnedWorkflow, stepViaVisibleWorkflow } from "./policies";
-import { plans } from "./plan";
+import { workflowEditable, workflowOwned, workflowVisible } from "./policies";
+import { workflows } from "./workflow";
 
 export const planSteps = pgTable(
 	"plan_steps",
 	{
 		id: text("id").primaryKey().default(uuidText),
-		planId: text("plan_id")
+		workflowId: text("workflow_id")
 			.notNull()
-			.references(() => plans.id, { onDelete: "cascade" }),
+			.references(() => workflows.id, { onDelete: "cascade" }),
+		objective: text("objective"),
 		position: integer("position").notNull(),
 		title: text("title").notNull(),
 		description: text("description"),
@@ -28,26 +29,26 @@ export const planSteps = pgTable(
 			.$onUpdate(() => new Date()),
 	},
 	(table) => [
-		uniqueIndex("plan_steps_plan_position_idx").on(table.planId, table.position),
+		uniqueIndex("plan_steps_workflow_position_idx").on(table.workflowId, table.position),
 		pgPolicy("plan_steps_select", {
 			for: "select",
 			to: authenticatedRole,
-			using: stepViaVisibleWorkflow(table.planId),
+			using: workflowVisible(table.workflowId),
 		}),
 		pgPolicy("plan_steps_insert", {
 			for: "insert",
 			to: authenticatedRole,
-			withCheck: stepViaEditableWorkflow(table.planId),
+			withCheck: workflowEditable(table.workflowId),
 		}),
 		pgPolicy("plan_steps_update", {
 			for: "update",
 			to: authenticatedRole,
-			using: stepViaEditableWorkflow(table.planId),
+			using: workflowEditable(table.workflowId),
 		}),
 		pgPolicy("plan_steps_delete", {
 			for: "delete",
 			to: authenticatedRole,
-			using: stepViaOwnedWorkflow(table.planId),
+			using: workflowOwned(table.workflowId),
 		}),
 	],
 ).enableRLS();

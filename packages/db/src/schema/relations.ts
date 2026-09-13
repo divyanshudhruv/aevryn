@@ -5,8 +5,11 @@ import { chatMessages } from "./chat-message";
 import { files } from "./file";
 import { groups } from "./group";
 import { notifications } from "./notification";
-import { plans } from "./plan";
 import { planSteps } from "./plan-step";
+import { globalSettings } from "./global-settings";
+import { threadSettings } from "./thread-settings";
+import { callouts } from "./callout";
+import { threadWorkflowBindings } from "./thread-workflow-binding";
 import { runs } from "./run";
 import { runActivities } from "./run-activity";
 import { schedules } from "./schedule";
@@ -15,6 +18,7 @@ import { webhookHooks } from "./webhook-hook";
 import { workspaceApiKeys } from "./workspace-api-key";
 import { workspaces } from "./workspace";
 import { workflows } from "./workflow";
+import { userProfiles } from "./user-profile";
 
 // ── workspaces ───────────────────────────────────────────────────────
 
@@ -25,6 +29,9 @@ export const workspaceRelations = relations(workspaces, ({ many }) => ({
 	notifications: many(notifications),
 	apiKeys: many(workspaceApiKeys),
 	files: many(files),
+	globalSettings: many(globalSettings),
+	callouts: many(callouts),
+	threadWorkflowBindings: many(threadWorkflowBindings),
 }));
 
 // ── groups ──────────────────────────────────────────────────────────
@@ -49,10 +56,12 @@ export const threadRelations = relations(threads, ({ one, many }) => ({
 		references: [groups.id],
 	}),
 	workflows: many(workflows),
+	bindings: many(threadWorkflowBindings),
 	chatMessages: many(chatMessages),
 	runs: many(runs),
 	schedules: many(schedules),
 	webhookHooks: many(webhookHooks),
+	threadSettings: many(threadSettings),
 }));
 
 // ── workflows ───────────────────────────────────────────────────────
@@ -62,34 +71,8 @@ export const workflowRelations = relations(workflows, ({ one, many }) => ({
 		fields: [workflows.workspaceId],
 		references: [workspaces.id],
 	}),
-	thread: one(threads, {
-		fields: [workflows.threadId],
-		references: [threads.id],
-	}),
-	plan: one(plans, {
-		fields: [workflows.id],
-		references: [plans.workflowId],
-	}),
 	runs: many(runs),
-}));
-
-// ── plans ───────────────────────────────────────────────────────────
-
-export const planRelations = relations(plans, ({ one, many }) => ({
-	workflow: one(workflows, {
-		fields: [plans.workflowId],
-		references: [workflows.id],
-	}),
 	steps: many(planSteps),
-}));
-
-// ── plan_steps ──────────────────────────────────────────────────────
-
-export const planStepRelations = relations(planSteps, ({ one }) => ({
-	plan: one(plans, {
-		fields: [planSteps.planId],
-		references: [plans.id],
-	}),
 }));
 
 // ── chat_messages ───────────────────────────────────────────────────
@@ -189,6 +172,55 @@ export const fileRelations = relations(files, ({ one }) => ({
 		references: [threads.id],
 	}),
 }));
+
+// ── thread_settings ──────────────────────────────────────────────────
+
+export const threadSettingsRelations = relations(threadSettings, ({ one }) => ({
+	thread: one(threads, {
+		fields: [threadSettings.threadId],
+		references: [threads.id],
+	}),
+}));
+
+// ── thread_workflow_bindings ──────────────────────────────────────────
+
+export const threadWorkflowBindingRelations = relations(threadWorkflowBindings, ({ one }) => ({
+	thread: one(threads, {
+		fields: [threadWorkflowBindings.threadId],
+		references: [threads.id],
+	}),
+	workflow: one(workflows, {
+		fields: [threadWorkflowBindings.workflowId],
+		references: [workflows.id],
+	}),
+	workspace: one(workspaces, {
+		fields: [threadWorkflowBindings.workspaceId],
+		references: [workspaces.id],
+	}),
+}));
+
+// ── global_settings ───────────────────────────────────────────────────
+
+export const globalSettingsRelations = relations(globalSettings, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [globalSettings.workspaceId],
+		references: [workspaces.id],
+	}),
+}));
+
+// ── callouts ──────────────────────────────────────────────────────────
+
+export const calloutRelations = relations(callouts, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [callouts.workspaceId],
+		references: [workspaces.id],
+	}),
+	user: one(userProfiles, {
+		fields: [callouts.userId],
+		references: [userProfiles.userId],
+	}),
+}));
+
 
 // ── schedules ───────────────────────────────────────────────────────
 

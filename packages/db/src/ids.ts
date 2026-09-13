@@ -8,7 +8,6 @@ export const ID_PREFIXES = {
 	userProfile: "prf_",
 	thread: "thd_",
 	workflow: "wf_",
-	plan: "pln_",
 	planStep: "pls_",
 	chatMessage: "msg_",
 	run: "run_",
@@ -19,6 +18,10 @@ export const ID_PREFIXES = {
 	file: "fil_",
 	schedule: "sched_",
 	webhookHook: "whk_",
+	globalSettings: "gs_",
+	threadSettings: "ts_",
+	callout: "cal_",
+	threadWorkflowBinding: "bnd_",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIXES)[keyof typeof ID_PREFIXES];
@@ -38,7 +41,6 @@ export const ids = {
 	userProfile: () => makeId(ID_PREFIXES.userProfile),
 	thread: () => makeId(ID_PREFIXES.thread),
 	workflow: () => makeId(ID_PREFIXES.workflow),
-	plan: () => makeId(ID_PREFIXES.plan),
 	planStep: () => makeId(ID_PREFIXES.planStep),
 	chatMessage: () => makeId(ID_PREFIXES.chatMessage),
 	run: () => makeId(ID_PREFIXES.run),
@@ -49,4 +51,8 @@ export const ids = {
 	file: () => makeId(ID_PREFIXES.file),
 	schedule: () => makeId(ID_PREFIXES.schedule),
 	webhookHook: () => makeId(ID_PREFIXES.webhookHook),
+	globalSettings: () => makeId(ID_PREFIXES.globalSettings),
+	threadSettings: () => makeId(ID_PREFIXES.threadSettings),
+	callout: () => makeId(ID_PREFIXES.callout),
+	threadWorkflowBinding: () => makeId(ID_PREFIXES.threadWorkflowBinding),
 } as const;

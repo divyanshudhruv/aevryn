@@ -4,7 +4,6 @@ import { index, integer, pgPolicy, pgTable, text, timestamp, uniqueIndex, uuid }
 const uuidText = sql`(concat('grp_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
-import { groupKindEnum } from "./enums";
 import { workspaces } from "./workspace";
 
 export const groups = pgTable(
@@ -16,7 +15,6 @@ export const groups = pgTable(
 			.references(() => workspaces.id, { onDelete: "cascade" }),
 		userId: uuid("user_id").notNull(),
 		name: text("name").notNull(),
-		kind: groupKindEnum("kind").notNull().default("custom"),
 		position: integer("position").notNull().default(0),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
@@ -47,7 +45,7 @@ export const groups = pgTable(
 		pgPolicy("groups_delete", {
 			for: "delete",
 			to: authenticatedRole,
-			using: sql`${table.kind} = 'custom' and ${table.userId} = auth.uid()`,
+			using: sql`${table.userId} = auth.uid()`,
 		}),
 	],
 ).enableRLS();

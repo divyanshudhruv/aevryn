@@ -24,14 +24,3 @@ export const workflowEditable = (workflowId: unknown): SQL =>
 
 export const workflowOwned = (workflowId: unknown): SQL =>
 	sql`exists (select 1 from "workflows" w where w."id" = ${workflowId} and w."user_id" = auth.uid())`;
-
-// plan steps ride on plans → workflows; plans policies are not
-// self-referential, so the chain is recursion-free.
-export const stepViaVisibleWorkflow = (planId: unknown): SQL =>
-	sql`exists (select 1 from "plans" p join "workflows" w on w."id" = p."workflow_id" where p."id" = ${planId} and w."user_id" = auth.uid())`;
-
-export const stepViaEditableWorkflow = (planId: unknown): SQL =>
-	sql`exists (select 1 from "plans" p join "workflows" w on w."id" = p."workflow_id" where p."id" = ${planId} and w."user_id" = auth.uid())`;
-
-export const stepViaOwnedWorkflow = (planId: unknown): SQL =>
-	sql`exists (select 1 from "plans" p join "workflows" w on w."id" = p."workflow_id" where p."id" = ${planId} and w."user_id" = auth.uid())`;

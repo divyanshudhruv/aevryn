@@ -6,7 +6,6 @@ import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { groups } from "./group";
 import { workspaces } from "./workspace";
-import { type WorkflowStatus, threadStatus } from "../domain";
 
 export const threads = pgTable(
 	"threads",
@@ -21,7 +20,6 @@ export const threads = pgTable(
 		userId: uuid("user_id").notNull(),
 		title: text("title").notNull().default(""),
 		deletedAt: timestamp("deleted_at", { withTimezone: true }),
-		boundWorkflowId: text("bound_workflow_id"),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
@@ -61,14 +59,4 @@ export const threads = pgTable(
 	],
 ).enableRLS();
 
-export type Thread = typeof threads.$inferSelect;
-export type NewThread = typeof threads.$inferInsert;
-export function threadWorkflowStatus(thread: Pick<Thread, "boundWorkflowId">, workflowStatus: WorkflowStatus | null): WorkflowStatus | null {
-	if (!thread.boundWorkflowId) {
-		return null;
-	}
-	return workflowStatus;
-}
-export function threadStatusFromWorkflow(thread: Pick<Thread, "boundWorkflowId">, workflowStatus: WorkflowStatus | null): ReturnType<typeof threadStatus> {
-	return threadStatus(workflowStatus);
-}
+export type Thread = typeof threads.$inferSelect;export type NewThread = typeof threads.$inferInsert;
