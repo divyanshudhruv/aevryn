@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "116d167ccc06",
+  "session_id": "ses_f6a16fe1effe7XdqeVchGYpP3r",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-13T10:13:18.0201058Z",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 25,
+  "save_step_count": 1,
+  "files_touched": [
+    "packages/ui/src/components/sidebar-preset/app-sidebar.tsx"
+  ],
+  "agent": "OpenCode",
+  "model": "nemotron-3.5-lightning-free",
+  "turn_id": "1ba29c9022e5",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 1843207,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9728896,
+    "output_tokens": 23837,
+    "api_call_count": 159
+  },
+  "session_metrics": {
+    "turn_count": 25
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-13T10:13:17.6323724Z",
+    "agent_lines": 0,
+    "agent_removed": 678,
+    "human_added": 3231,
+    "human_modified": 779,
+    "human_removed": 0,
+    "total_committed": 4010,
+    "total_lines_changed": 5350,
+    "agent_percentage": 12.672897196261681,
+    "metric_version": 2
+  }
+}

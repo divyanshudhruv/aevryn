@@ -1,0 +1,1 @@
+see D:\github-desktop\aevryn\packages\ui\src\components\sidebar-preset\nav-data.ts , this is the schema for sidebar buttons okay? and in D:\github-desktop\aevryn\packages\ui\src\components\sidebar-preset\app-sidebar.tsx see line 100 and do as directed only
