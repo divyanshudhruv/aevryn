@@ -1,7 +1,5 @@
-import { db, ids, runs, runActivities, type Db, type Run, type RunActivity } from "@aevryn/db";
+import { db, ids, runs, runActivities, type ActivityStatus, type ActivityType, type Db, type Run, type RunActivity, type RunStatus } from "@aevryn/db";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-
-const TERMINAL = new Set(["completed", "failed", "stopped"]);
 
 export interface CreateRunInput {
 	threadId: string;
@@ -11,14 +9,14 @@ export interface CreateRunInput {
 	rerunOf?: string;
 	promptSnapshot?: unknown;
 }export interface RecordActivityInput {
-		runId: string;
-		type: "tool" | "thinking" | "task" | "subtask" | "system";
-		status: "active" | "complete" | "failed";
-		stepLabel?: string;
-		title?: string;
-		description?: string;
-		detail?: unknown;
-		parentId?: string;
+	runId: string;
+	type: ActivityType;
+	status: ActivityStatus;
+	stepLabel?: string;
+	title?: string;
+	description?: string;
+	detail?: unknown;
+	parentId?: string;
 	}
 
 export class RunService {
@@ -31,16 +29,16 @@ export class RunService {
 	async create(input: CreateRunInput): Promise<Run> {
 		const [row] = await this.scope()
 			.insert(runs)
-				.values({
-					id: ids.run(),
-					threadId: input.threadId,
-					userId: input.userId,
-					trigger: input.trigger,
-					workflowId: input.workflowId ?? null,
-					rerunOf: input.rerunOf ?? null,
-					promptSnapshot: input.promptSnapshot ?? null,
-					status: "awaiting_approval",
-				})
+			.values({
+				id: ids.run(),
+				threadId: input.threadId,
+				userId: input.userId,
+				trigger: input.trigger,
+				workflowId: input.workflowId ?? null,
+				rerunOf: input.rerunOf ?? null,
+				promptSnapshot: input.promptSnapshot ?? null,
+				status: "running",
+			})
 			.returning();
 		return row!;
 	}
@@ -69,10 +67,9 @@ export class RunService {
 
 	async setStatus(
 		id: string,
-		status: "running" | "sleeping" | "awaiting_approval" | "failed" | "completed" | "idle" | "planning" | "stopped",
+		status: RunStatus,
 	): Promise<Run | undefined> {
-		const finished =
-			status === "completed" || status === "failed" || status === "stopped";
+		const finished = status === "completed" || status === "failed";
 		const [row] = await this.scope()
 			.update(runs)
 			.set(
@@ -124,9 +121,9 @@ export class RunService {
 				title: input.title ?? null,
 				description: input.description ?? null,
 				detail: input.detail ?? null,
-				startedAt: input.status === "active" ? new Date() : null,
+				startedAt: input.status === "running" ? new Date() : null,
 				completedAt:
-					input.status === "complete" || input.status === "failed"
+					input.status === "completed" || input.status === "failed"
 						? new Date()
 						: null,
 			})
@@ -136,15 +133,15 @@ export class RunService {
 
 	async updateActivityStatus(
 		activityId: string,
-		status: "pending" | "active" | "complete" | "failed",
+		status: ActivityStatus,
 	): Promise<RunActivity | undefined> {
 		const [row] = await this.scope()
 			.update(runActivities)
 			.set({
 				status,
-				startedAt: status === "active" ? new Date() : undefined,
+				startedAt: status === "running" ? new Date() : undefined,
 				completedAt:
-					status === "complete" || status === "failed" ? new Date() : null,
+					status === "completed" || status === "failed" ? new Date() : null,
 			})
 			.where(eq(runActivities.id, activityId))
 			.returning();
@@ -179,10 +176,9 @@ export class RunService {
 	}
 
 	/**
-	 * Durable sleep: flip the run to `sleeping` and record a system activity
-	 * carrying the wake time. `schedule-tick` consults these rows to wake due
-	 * runs (listSleepingDue). Everything lives in run_activities — no separate
-	 * agent-state blob.
+	 * Record a system sleep marker on the run. The run stays `awaiting_approval`-
+	 * free; schedule-tick consults these rows (listSleepingDue) to resume due
+	 * runs via a fresh trigger=resume pass.
 	 */
 	async sleepUntil(
 		runId: string,
@@ -192,17 +188,17 @@ export class RunService {
 		await this.createActivity({
 			runId,
 			type: "system",
-			status: "complete",
+			status: "completed",
 			stepLabel: "sleep",
 			title: reason ?? "Sleeping",
 			detail: { sleepUntil: sleepUntil.toISOString(), reason: reason ?? null },
 		});
-		await this.setStatus(runId, "sleeping");
+		await this.setStatus(runId, "awaiting_approval");
 	}
 
 	/**
-	 * In-place resume: flip a sleeping/waiting/awaiting_approval run back to
-	 * `pending` and return it. The caller then fires a fresh thread/run pass
+	 * In-place resume: flip an awaiting-approval run back to `running` and
+	 * return it. The caller then fires a fresh thread/run pass
 	 * (trigger=resume). No new run row is created.
 	 */
 	async resumeTriggeredBy(runId: string): Promise<Run | undefined> {
@@ -210,23 +206,20 @@ export class RunService {
 		if (!run) {
 			return undefined;
 		}
-		if (
-			run.status === "sleeping" ||
-			run.status === "awaiting_approval"
-		) {
-			return (await this.setStatus(runId, "awaiting_approval")) ?? run;
+		if (run.status === "awaiting_approval") {
+			return (await this.setStatus(runId, "running")) ?? run;
 		}
 		return run;
 	}
 
 	/**
-	 * Runs (`status=sleeping`) whose most recent sleep activity has already
+	 * Runs with a sleep activity whose wake time has already
 	 * reached its wake time. Waking happens for the SAME run (trigger=resume),
 	 * mirroring webhook resume.
 	 */
 	async listSleepingDue(now: Date): Promise<Run[]> {
 		const sleeping = await this.scope().query.runs.findMany({
-			where: eq(runs.status, "sleeping"),
+			where: eq(runs.status, "awaiting_approval"),
 			columns: { id: true },
 		});
 		const due: Run[] = [];
@@ -269,7 +262,7 @@ export class RunService {
 			where: and(
 				eq(runActivities.runId, runId),
 				eq(runActivities.type, "tool"),
-				eq(runActivities.status, "complete"),
+				eq(runActivities.status, "completed"),
 			),
 			orderBy: [asc(runActivities.createdAt)],
 		});
@@ -314,7 +307,7 @@ export class RunService {
 		return this.createActivity({
 			runId,
 			type: "system",
-			status: "complete",
+			status: "completed",
 			stepLabel: "recovery",
 			title: `Recovery attempt ${input.attempt}`,
 			detail: {

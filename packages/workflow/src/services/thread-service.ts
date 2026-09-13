@@ -1,11 +1,25 @@
-import { chatMessages, db, ids, threads, workflows, type ChatMessage, type Db, type DbTx, type NewChatMessage, type Thread, type Workflow } from "@aevryn/db";
-import { and, asc, eq, isNotNull, isNull, lt } from "drizzle-orm";
-import { threadStatus } from "@aevryn/db/domain";
-import { type RunStatus } from "@aevryn/db/domain";
+import {
+	chatMessages,
+	db,
+	ids,
+	runs,
+	threadWorkflowBindings,
+	threads,
+	workflows,
+	type ChatMessage,
+	type Db,
+	type DbTx,
+	type NewChatMessage,
+	type RunStatus,
+	type Thread,
+	type Workflow,
+} from "@aevryn/db";
+import { and, asc, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 
 export interface ThreadStatusRow {
 	thread: Thread;
 	status: RunStatus;
+	boundWorkflow: Workflow | null;
 }
 
 export interface CreateThreadInput {
@@ -97,9 +111,8 @@ export class ThreadService {
 
 	/**
 	 * Append a role=system line to the thread's visible chat history. System
-	 * messages are how the UI learns about lifecycle events (a run sleeping,
-	 * waiting for a webhook, or being stopped) without fabricating assistant
-	 * text.
+	 * messages are how the UI learns about lifecycle events (a run pausing for
+	 * approval, or being stopped) without fabricating assistant text.
 	 */
 	async insertSystemMessage(
 		threadId: string,
@@ -162,42 +175,85 @@ export class ThreadService {
 		return row;
 	}
 
-	async bindWorkflow(
-		id: string,
-		workflowId: string,
-	): Promise<Thread | undefined> {
-		const [row] = await this.scope()
-			.update(threads)
-			.set({ boundWorkflowId: workflowId })
-			.where(eq(threads.id, id))
-			.returning();
-		return row;
+	// ── workflow binding ────────────────────────────────────────────────
+	// One workflow per thread, enforced by the unique index on
+	// thread_workflow_bindings.thread_id. Binding a new workflow replaces
+	// the previous binding.
+
+	async getBoundWorkflow(threadId: string): Promise<Workflow | null> {
+		const rows = await this.scope()
+			.select({ workflow: workflows })
+			.from(threadWorkflowBindings)
+			.innerJoin(workflows, eq(workflows.id, threadWorkflowBindings.workflowId))
+			.where(eq(threadWorkflowBindings.threadId, threadId))
+			.limit(1);
+		return rows[0]?.workflow ?? null;
 	}
 
-	async unbindWorkflow(id: string): Promise<Thread | undefined> {
-		const [row] = await this.scope()
-			.update(threads)
-			.set({ boundWorkflowId: null })
-			.where(eq(threads.id, id))
-			.returning();
-		return row;
+	async getBoundWorkflowId(threadId: string): Promise<string | null> {
+		const rows = await this.scope()
+			.select({ workflowId: threadWorkflowBindings.workflowId })
+			.from(threadWorkflowBindings)
+			.where(eq(threadWorkflowBindings.threadId, threadId))
+			.limit(1);
+		return rows[0]?.workflowId ?? null;
 	}
 
+	async bindWorkflow(threadId: string, workflowId: string): Promise<void> {
+		const thread = await this.findById(threadId);
+		if (!thread) {
+			throw new Error(`Cannot bind workflow: thread ${threadId} not found`);
+		}
+		await this.scope()
+			.insert(threadWorkflowBindings)
+			.values({
+				id: ids.threadWorkflowBinding(),
+				threadId,
+				workflowId,
+				workspaceId: thread.workspaceId,
+				userId: thread.userId,
+			})
+			.onConflictDoUpdate({
+				target: threadWorkflowBindings.threadId,
+				set: { workflowId, boundAt: new Date() },
+			});
+	}
+
+	async unbindWorkflow(threadId: string): Promise<void> {
+		await this.scope()
+			.delete(threadWorkflowBindings)
+			.where(eq(threadWorkflowBindings.threadId, threadId));
+	}
+
+	/**
+	 * Thread status = the bound workflow's run status, or the latest run's
+	 * status for plain threads. "idle" when there is nothing to report.
+	 */
 	async findThreadStatusById(id: string): Promise<ThreadStatusRow | undefined> {
 		const thread = await this.findById(id);
 		if (!thread) {
 			return undefined;
 		}
-		if (!thread.boundWorkflowId) {
-			return { thread, status: threadStatus(null) };
+
+		const boundWorkflow = await this.getBoundWorkflow(id);
+		if (boundWorkflow) {
+			return {
+				thread,
+				status: boundWorkflow.status,
+				boundWorkflow,
+			};
 		}
-		const workflow = await this.scope().query.workflows.findFirst({
-			where: eq(workflows.id, thread.boundWorkflowId),
-		});
-		const workflowStatus: ReturnType<typeof threadStatus> = workflow?.status ?? null;
+
+		const [latestRun] = await this.scope()
+			.select({ status: runs.status })
+			.from(runs)
+			.where(eq(runs.threadId, id))
+			.orderBy(desc(runs.createdAt))
+			.limit(1);
 		return {
 			thread,
-			status: workflowStatus ?? threadStatus(null),
+			status: latestRun?.status ?? "running",
+			boundWorkflow: null,
 		};
 	}
 

@@ -13,7 +13,7 @@ export const RUN_STATUSES = [
 export type RunStatus = (typeof RUN_STATUSES)[number];
 export const MESSAGE_ROLES = ["user", "assistant", "system"] as const;
 export type MessageRole = (typeof MESSAGE_ROLES)[number];
-export const MESSAGE_STATUSES = ["streaming", "completed", "failed"] as const;
+export const MESSAGE_STATUSES = ["queued", "streaming", "completed", "failed"] as const;
 export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
 
 export const RUN_TRIGGERS = ["message", "schedule", "resume", "approval", "rerun"] as const;
