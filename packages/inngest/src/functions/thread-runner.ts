@@ -153,6 +153,52 @@ async function maybeScheduleRecovery(
  * completed outputs without re-invoking the provider (see
  * RunService.listReplayableToolOutputs). Agent steps land as `thinking` rows.
  */
+/**
+ * Human phrases for tool names — the run-trace labels ("Searching the web",
+ * "Reading page"). Falls back to the raw tool name.
+ */
+function toolPhrase(tool: string, input: unknown): string {
+	const inputRecord = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
+	const str = (key: string): string =>
+		typeof inputRecord[key] === "string" ? (inputRecord[key] as string) : "";
+	switch (tool) {
+		case "searchWeb": {
+			const q = str("query") || str("q");
+			return q ? `Searching the web for “${q}”` : "Searching the web";
+		}
+		case "scrapeUrl": {
+			const u = str("url");
+			return u ? `Reading ${u}` : "Reading a page";
+		}
+		case "crawlSite":
+			return `Crawling ${str("url") || "site"}`;
+		case "mapSite":
+			return `Mapping ${str("url") || "site"} structure`;
+		case "researchTopic": {
+			const t = str("topic") || str("query");
+			return t ? `Researching ${t}` : "Researching topic";
+		}
+		case "wireAction":
+			return "Taking action on the page";
+		case "createSchedule":
+			return "Creating a schedule";
+		case "storeMemory":
+			return "Saving to memory";
+		case "searchMemory":
+			return "Recalling from memory";
+		case "browserSessionCreate":
+			return "Starting a browser session";
+		case "browserSessionDelete":
+			return "Closing the browser session";
+		case "browserSessionRename":
+			return "Renaming the browser session";
+		case "browserSessionList":
+			return "Listing browser sessions";
+		default:
+			return tool;
+	}
+}
+
 function createActivityAccumulator(runId: string) {
 	let toolCounter = 0;
 	const activeByIndex = new Map<number, string>();
@@ -167,7 +213,7 @@ function createActivityAccumulator(runId: string) {
 						type: "tool",
 						status: "running",
 						stepLabel: activity.tool,
-						title: activity.tool,
+						title: toolPhrase(activity.tool, activity.input),
 						detail: { input: activity.input },
 					});
 					activeByIndex.set(index, row.id);
@@ -188,17 +234,22 @@ function createActivityAccumulator(runId: string) {
 						await activityService.updateStatus(
 							activityId,
 							activity.status === "completed" ? "completed" : "failed",
+							activity.status === "completed"
+								? { output: activity.output ?? null }
+								: { error: activity.error ?? null },
 						);
 					}
 					break;
 				}
 				case "step-end": {
+					const firstLine = activity.text.split("\n")[0] ?? "Step";
 					await activityService.record({
 						runId,
 						type: "thinking",
 						status: "completed",
 						stepLabel: `step-${activity.step}`,
-						title: "Step summary",
+						title: firstLine.slice(0, 120) || `Step ${activity.step}`,
+						description: activity.text.slice(0, 500),
 						detail: { step: activity.step, text: activity.text },
 					});
 					break;

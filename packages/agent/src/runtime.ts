@@ -41,7 +41,13 @@ export interface AgentRuntimeOptions {
 
 export type AgentActivity =
 	| { type: "tool-start"; tool: string; input: unknown }
-	| { type: "tool-end"; tool: string; status: "completed" | "failed" }
+	| {
+			type: "tool-end";
+			tool: string;
+			status: "completed" | "failed";
+			output?: Record<string, unknown>;
+			error?: { code: string; message: string };
+		}
 	| { type: "step-end"; step: number; text: string };
 
 export interface PendingApproval {
@@ -210,6 +216,7 @@ export async function runAgent(
 							type: "tool-end",
 							tool: capability.name,
 							status: "completed",
+							output: data as Record<string, unknown> | undefined,
 						});
 						return capModelOutput(data, options.modelContextCapChars);
 					}
@@ -232,6 +239,7 @@ export async function runAgent(
 							type: "tool-end",
 							tool: capability.name,
 							status: "failed",
+							error: record.error,
 						});
 						throw new Error(`${result.error.code}: ${result.error.message}`);
 					}
@@ -245,6 +253,7 @@ export async function runAgent(
 						type: "tool-end",
 						tool: capability.name,
 						status: "completed",
+						output: result.data as Record<string, unknown> | undefined,
 					});
 					return capModelOutput(result.data, options.modelContextCapChars);
 				},

@@ -17,7 +17,7 @@ function jsonError(status: number, code: string, message: string): Response {
 
 export async function DELETE(
 	_request: Request,
-	ctx: { params: Promise<{ id: string }> },
+	ctx: { params: Promise<{ threadId: string }> },
 ): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();
 	let user: { id: string };
@@ -26,7 +26,7 @@ export async function DELETE(
 	} catch {
 		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
 	}
-	const { id } = await ctx.params;
+	const { threadId: id } = await ctx.params;
 	const thread = await threadService.findById(id);
 	if (!thread || thread.deletedAt) {
 		return jsonError(404, "THREAD_NOT_FOUND", "Thread does not exist.");

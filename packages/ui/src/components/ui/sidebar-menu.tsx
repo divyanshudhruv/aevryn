@@ -28,10 +28,17 @@ import { cn } from "@aevryn/ui/lib/utils";
 import { spring } from "@aevryn/ui/lib/springs";
 import { fontWeights } from "@aevryn/ui/lib/font-weight";
 import { useShape } from "@aevryn/ui/lib/shape-context";
-import { useSize, SizeProvider, type SizeVariant } from "@aevryn/ui/lib/size-context";
+import {
+  useSize,
+  SizeProvider,
+  type SizeVariant,
+} from "@aevryn/ui/lib/size-context";
 import { useFluidHover, type ItemRect } from "@aevryn/ui/hooks/use-fluid-hover";
 import type { IconComponent } from "@aevryn/ui/lib/icon-context";
-import { resolveSlotTemplate, slotElement } from "@aevryn/ui/components/ui/sidebar-core";
+import {
+  resolveSlotTemplate,
+  slotElement,
+} from "@aevryn/ui/components/ui/sidebar-core";
 import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
 
 // SSR-safe layout effect (client components still server-render in Next).
@@ -110,7 +117,7 @@ function rowDisabled(el: HTMLElement) {
   return (
     el.matches(DISABLED_CONTROL) ||
     el.querySelector(
-      `:scope > [data-sidebar="menu-button"]:is(${DISABLED_CONTROL}), :scope > [data-sidebar="menu-sub-button"]:is(${DISABLED_CONTROL})`
+      `:scope > [data-sidebar="menu-button"]:is(${DISABLED_CONTROL}), :scope > [data-sidebar="menu-sub-button"]:is(${DISABLED_CONTROL})`,
     ) !== null
   );
 }
@@ -135,7 +142,9 @@ function overlayGroupId(el: Element) {
 }
 
 function byDomOrder(a: HTMLElement, b: HTMLElement) {
-  return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
+    ? -1
+    : 1;
 }
 
 function sameElements(a: HTMLElement[], b: HTMLElement[]) {
@@ -167,7 +176,7 @@ interface MenuScopeOptions {
 
 function useMenuScope(
   containerRef: RefObject<HTMLElement | null>,
-  { focusRing = true }: MenuScopeOptions = {}
+  { focusRing = true }: MenuScopeOptions = {},
 ): MenuScope {
   const {
     activeIndex,
@@ -191,7 +200,7 @@ function useMenuScope(
 
   const recomputeActive = useCallback(() => {
     const next = orderedRowsRef.current.filter(
-      (el) => activeMapRef.current.get(el) && !rowSkipped(el)
+      (el) => activeMapRef.current.get(el) && !rowSkipped(el),
     );
     setActiveRows((prev) => (sameElements(prev, next) ? prev : next));
   }, []);
@@ -200,9 +209,9 @@ function useMenuScope(
     (row: HTMLElement) =>
       rowButtonsRef.current.get(row) ??
       row.querySelector<HTMLElement>(
-        ':scope > [data-sidebar="menu-button"], :scope > [data-sidebar="menu-sub-button"]'
+        ':scope > [data-sidebar="menu-button"], :scope > [data-sidebar="menu-sub-button"]',
       ),
-    []
+    [],
   );
 
   // Rows register by element; indexes are derived from DOM order so consumers
@@ -238,7 +247,7 @@ function useMenuScope(
         syncRows();
       };
     },
-    [syncRows]
+    [syncRows],
   );
 
   const setRowButton = useCallback(
@@ -249,7 +258,7 @@ function useMenuScope(
       // its row registered must re-sync what the fluid hover system observes.
       syncRows();
     },
-    [syncRows]
+    [syncRows],
   );
 
   const setRowActive = useCallback(
@@ -257,7 +266,7 @@ function useMenuScope(
       activeMapRef.current.set(row, active);
       recomputeActive();
     },
-    [recomputeActive]
+    [recomputeActive],
   );
 
   const refreshVisibility = useCallback(() => {
@@ -282,7 +291,7 @@ function useMenuScope(
       const height = Math.min(rect.height, rowButton(row)?.offsetHeight ?? 48);
       return { ...rect, height };
     },
-    [itemRects, rowButton]
+    [itemRects, rowButton],
   );
 
   // While a popup anchored in the sidebar is open (a row action's or the
@@ -294,9 +303,10 @@ function useMenuScope(
   const popupOpen = useCallback(() => {
     const container = containerRef.current;
     if (!container) return false;
-    const root = container.closest('[data-slot="sidebar-wrapper"]') ?? container;
+    const root =
+      container.closest('[data-slot="sidebar-wrapper"]') ?? container;
     return !!root.querySelector(
-      '[data-sidebar="menu-button"][data-state="open"], [data-sidebar="menu-button"][data-popup-open], [data-sidebar="menu-action"][data-state="open"], [data-sidebar="menu-action"][data-popup-open]'
+      '[data-sidebar="menu-button"][data-state="open"], [data-sidebar="menu-button"][data-popup-open], [data-sidebar="menu-action"][data-state="open"], [data-sidebar="menu-action"][data-popup-open]',
     );
   }, [containerRef]);
 
@@ -305,7 +315,7 @@ function useMenuScope(
       if (popupOpen()) return;
       handlers.onMouseMove(e);
     },
-    [popupOpen, handlers]
+    [popupOpen, handlers],
   );
 
   const onFocus = useCallback(
@@ -313,9 +323,14 @@ function useMenuScope(
       const target = e.target as HTMLElement;
       // Only the row's main button drives the traveling highlight and ring —
       // actions keep their own static focus rings.
-      if (!target.closest('[data-sidebar="menu-button"],[data-sidebar="menu-sub-button"]')) return;
+      if (
+        !target.closest(
+          '[data-sidebar="menu-button"],[data-sidebar="menu-sub-button"]',
+        )
+      )
+        return;
       const row = target.closest(
-        '[data-sidebar="menu-item"],[data-sidebar="menu-sub-item"]'
+        '[data-sidebar="menu-item"],[data-sidebar="menu-sub-item"]',
       ) as HTMLElement | null;
       if (!row) return;
       const idx = orderedRowsRef.current.indexOf(row);
@@ -323,7 +338,7 @@ function useMenuScope(
       setActiveIndex(idx);
       setFocusedRowEl(target.matches(":focus-visible") ? row : null);
     },
-    [setActiveIndex]
+    [setActiveIndex],
   );
 
   const onPointerDown = useCallback(() => {
@@ -336,22 +351,33 @@ function useMenuScope(
       setFocusedRowEl(null);
       setActiveIndex(null);
     },
-    [containerRef, setActiveIndex]
+    [containerRef, setActiveIndex],
   );
 
   // Arrow/Home/End over every button in DOM order, sub rows included — only
   // the root scope binds it so nested scopes don't double-handle.
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (!["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key))
+      if (
+        ![
+          "ArrowDown",
+          "ArrowUp",
+          "ArrowRight",
+          "ArrowLeft",
+          "Home",
+          "End",
+        ].includes(e.key)
+      )
         return;
       const container = containerRef.current;
       if (!container) return;
       const items = Array.from(
         container.querySelectorAll<HTMLElement>(
-          '[data-sidebar="menu-button"], [data-sidebar="menu-sub-button"]'
-        )
-      ).filter((el) => !el.closest('[data-sidebar="menu-sub"][data-state="closed"]'));
+          '[data-sidebar="menu-button"], [data-sidebar="menu-sub-button"]',
+        ),
+      ).filter(
+        (el) => !el.closest('[data-sidebar="menu-sub"][data-state="closed"]'),
+      );
       const currentIdx = items.indexOf(e.target as HTMLElement);
       if (currentIdx === -1) return;
       e.preventDefault();
@@ -367,10 +393,11 @@ function useMenuScope(
         items[next]?.focus();
       }
     },
-    [containerRef]
+    [containerRef],
   );
 
-  const hoveredRowEl = activeIndex !== null ? orderedRows[activeIndex] ?? null : null;
+  const hoveredRowEl =
+    activeIndex !== null ? (orderedRows[activeIndex] ?? null) : null;
 
   const value = useMemo<MenuScopeValue>(
     () => ({
@@ -383,7 +410,15 @@ function useMenuScope(
       hasActive: activeRows.length > 0,
       refreshVisibility,
     }),
-    [registerRow, setRowButton, setRowActive, hoveredRowEl, activeRows, orderedRows, refreshVisibility]
+    [
+      registerRow,
+      setRowButton,
+      setRowActive,
+      hoveredRowEl,
+      activeRows,
+      orderedRows,
+      refreshVisibility,
+    ],
   );
 
   const shape = useShape();
@@ -396,7 +431,7 @@ function useMenuScope(
   const rowLevel = useCallback(
     (row: HTMLElement) =>
       row.closest('[data-sidebar="menu-sub"]') ?? containerRef.current,
-    [containerRef]
+    [containerRef],
   );
   // A rect change has two causes with two right answers. The highlight moving
   // to a DIFFERENT row springs — that's the glide. The same row itself moving
@@ -432,7 +467,9 @@ function useMenuScope(
         key: `${levelId}:${occurrence}`,
         rect,
         row,
-        rowChanged: prevTargetsRef.current.actives.get(`${levelId}:${occurrence}`) !== row,
+        rowChanged:
+          prevTargetsRef.current.actives.get(`${levelId}:${occurrence}`) !==
+          row,
       });
   }
   const hoverRect = overlayRect(hoveredRowEl);
@@ -452,8 +489,9 @@ function useMenuScope(
   // as the highlight detaching from where the selection lives.
   const hoveredLevel = hoveredRowEl ? rowLevel(hoveredRowEl) : null;
   const hoverAnchorRow =
-    (hoveredLevel ? levelFirstActive.get(overlayGroupId(hoveredLevel)) : undefined) ??
-    levelFirstActive.values().next().value;
+    (hoveredLevel
+      ? levelFirstActive.get(overlayGroupId(hoveredLevel))
+      : undefined) ?? levelFirstActive.values().next().value;
   const hoverAnchorRect = hoverAnchorRow ? overlayRect(hoverAnchorRow) : null;
 
   const overlays = isMeasured ? (
@@ -549,7 +587,9 @@ export interface SidebarMenuProps extends HTMLAttributes<HTMLUListElement> {
 const SidebarMenu = forwardRef<HTMLUListElement, SidebarMenuProps>(
   ({ className, size, focusRing, children, ...props }, ref) => {
     const containerRef = useRef<HTMLUListElement>(null);
-    const { value, containerProps, overlays } = useMenuScope(containerRef, { focusRing });
+    const { value, containerProps, overlays } = useMenuScope(containerRef, {
+      focusRing,
+    });
 
     const content = (
       <MenuScopeContext.Provider value={value}>
@@ -557,10 +597,15 @@ const SidebarMenu = forwardRef<HTMLUListElement, SidebarMenuProps>(
           ref={(node) => {
             containerRef.current = node;
             if (typeof ref === "function") ref(node);
-            else if (ref) (ref as React.MutableRefObject<HTMLUListElement | null>).current = node;
+            else if (ref)
+              (ref as React.MutableRefObject<HTMLUListElement | null>).current =
+                node;
           }}
           data-sidebar="menu"
-          className={cn("relative flex w-full min-w-0 flex-col select-none", className)}
+          className={cn(
+            "relative flex w-full min-w-0 flex-col select-none",
+            className,
+          )}
           {...containerProps}
           {...props}
         >
@@ -571,7 +616,7 @@ const SidebarMenu = forwardRef<HTMLUListElement, SidebarMenuProps>(
     );
 
     return size ? <SizeProvider size={size}>{content}</SizeProvider> : content;
-  }
+  },
 );
 SidebarMenu.displayName = "SidebarMenu";
 
@@ -606,7 +651,7 @@ function useMenuRow(rowRef: RefObject<HTMLLIElement | null>, isSubRow = false) {
       rowRef.current = node;
       if (node && setRowActive) setRowActive(node, activeFlagRef.current);
     },
-    [setRowActive, rowRef]
+    [setRowActive, rowRef],
   );
 
   const setActive = useCallback(
@@ -614,19 +659,21 @@ function useMenuRow(rowRef: RefObject<HTMLLIElement | null>, isSubRow = false) {
       activeFlagRef.current = active;
       if (rowRef.current && setRowActive) setRowActive(rowRef.current, active);
     },
-    [setRowActive, rowRef]
+    [setRowActive, rowRef],
   );
 
   const setButtonEl = useCallback(
     (el: HTMLElement | null) => {
       if (rowRef.current && setRowButton) setRowButton(rowRef.current, el);
     },
-    [setRowButton, rowRef]
+    [setRowButton, rowRef],
   );
 
-  const isHovered = rowRef.current !== null && scope?.hoveredRowEl === rowRef.current;
+  const isHovered =
+    rowRef.current !== null && scope?.hoveredRowEl === rowRef.current;
   const isActiveRow =
-    rowRef.current !== null && (scope?.activeRows.includes(rowRef.current) ?? false);
+    rowRef.current !== null &&
+    (scope?.activeRows.includes(rowRef.current) ?? false);
 
   const [trailing, setTrailing] = useState({
     actionCount: 0,
@@ -638,14 +685,16 @@ function useMenuRow(rowRef: RefObject<HTMLLIElement | null>, isSubRow = false) {
       setTrailing((prev) =>
         prev.actionCount === count && prev.actionsShowOnHover === showOnHover
           ? prev
-          : { ...prev, actionCount: count, actionsShowOnHover: showOnHover }
+          : { ...prev, actionCount: count, actionsShowOnHover: showOnHover },
       ),
-    []
+    [],
   );
   const setHasBadge = useCallback(
     (hasBadge: boolean) =>
-      setTrailing((prev) => (prev.hasBadge === hasBadge ? prev : { ...prev, hasBadge })),
-    []
+      setTrailing((prev) =>
+        prev.hasBadge === hasBadge ? prev : { ...prev, hasBadge },
+      ),
+    [],
   );
 
   return useMemo(
@@ -672,7 +721,7 @@ function useMenuRow(rowRef: RefObject<HTMLLIElement | null>, isSubRow = false) {
       trailing,
       setActions,
       setHasBadge,
-    ]
+    ],
   );
 }
 
@@ -716,9 +765,10 @@ const SidebarMenuItem = forwardRef<HTMLLIElement, SidebarMenuItemProps>(
       (node: HTMLLIElement | null) => {
         attachRow(node);
         if (typeof ref === "function") ref(node);
-        else if (ref) (ref as React.MutableRefObject<HTMLLIElement | null>).current = node;
+        else if (ref)
+          (ref as React.MutableRefObject<HTMLLIElement | null>).current = node;
       },
-      [attachRow, ref]
+      [attachRow, ref],
     );
     return (
       <MenuItemContext.Provider value={item}>
@@ -732,7 +782,7 @@ const SidebarMenuItem = forwardRef<HTMLLIElement, SidebarMenuItemProps>(
         </li>
       </MenuItemContext.Provider>
     );
-  }
+  },
 );
 SidebarMenuItem.displayName = "SidebarMenuItem";
 
@@ -748,9 +798,10 @@ const SidebarMenuSubItem = forwardRef<HTMLLIElement, SidebarMenuSubItemProps>(
       (node: HTMLLIElement | null) => {
         attachRow(node);
         if (typeof ref === "function") ref(node);
-        else if (ref) (ref as React.MutableRefObject<HTMLLIElement | null>).current = node;
+        else if (ref)
+          (ref as React.MutableRefObject<HTMLLIElement | null>).current = node;
       },
-      [attachRow, ref]
+      [attachRow, ref],
     );
     return (
       <MenuItemContext.Provider value={item}>
@@ -764,7 +815,7 @@ const SidebarMenuSubItem = forwardRef<HTMLLIElement, SidebarMenuSubItemProps>(
         </li>
       </MenuItemContext.Provider>
     );
-  }
+  },
 );
 SidebarMenuSubItem.displayName = "SidebarMenuSubItem";
 
@@ -789,7 +840,10 @@ function MenuRowLabel({
   const nodes = Children.toArray(content);
   const textParts: string[] = [];
   let i = 0;
-  while (i < nodes.length && (typeof nodes[i] === "string" || typeof nodes[i] === "number")) {
+  while (
+    i < nodes.length &&
+    (typeof nodes[i] === "string" || typeof nodes[i] === "number")
+  ) {
     textParts.push(String(nodes[i]));
     i++;
   }
@@ -802,7 +856,7 @@ function MenuRowLabel({
         className={cn(
           "flex min-w-0 flex-1 items-center gap-2 transition-colors duration-80",
           lit ? "text-foreground" : "text-muted-foreground",
-          textClass
+          textClass,
         )}
       >
         {content}
@@ -830,10 +884,12 @@ function MenuRowLabel({
         <span
           className={cn(
             "col-start-1 row-start-1 truncate pt-[0.25em] -mt-[0.25em] pb-[0.25em] -mb-[0.25em] transition-[color,font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
-            lit ? "text-foreground" : "text-muted-foreground"
+            lit ? "text-foreground" : "text-muted-foreground",
           )}
           style={{
-            fontVariationSettings: emphasized ? fontWeights.semibold : fontWeights.normal,
+            fontVariationSettings: emphasized
+              ? fontWeights.semibold
+              : fontWeights.normal,
           }}
         >
           {label}
@@ -863,11 +919,12 @@ export const sidebarMenuButtonVariants = cva(
       },
     },
     defaultVariants: { variant: "default" },
-  }
+  },
 );
 
 export interface SidebarMenuButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof sidebarMenuButtonVariants> {
   isActive?: boolean;
   size?: "default" | "sm" | "lg";
@@ -900,7 +957,7 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     const scope = useContext(MenuScopeContext);
     const item = useContext(MenuItemContext);
@@ -950,7 +1007,10 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
     // Exact trailing reservation: at rest, hover-revealed actions claim no
     // width (the label owns the row); once revealed the row widens to
     // --row-gutter-hover.
-    const gutterHover = rowGutter(item?.actionCount ?? 0, item?.hasBadge ?? false);
+    const gutterHover = rowGutter(
+      item?.actionCount ?? 0,
+      item?.hasBadge ?? false,
+    );
     const gutterRest = item?.actionsShowOnHover
       ? rowGutter(0, item?.hasBadge ?? false)
       : gutterHover;
@@ -959,7 +1019,11 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
       "--row-gutter-hover": `${gutterHover}px`,
     } as CSSProperties;
 
-    const { template, content } = resolveSlotTemplate(render, asChild, children);
+    const { template, content } = resolveSlotTemplate(
+      render,
+      asChild,
+      children,
+    );
 
     const inner = (
       <>
@@ -969,7 +1033,7 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
             strokeWidth={lit ? 2 : 1.5}
             className={cn(
               "shrink-0 transition-[color,stroke-width] duration-80",
-              lit ? "text-foreground" : "text-muted-foreground"
+              lit ? "text-foreground" : "text-muted-foreground",
             )}
           />
         )}
@@ -987,12 +1051,17 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
                     : "bg-muted-foreground/50"
                   : lit
                     ? "border border-foreground/60"
-                    : "border border-muted-foreground/50"
+                    : "border border-muted-foreground/50",
               )}
             />
           </span>
         )}
-        <MenuRowLabel content={content} lit={lit} emphasized={effectiveActive} textClass={textClass} />
+        <MenuRowLabel
+          content={content}
+          lit={lit}
+          emphasized={effectiveActive}
+          textClass={textClass}
+        />
         {status === "unread" && <span className="sr-only">, unread</span>}
       </>
     );
@@ -1004,7 +1073,8 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
         ref: (node: HTMLElement | null) => {
           buttonRef.current = node;
           if (typeof ref === "function") ref(node as HTMLButtonElement | null);
-          else if (ref) (ref as React.MutableRefObject<HTMLElement | null>).current = node;
+          else if (ref)
+            (ref as React.MutableRefObject<HTMLElement | null>).current = node;
         },
         type: template ? undefined : "button",
         "data-sidebar": "menu-button",
@@ -1017,14 +1087,14 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
           sidebarMenuButtonVariants({ variant }),
           heightClass,
           shape.item,
-          className
+          className,
         ),
         ...props,
         style: { ...gutterVars, ...(props.style ?? {}) },
       },
-      inner
+      inner,
     );
-  }
+  },
 );
 SidebarMenuButton.displayName = "SidebarMenuButton";
 
@@ -1037,12 +1107,27 @@ export interface SidebarMenuActionProps extends ButtonHTMLAttributes<HTMLButtonE
 }
 
 const SidebarMenuAction = forwardRef<HTMLButtonElement, SidebarMenuActionProps>(
-  ({ className, showOnHover = false, render, asChild, children, onClick, ...props }, ref) => {
+  (
+    {
+      className,
+      showOnHover = false,
+      render,
+      asChild,
+      children,
+      onClick,
+      ...props
+    },
+    ref,
+  ) => {
     const shape = useShape();
     const sizeClasses = useSize();
     const item = useContext(MenuItemContext);
     const inCluster = useContext(MenuActionsClusterContext);
-    const { template, content } = resolveSlotTemplate(render, asChild, children);
+    const { template, content } = resolveSlotTemplate(
+      render,
+      asChild,
+      children,
+    );
 
     // A lone action registers its own slot; inside a cluster the wrapper
     // registers the whole count and each action flows in its row.
@@ -1074,7 +1159,9 @@ const SidebarMenuAction = forwardRef<HTMLButtonElement, SidebarMenuActionProps>(
               ? "group-has-[>[data-sidebar=menu-badge]]/menu-sub-item:right-8.5"
               : "group-has-[>[data-sidebar=menu-badge]]/menu-item:right-8.5"),
           !inCluster &&
-            (item?.isSubRow || sizeClasses.variant === "compact" ? "top-0.5" : "top-1"),
+            (item?.isSubRow || sizeClasses.variant === "compact"
+              ? "top-0.5"
+              : "top-1"),
           "hover:bg-hover hover:text-foreground transition-[color,background-color,opacity] duration-80",
           "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
           // One icon size across the sidebar: row actions match the leading
@@ -1090,11 +1177,11 @@ const SidebarMenuAction = forwardRef<HTMLButtonElement, SidebarMenuActionProps>(
             showOnHover &&
             (item?.isSubRow
               ? "opacity-0 group-hover/menu-sub-item:opacity-100 group-focus-within/menu-sub-item:opacity-100 data-[state=open]:opacity-100 aria-expanded:opacity-100"
-              // Tracks the row's own button (its peer), not the <li> — a row
-              // that hosts a sub-menu wraps its children too, and hovering a
-              // child should not light the parent's action.
-              : "opacity-0 peer-hover/menu-button:opacity-100 peer-focus-visible/menu-button:opacity-100 hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 aria-expanded:opacity-100"),
-          className
+              : // Tracks the row's own button (its peer), not the <li> — a row
+                // that hosts a sub-menu wraps its children too, and hovering a
+                // child should not light the parent's action.
+                "opacity-0 peer-hover/menu-button:opacity-100 peer-focus-visible/menu-button:opacity-100 hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 aria-expanded:opacity-100"),
+          className,
         ),
         onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
           // The action often sits on a row composed via `render` — keep its
@@ -1103,11 +1190,14 @@ const SidebarMenuAction = forwardRef<HTMLButtonElement, SidebarMenuActionProps>(
           onClick?.(event);
         },
         ...props,
-        style: { ...({ "--icon-size": `${sizeClasses.icon}px` } as CSSProperties), ...(props.style ?? {}) },
+        style: {
+          ...({ "--icon-size": `${sizeClasses.icon}px` } as CSSProperties),
+          ...(props.style ?? {}),
+        },
       },
-      content
+      content,
     );
-  }
+  },
 );
 SidebarMenuAction.displayName = "SidebarMenuAction";
 
@@ -1143,14 +1233,16 @@ const SidebarMenuActions = forwardRef<HTMLDivElement, SidebarMenuActionsProps>(
           item?.isSubRow
             ? "group-has-[>[data-sidebar=menu-badge]]/menu-sub-item:right-8.5"
             : "group-has-[>[data-sidebar=menu-badge]]/menu-item:right-8.5",
-          item?.isSubRow || sizeClasses.variant === "compact" ? "top-0.5" : "top-1",
+          item?.isSubRow || sizeClasses.variant === "compact"
+            ? "top-0.5"
+            : "top-1",
           showOnHover &&
             (item?.isSubRow
               ? "opacity-0 transition-opacity duration-80 group-hover/menu-sub-item:opacity-100 group-focus-within/menu-sub-item:opacity-100 has-[[data-state=open]]:opacity-100 has-[[data-popup-open]]:opacity-100"
-              // Peer-scoped for the same reason as a lone action: the row's
-              // <li> also wraps its sub-menu.
-              : "opacity-0 transition-opacity duration-80 peer-hover/menu-button:opacity-100 peer-focus-visible/menu-button:opacity-100 hover:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100 has-[[data-popup-open]]:opacity-100"),
-          className
+              : // Peer-scoped for the same reason as a lone action: the row's
+                // <li> also wraps its sub-menu.
+                "opacity-0 transition-opacity duration-80 peer-hover/menu-button:opacity-100 peer-focus-visible/menu-button:opacity-100 hover:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100 has-[[data-popup-open]]:opacity-100"),
+          className,
         )}
         {...props}
       >
@@ -1159,7 +1251,7 @@ const SidebarMenuActions = forwardRef<HTMLDivElement, SidebarMenuActionsProps>(
         </MenuActionsClusterContext.Provider>
       </div>
     );
-  }
+  },
 );
 SidebarMenuActions.displayName = "SidebarMenuActions";
 
@@ -1184,18 +1276,22 @@ const SidebarMenuBadge = forwardRef<HTMLDivElement, SidebarMenuBadgeProps>(
         data-sidebar="menu-badge"
         className={cn(
           "pointer-events-none absolute right-2 z-10 flex h-5 min-w-5 items-center justify-center px-1 tabular-nums",
-          sizeClasses.variant === "compact" ? "top-1 text-[10px]" : "top-1.5 text-[11px]",
+          sizeClasses.variant === "compact"
+            ? "top-1 text-[10px]"
+            : "top-1.5 text-[11px]",
           "transition-[color,font-variation-settings] duration-80",
           lit ? "text-foreground" : "text-muted-foreground",
-          className
+          className,
         )}
         style={{
-          fontVariationSettings: lit ? fontWeights.semibold : fontWeights.normal,
+          fontVariationSettings: lit
+            ? fontWeights.semibold
+            : fontWeights.normal,
         }}
         {...props}
       />
     );
-  }
+  },
 );
 SidebarMenuBadge.displayName = "SidebarMenuBadge";
 
@@ -1209,39 +1305,40 @@ export interface SidebarMenuSkeletonProps extends HTMLAttributes<HTMLDivElement>
 // same markup — a random width per render is a hydration mismatch.
 const SKELETON_WIDTHS = ["62%", "74%", "55%", "82%", "68%"];
 
-const SidebarMenuSkeleton = forwardRef<HTMLDivElement, SidebarMenuSkeletonProps>(
-  ({ className, showIcon = false, ...props }, ref) => {
-    const sizeClasses = useSize();
-    const id = useId();
-    let sum = 0;
-    for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
-    const width = SKELETON_WIDTHS[sum % SKELETON_WIDTHS.length];
-    return (
-      <div
-        ref={ref}
-        data-sidebar="menu-skeleton"
-        className={cn(
-          "flex items-center gap-2 px-2",
-          sizeClasses.variant === "compact" ? "h-7" : "h-8",
-          className
-        )}
-        {...props}
-      >
-        {showIcon && (
-          <div
-            data-sidebar="menu-skeleton-icon"
-            className="size-4 shrink-0 animate-pulse rounded-md bg-hover"
-          />
-        )}
+const SidebarMenuSkeleton = forwardRef<
+  HTMLDivElement,
+  SidebarMenuSkeletonProps
+>(({ className, showIcon = false, ...props }, ref) => {
+  const sizeClasses = useSize();
+  const id = useId();
+  let sum = 0;
+  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
+  const width = SKELETON_WIDTHS[sum % SKELETON_WIDTHS.length];
+  return (
+    <div
+      ref={ref}
+      data-sidebar="menu-skeleton"
+      className={cn(
+        "flex items-center gap-2 px-2",
+        sizeClasses.variant === "compact" ? "h-7" : "h-8",
+        className,
+      )}
+      {...props}
+    >
+      {showIcon && (
         <div
-          data-sidebar="menu-skeleton-text"
-          className="h-4 flex-1 animate-pulse rounded-md bg-hover"
-          style={{ maxWidth: width }}
+          data-sidebar="menu-skeleton-icon"
+          className="size-4 shrink-0 animate-pulse rounded-md bg-hover"
         />
-      </div>
-    );
-  }
-);
+      )}
+      <div
+        data-sidebar="menu-skeleton-text"
+        className="h-4 flex-1 animate-pulse rounded-md bg-hover"
+        style={{ maxWidth: width }}
+      />
+    </div>
+  );
+});
 SidebarMenuSkeleton.displayName = "SidebarMenuSkeleton";
 
 // ─── SidebarMenuSub ──────────────────────────────────────────────────────────
@@ -1324,7 +1421,9 @@ const SidebarMenuSub = forwardRef<HTMLUListElement, SidebarMenuSubProps>(
           ref={(node) => {
             containerRef.current = node;
             if (typeof ref === "function") ref(node);
-            else if (ref) (ref as React.MutableRefObject<HTMLUListElement | null>).current = node;
+            else if (ref)
+              (ref as React.MutableRefObject<HTMLUListElement | null>).current =
+                node;
           }}
           data-sidebar="menu-sub"
           data-state={open ? "open" : "closed"}
@@ -1335,7 +1434,7 @@ const SidebarMenuSub = forwardRef<HTMLUListElement, SidebarMenuSubProps>(
             // (+ the row's own pl-2 = 32px) exactly on the parent label's x
             // (px-2 + 16px icon + gap-2 = 32px).
             "relative ml-[15px] flex min-w-0 flex-col border-l border-border pl-2 select-none",
-            className
+            className,
           )}
           {...props}
         >
@@ -1343,7 +1442,7 @@ const SidebarMenuSub = forwardRef<HTMLUListElement, SidebarMenuSubProps>(
         </ul>
       </motion.div>
     );
-  }
+  },
 );
 SidebarMenuSub.displayName = "SidebarMenuSub";
 
@@ -1357,8 +1456,23 @@ export interface SidebarMenuSubButtonProps extends AnchorHTMLAttributes<HTMLAnch
   asChild?: boolean;
 }
 
-const SidebarMenuSubButton = forwardRef<HTMLAnchorElement, SidebarMenuSubButtonProps>(
-  ({ isActive = false, size = "md", icon: Icon, render, asChild, className, children, ...props }, ref) => {
+const SidebarMenuSubButton = forwardRef<
+  HTMLAnchorElement,
+  SidebarMenuSubButtonProps
+>(
+  (
+    {
+      isActive = false,
+      size = "md",
+      icon: Icon,
+      render,
+      asChild,
+      className,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
     const item = useContext(MenuItemContext);
     const shape = useShape();
     const sizeClasses = useSize();
@@ -1379,7 +1493,10 @@ const SidebarMenuSubButton = forwardRef<HTMLAnchorElement, SidebarMenuSubButtonP
     const lit = isActive || (item?.isHovered ?? false);
     const tabIdx = isActive ? 0 : -1;
 
-    const gutterHover = rowGutter(item?.actionCount ?? 0, item?.hasBadge ?? false);
+    const gutterHover = rowGutter(
+      item?.actionCount ?? 0,
+      item?.hasBadge ?? false,
+    );
     const gutterRest = item?.actionsShowOnHover
       ? rowGutter(0, item?.hasBadge ?? false)
       : gutterHover;
@@ -1388,7 +1505,11 @@ const SidebarMenuSubButton = forwardRef<HTMLAnchorElement, SidebarMenuSubButtonP
       "--row-gutter-hover": `${gutterHover}px`,
     } as CSSProperties;
 
-    const { template, content } = resolveSlotTemplate(render, asChild, children);
+    const { template, content } = resolveSlotTemplate(
+      render,
+      asChild,
+      children,
+    );
 
     return slotElement(
       template,
@@ -1397,7 +1518,8 @@ const SidebarMenuSubButton = forwardRef<HTMLAnchorElement, SidebarMenuSubButtonP
         ref: (node: HTMLElement | null) => {
           buttonRef.current = node;
           if (typeof ref === "function") ref(node as HTMLAnchorElement | null);
-          else if (ref) (ref as React.MutableRefObject<HTMLElement | null>).current = node;
+          else if (ref)
+            (ref as React.MutableRefObject<HTMLElement | null>).current = node;
         },
         "data-sidebar": "menu-sub-button",
         "data-size": size,
@@ -1407,9 +1529,13 @@ const SidebarMenuSubButton = forwardRef<HTMLAnchorElement, SidebarMenuSubButtonP
         className: cn(
           "relative z-10 flex w-full cursor-pointer select-none items-center gap-2 pl-2 text-left outline-none",
           "transition-[padding] duration-80 pr-[var(--row-gutter)] group-hover/menu-sub-item:pr-[var(--row-gutter-hover)] group-focus-within/menu-sub-item:pr-[var(--row-gutter-hover)] group-has-[[data-sidebar=menu-action]:is([data-state=open],[data-popup-open],[aria-expanded=true])]/menu-sub-item:pr-[var(--row-gutter-hover)]",
-          size === "sm" ? "h-6" : sizeClasses.variant === "compact" ? "h-6" : "h-7",
+          size === "sm"
+            ? "h-6"
+            : sizeClasses.variant === "compact"
+              ? "h-6"
+              : "h-7",
           shape.item,
-          className
+          className,
         ),
         ...props,
         style: { ...gutterVars, ...(props.style ?? {}) },
@@ -1421,7 +1547,7 @@ const SidebarMenuSubButton = forwardRef<HTMLAnchorElement, SidebarMenuSubButtonP
             strokeWidth={lit ? 2 : 1.5}
             className={cn(
               "shrink-0 transition-[color,stroke-width] duration-80",
-              lit ? "text-foreground" : "text-muted-foreground"
+              lit ? "text-foreground" : "text-muted-foreground",
             )}
           />
         )}
@@ -1433,9 +1559,9 @@ const SidebarMenuSubButton = forwardRef<HTMLAnchorElement, SidebarMenuSubButtonP
           emphasized={isActive}
           textClass={size === "sm" ? "text-[12px]" : sizeClasses.text}
         />
-      </>
+      </>,
     );
-  }
+  },
 );
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton";
 

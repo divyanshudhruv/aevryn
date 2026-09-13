@@ -38,7 +38,18 @@ interface Message {
   files: File[];
 }
 
-export function ChatComposer() {
+export function ChatComposer({
+  onSend,
+  onStop,
+  status = "idle",
+}: {
+  /** Fired on submit (or queue auto-dispatch) with the sent text. */
+  onSend?: (text: string) => void;
+  /** Fired when Stop is pressed while a run is active. */
+  onStop?: () => void;
+  /** Assistant activity state: drives Send/Queue/Stop morphing. */
+  status?: "idle" | "streaming";
+}) {
   const shape = useShape();
   const PlusIcon = useIcon("plus");
   const ChevronDownIcon = useIcon("chevron-down");
@@ -54,9 +65,9 @@ export function ChatComposer() {
   ]);
   const [files, setFiles] = useState<File[]>([]);
   const [queue, setQueue] = useState<QueuedMessage[]>([]);
-  // Seeded mid-stream (the preset's configuration): sends enqueue
-  // immediately; Stop flips to idle and dispatches the head.
-  const [status, setStatus] = useState<"idle" | "streaming">("streaming");
+  // Run state comes from the page (real backend), not a local stub.
+  // The streaming → idle edge is what auto-dispatches the next queued
+  // message through onSend.
   const qualityLabels = ["Free", "Low", "Medium", "High", "Ultra", "God"];
   const [quality, setQuality] = useState(30000);
   const [displayQuality, setDisplayQuality] = useState(30000);
@@ -75,8 +86,8 @@ export function ChatComposer() {
     [],
   );
 
-  // Fake reply — swap for your backend. The streaming → idle edge is what
-  // auto-dispatches the next queued message through onSend.
+  // Real backend: the page submits via onSend; the assistant reply and
+  // status transitions arrive through the transcript/read model, not here.
   const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -84,21 +95,6 @@ export function ChatComposer() {
     },
     [],
   );
-  const respond = (text: string) => {
-    setStatus("streaming");
-    replyTimerRef.current = setTimeout(() => {
-      setMessages((m) => [
-        ...m,
-        {
-          id: crypto.randomUUID(),
-          from: "assistant",
-          text: `Replying to “${text}” — swap this stub for your backend.`,
-          files: [],
-        },
-      ]);
-      setStatus("idle");
-    }, 2600);
-  };
 
   // Float the composer over the transcript: measure it to reserve scroll
   // padding (plus the collapsed queue stack) and to position the stack, and
@@ -229,7 +225,7 @@ export function ChatComposer() {
           if (text || sent.length) {
             const id = meta?.queuedId ?? crypto.randomUUID();
             setMessages((m) => [...m, { id, from: "user", text, files: sent }]);
-            if (text) respond(text);
+            if (text) onSend?.(text);
             // A dispatched (from-queue) text message morphs from its stack
             // card; attachment cards fade instead (their layouts differ).
             if (meta?.queuedId && sent.length === 0) {
@@ -307,7 +303,7 @@ export function ChatComposer() {
         onQueueChange={setQueue}
         onStop={() => {
           if (replyTimerRef.current) clearTimeout(replyTimerRef.current);
-          setStatus("idle");
+          onStop?.();
         }}
         // The built-in queue rows are replaced by the stacked cards above.
         showQueue={false}

@@ -226,7 +226,7 @@ export default function WorkspacePage() {
 
   return (
     <SidebarProvider>
-      <AppSidebar workspaceId="" />
+      <AppSidebar  />
       <SidebarInset>
         <WorkflowDialog open={open} onOpenChange={setOpen} />
         <div className="flex h-full min-h-0 flex-col">

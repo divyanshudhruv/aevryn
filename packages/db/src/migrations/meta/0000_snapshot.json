@@ -3112,6 +3112,7 @@
       "name": "message_status",
       "schema": "public",
       "values": [
+        "queued",
         "streaming",
         "completed",
         "failed"

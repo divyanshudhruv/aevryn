@@ -72,9 +72,19 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
           checkedIndex={0}
           menu={
             <>
-              <MenuItem index={0} label="Acme Inc" checked onSelect={() => {}} />
+              <MenuItem
+                index={0}
+                label="Acme Inc"
+                checked
+                onSelect={() => {}}
+              />
               <MenuItem index={1} label="Personal" onSelect={() => {}} />
-              <MenuItem index={2} icon={PlusIcon} label="New workspace" onSelect={() => {}} />
+              <MenuItem
+                index={2}
+                icon={PlusIcon}
+                label="New workspace"
+                onSelect={() => {}}
+              />
             </>
           }
         />
@@ -86,9 +96,13 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
               <SidebarMenuButton icon={PlusIcon}>
                 New
                 {/* shortcut chip, revealed on row hover */}
-                <span className="ml-auto inline-flex opacity-0 transition-opacity duration-80
-                  group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100">
-                  <kbd className="font-sans text-[11px] text-muted-foreground">⇧⌘O</kbd>
+                <span
+                  className="ml-auto inline-flex opacity-0 transition-opacity duration-80
+                  group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100"
+                >
+                  <kbd className="font-sans text-[11px] text-muted-foreground">
+                    ⇧⌘O
+                  </kbd>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -96,9 +110,13 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
               <SidebarMenuButton icon={BellIcon}>
                 Notifications
                 {/* shortcut chip, revealed on row hover */}
-                <span className="ml-auto inline-flex opacity-0 transition-opacity duration-80
-                  group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100">
-                  <kbd className="font-sans text-[11px] text-muted-foreground">⌘N</kbd>
+                <span
+                  className="ml-auto inline-flex opacity-0 transition-opacity duration-80
+                  group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100"
+                >
+                  <kbd className="font-sans text-[11px] text-muted-foreground">
+                    ⌘N
+                  </kbd>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -106,9 +124,13 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
               <SidebarMenuButton icon={CommandMenuIcon}>
                 Command
                 {/* shortcut chip, revealed on row hover */}
-                <span className="ml-auto inline-flex opacity-0 transition-opacity duration-80
-                  group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100">
-                  <kbd className="font-sans text-[11px] text-muted-foreground">⌘K</kbd>
+                <span
+                  className="ml-auto inline-flex opacity-0 transition-opacity duration-80
+                  group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100"
+                >
+                  <kbd className="font-sans text-[11px] text-muted-foreground">
+                    ⌘K
+                  </kbd>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -143,7 +165,9 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                   >
                     {item.label}
                   </SidebarMenuButton>
-                  {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
+                  {item.badge && (
+                    <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                  )}
                   <SidebarMenuActions showOnHover>
                     <Tooltip content="Add" side="top">
                       <SidebarMenuAction aria-label="Add">
@@ -156,15 +180,31 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                       </SidebarMenuAction>
                     </Tooltip>
                     <DropdownMenu>
-                      <DropdownTrigger render={
-                        <SidebarMenuAction aria-label="More options">
-                          <MoreVerticalIcon />
-                        </SidebarMenuAction>
-                      } />
+                      <DropdownTrigger
+                        render={
+                          <SidebarMenuAction aria-label="More options">
+                            <MoreVerticalIcon />
+                          </SidebarMenuAction>
+                        }
+                      />
                       {/* 240px — the header/footer trigger width */}
-                      <DropdownContent className="min-w-0 w-[240px]" align="start" sideOffset={4}>
-                        <MenuItem index={0} icon={PencilIcon} label="Rename" onSelect={() => {}} />
-                        <MenuItem index={1} icon={LinkIcon} label="Share" onSelect={() => {}} />
+                      <DropdownContent
+                        className="min-w-0 w-[240px]"
+                        align="start"
+                        sideOffset={4}
+                      >
+                        <MenuItem
+                          index={0}
+                          icon={PencilIcon}
+                          label="Rename"
+                          onSelect={() => {}}
+                        />
+                        <MenuItem
+                          index={1}
+                          icon={LinkIcon}
+                          label="Share"
+                          onSelect={() => {}}
+                        />
                       </DropdownContent>
                     </DropdownMenu>
                   </SidebarMenuActions>
@@ -178,33 +218,57 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
       <SidebarFooter>
         {/* sonner-style pile: cards peek 12px apiece behind the front one,
             scaling 0.05 a step, two peeks max */}
-        <m.div className="relative"
+        <m.div
+          className="relative"
           animate={{ height: collapsedH }}
           transition={{ ...spring.moderate, bounce: 0 }}
         >
           <AnimatePresence initial={false}>
             {callouts.map((c, i) => (
-              <m.div key={c.id} className="absolute inset-x-0 bottom-0"
+              <m.div
+                key={c.id}
+                className="absolute inset-x-0 bottom-0"
                 style={{ transformOrigin: "bottom center", zIndex: 100 - i }}
                 initial={{ opacity: 0, y: 14, scale: 0.96 }}
-                animate={{ y: -Math.min(i, 2) * 12, scale: 1 - Math.min(i, 2) * 0.05,
-                  opacity: i <= 2 ? 1 : 0 }}
-                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.12 } }}
+                animate={{
+                  y: -Math.min(i, 2) * 12,
+                  scale: 1 - Math.min(i, 2) * 0.05,
+                  opacity: i <= 2 ? 1 : 0,
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.9,
+                  transition: { duration: 0.12 },
+                }}
                 transition={spring.moderate}
-                ref={i === 0 ? (el) => { if (el) setCardH(el.offsetHeight); } : undefined}
+                ref={
+                  i === 0
+                    ? (el) => {
+                        if (el) setCardH(el.offsetHeight);
+                      }
+                    : undefined
+                }
               >
-                <Card size="compact" dismissible onDismiss={() => dismiss(c.id)}
-                label="Aurora 2 is here — longer context, faster agents"
-                className={`rounded-xl overflow-hidden min-h-0 transition-[background-color,box-shadow]
+                <Card
+                  size="compact"
+                  dismissible
+                  onDismiss={() => dismiss(c.id)}
+                  label="Aurora 2 is here — longer context, faster agents"
+                  className={`rounded-xl overflow-hidden min-h-0 transition-[background-color,box-shadow]
                   duration-80 ${surfaceClasses(level, 2)} ${surfaceHoverClasses(level + 1, 3)}
                   shadow-[var(--shadow-2-inset)] hover:shadow-[var(--shadow-3-inset)]`}
                 >
-                {/* swap for your artwork */}
-                <CardImage src="/banner.png" className="aspect-[2/1] max-h-28" />
-                <CardHeader className="gap-0 pt-3">
-                  <CardTitle className="truncate">{c.title}</CardTitle>
-                  <CardDescription className="truncate text-caption">{c.desc}</CardDescription>
-                </CardHeader>
+                  {/* swap for your artwork */}
+                  <CardImage
+                    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Cdefs%3E%3CradialGradient id='a' cx='12%25' cy='16%25' r='70%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.9'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='90%25' cy='12%25' r='65%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.45'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='c' cx='82%25' cy='94%25' r='75%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.8'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='d' cx='24%25' cy='90%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.55'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='320' height='180' fill='%23ffffff'/%3E%3Crect width='320' height='180' fill='%236B97FF' fill-opacity='0.2'/%3E%3Crect width='320' height='180' fill='url(%23a)'/%3E%3Crect width='320' height='180' fill='url(%23b)'/%3E%3Crect width='320' height='180' fill='url(%23c)'/%3E%3Crect width='320' height='180' fill='url(%23d)'/%3E%3C/svg%3E"
+                    className="aspect-[2/1] max-h-28"
+                  />
+                  <CardHeader className="gap-0 pt-3">
+                    <CardTitle className="truncate">{c.title}</CardTitle>
+                    <CardDescription className="truncate text-caption">
+                      {c.desc}
+                    </CardDescription>
+                  </CardHeader>
                 </Card>
               </m.div>
             ))}
@@ -221,25 +285,46 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
             className="min-w-0 flex-1"
             menu={
               <>
-                <MenuItem index={0} icon={UserIcon} label="Profile" onSelect={() => {}} />
-                <MenuItem index={1} icon={SettingsIcon} label="Settings" onSelect={() => {}} />
-                <MenuItem index={2} icon={ArrowLeftIcon} label="Log out" onSelect={() => {}} />
+                <MenuItem
+                  index={0}
+                  icon={UserIcon}
+                  label="Profile"
+                  onSelect={() => {}}
+                />
+                <MenuItem
+                  index={1}
+                  icon={SettingsIcon}
+                  label="Settings"
+                  onSelect={() => {}}
+                />
+                <MenuItem
+                  index={2}
+                  icon={ArrowLeftIcon}
+                  label="Log out"
+                  onSelect={() => {}}
+                />
               </>
             }
           />
           <Tooltip content="Settings" side="top">
-            <button type="button" aria-label="Settings"
+            <button
+              type="button"
+              aria-label="Settings"
               className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground
                 outline-none hover:bg-hover hover:text-foreground transition-colors duration-80
-                focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]">
+                focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
+            >
               <FooterSettingsIcon size={16} strokeWidth={1.5} />
             </button>
           </Tooltip>
           <Tooltip content="Theme" side="top">
-            <button type="button" aria-label="Theme"
+            <button
+              type="button"
+              aria-label="Theme"
               className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground
                 outline-none hover:bg-hover hover:text-foreground transition-colors duration-80
-                focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]">
+                focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
+            >
               <MoonIcon size={16} strokeWidth={1.5} />
             </button>
           </Tooltip>

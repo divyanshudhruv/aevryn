@@ -25,7 +25,8 @@ export function OnboardingFlow() {
 				body: JSON.stringify({ answers }),
 			});
 			if (!res.ok) throw new Error("Failed to save answers");
-			router.push("/workspace");
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- typed-routes doesn't know the dynamic redirect
+			router.push("/workspace" as any);
 		} catch {
 			setError("Something went wrong saving your answers. Try again.");
 			setSaving(false);

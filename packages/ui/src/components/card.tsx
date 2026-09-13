@@ -226,7 +226,7 @@ interface CardProps extends Omit<HTMLAttributes<HTMLDivElement>, "onClick"> {
   /** Makes the whole card an interactive target; fluid hover previews it.
    *  Renders a stretched link when `href` is set, else a stretched button. */
   onClick?: () => void;
-  href?: string;
+  href?: any; // Next typed-routes Route | plain string — cards are generic
   external?: boolean;
   /** Accessible name for the stretched link/button when the whole card is
    *  clickable (the card's visible title isn't wired up automatically). */
@@ -909,7 +909,7 @@ const CARD_BUTTON_VARIANTS: Record<CardButtonVariant, string> = {
 interface CardButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
-  href?: string;
+  href?: any; // Next typed-routes Route | plain string — cards are generic
   variant?: CardButtonVariant;
   icon?: IconComponent;
   iconPosition?: "start" | "end";

@@ -2,7 +2,7 @@ import {
   SidebarProvider,
   SidebarInset,
 } from "@aevryn/ui/components/ui/sidebar";
-import { AppSidebar } from "@aevryn/ui/components/sidebar-preset/app-sidebar";
+import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 import { Header } from "@/components/workspace/Header";
 
 export default async function WorkspaceLayout({
@@ -16,18 +16,16 @@ export default async function WorkspaceLayout({
 
   return (
     <SidebarProvider>
-      <AppSidebar workspaceId={workspaceId} />
+      <WorkspaceSidebar />
 
       <SidebarInset>
-        <section
-          aria-label="Conversation"
-          className="min-h-0 flex-1 overflow-y-auto"
-        >
+        <div className="flex h-screen min-h-0 flex-col overflow-hidden">
+          {/* Fixed at the top; content scrolls under it */}
           <Header workspaceId={workspaceId} threadId={threadId} />
-          <div className="flex flex-col items-center justify-center h-full">
+          <main className="min-h-0 flex-1 overflow-y-auto">
             {children}
-          </div>
-        </section>
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

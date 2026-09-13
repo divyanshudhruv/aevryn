@@ -4,7 +4,7 @@ CREATE TYPE "public"."api_provider" AS ENUM('groq', 'anakin', 'mem0');--> statem
 CREATE TYPE "public"."approval_status" AS ENUM('pending', 'approved', 'denied');--> statement-breakpoint
 CREATE TYPE "public"."hook_status" AS ENUM('active', 'fired', 'expired');--> statement-breakpoint
 CREATE TYPE "public"."message_role" AS ENUM('user', 'assistant', 'system');--> statement-breakpoint
-CREATE TYPE "public"."message_status" AS ENUM('streaming', 'completed', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."message_status" AS ENUM('queued', 'streaming', 'completed', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."notification_type" AS ENUM('run', 'system');--> statement-breakpoint
 CREATE TYPE "public"."plan_level" AS ENUM('free', 'pro');--> statement-breakpoint
 CREATE TYPE "public"."plan_step_status" AS ENUM('pending', 'active', 'completed', 'skipped');--> statement-breakpoint
