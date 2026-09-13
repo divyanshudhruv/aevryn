@@ -1,4 +1,7 @@
+import { sql } from "drizzle-orm";
 import { integer, pgPolicy, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('pls_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { planStepStatusEnum } from "./enums";
@@ -8,7 +11,7 @@ import { plans } from "./plan";
 export const planSteps = pgTable(
 	"plan_steps",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		planId: text("plan_id")
 			.notNull()
 			.references(() => plans.id, { onDelete: "cascade" }),

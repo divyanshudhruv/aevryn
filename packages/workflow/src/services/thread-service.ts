@@ -1,5 +1,12 @@
-import { chatMessages, db, ids, threads, type ChatMessage, type Db, type DbTx, type NewChatMessage, type Thread } from "@aevryn/db";
+import { chatMessages, db, ids, threads, workflows, type ChatMessage, type Db, type DbTx, type NewChatMessage, type Thread, type Workflow } from "@aevryn/db";
 import { and, asc, eq, isNotNull, isNull, lt } from "drizzle-orm";
+import { threadStatus } from "@aevryn/db/domain";
+import { type RunStatus } from "@aevryn/db/domain";
+
+export interface ThreadStatusRow {
+	thread: Thread;
+	status: RunStatus;
+}
 
 export interface CreateThreadInput {
 	workspaceId: string;
@@ -174,6 +181,24 @@ export class ThreadService {
 			.where(eq(threads.id, id))
 			.returning();
 		return row;
+	}
+
+	async findThreadStatusById(id: string): Promise<ThreadStatusRow | undefined> {
+		const thread = await this.findById(id);
+		if (!thread) {
+			return undefined;
+		}
+		if (!thread.boundWorkflowId) {
+			return { thread, status: threadStatus(null) };
+		}
+		const workflow = await this.scope().query.workflows.findFirst({
+			where: eq(workflows.id, thread.boundWorkflowId),
+		});
+		const workflowStatus: ReturnType<typeof threadStatus> = workflow?.status ?? null;
+		return {
+			thread,
+			status: workflowStatus ?? threadStatus(null),
+		};
 	}
 
 	async touchLastMessage(id: string, at = new Date()): Promise<void> {

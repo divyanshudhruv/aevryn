@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { bigint, boolean, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('fil_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { threads } from "./thread";
@@ -8,7 +10,7 @@ import { workspaces } from "./workspace";
 export const files = pgTable(
 	"files",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		userId: uuid("user_id").notNull(),
 		threadId: text("thread_id").references(() => threads.id, {
 			onDelete: "set null",

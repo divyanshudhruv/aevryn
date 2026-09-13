@@ -4,21 +4,24 @@ export type PlanLevel = (typeof PLAN_LEVELS)[number];
 export const GROUP_KINDS = ["custom", "system"] as const;
 export type GroupKind = (typeof GROUP_KINDS)[number];
 
-export const WORKFLOW_STATUSES = [
-	"waiting",
-	"planning",
+export const RUN_STATUSES = [
 	"running",
+	"sleeping",
 	"awaiting_approval",
-	"idle",
-	"paused",
 	"failed",
 	"completed",
+	"idle",
+	"planning",
+	"stopped",
 ] as const;
-export type WorkflowStatus = (typeof WORKFLOW_STATUSES)[number];
-
+export type RunStatus = (typeof RUN_STATUSES)[number];
+export const WORKFLOW_STATUSES = RUN_STATUSES;
+export type WorkflowStatus = RunStatus;
+export function threadStatus(workflowStatus: WorkflowStatus | null): RunStatus {
+	return workflowStatus ?? "idle";
+}
 export const MESSAGE_ROLES = ["user", "assistant", "system", "tool"] as const;
 export type MessageRole = (typeof MESSAGE_ROLES)[number];
-
 export const MESSAGE_STATUSES = [
 	"draft",
 	"queued",
@@ -28,18 +31,6 @@ export const MESSAGE_STATUSES = [
 	"interrupted",
 ] as const;
 export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
-
-export const RUN_STATUSES = [
-	"pending",
-	"running",
-	"sleeping",
-	"waiting",
-	"awaiting_approval",
-	"completed",
-	"failed",
-	"cancelled",
-] as const;
-export type RunStatus = (typeof RUN_STATUSES)[number];
 
 export const RUN_TRIGGERS = [
 	"message",

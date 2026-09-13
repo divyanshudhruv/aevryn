@@ -1,29 +1,24 @@
-import type { RunStatus } from "@aevryn/db/domain";
-
+import type { RunStatus } from "@aevryn/db/domain";
 /** Sidebar row status vocabulary = run lifecycle only. */
-export type NavItemStatus = RunStatus;
-
+export type NavItemStatus = RunStatus;
 export interface NavItem {
   label: string;
   /** Execution status: drives the leading indicator and is stamped as `data-status`. */
   status: NavItemStatus;
   badge?: string;
-}
-
+}
 export interface NavSection {
   label: string;
   items: NavItem[];
-}
-
-// NEWTODO change with real data via dataabse
-
+}
+// NEWTODO change with real data via dataabse
 // The badge is the number of chat messages or the soemthing idk it is in final-docs directory what is it or ask me what is it
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "PERSONAL",
     items: [
-      { label: "New pricing page exploration", status: "pending", badge: "2" },
-      { label: "Component library audit", status: "waiting", badge: "5" },
+      { label: "New pricing page exploration", status: "awaiting_approval", badge: "2" },
+      { label: "Component library audit", status: "awaiting_approval", badge: "5" },
       { label: "Dark mode token pass", status: "running", badge: "3" },
     ],
   },
@@ -39,13 +34,13 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Compare Framework 16 vs MacBook", status: "running" },
       { label: "Monitor product price drop", status: "running" },
-      { label: "Summarize weekly changelogs", status: "waiting" },
+      { label: "Summarize weekly changelogs", status: "awaiting_approval" },
       { label: "Fill job application form", status: "awaiting_approval" },
       { label: "Scrape internship listings", status: "completed" },
-      { label: "Queue onboarding follow-ups", status: "pending" },
+      { label: "Queue onboarding follow-ups", status: "awaiting_approval" },
       { label: "Sleep until market opens", status: "sleeping" },
       { label: "Retry checkout flow", status: "failed" },
-      { label: "Cancel stale reservations", status: "cancelled" },
+      { label: "Cancel stale reservations", status: "failed" },
     ],
   },
 ];

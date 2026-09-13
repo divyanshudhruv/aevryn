@@ -1,4 +1,7 @@
+import { sql } from "drizzle-orm";
 import { pgPolicy, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('pln_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { planStatusEnum } from "./enums";
@@ -8,7 +11,7 @@ import { workflows } from "./workflow";
 export const plans = pgTable(
 	"plans",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		workflowId: text("workflow_id")
 			.notNull()
 			.unique()

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "../../components/ui/button";
+import { Button } from "@aevryn/ui/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,10 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogClose,
-} from "../../components/ui/dialog";
+} from "@aevryn/ui/components/ui/dialog";
 import { useState } from "react";
 import { Pencil, Brain, ListPlus, type LucideIcon } from "lucide-react";
-import { InputGroup, InputField } from "../../components/ui/input-group";
+import { InputGroup, InputField } from "@aevryn/ui/components/ui/input-group";
 
 /** Which entity the dialog acts on. */
 export type EntityActionMode =
@@ -70,6 +70,8 @@ export interface EntityActionDialogProps {
   defaultValue?: string;
   /** Called with the current input value when the primary action is pressed. */
   onSubmit?: (value: string) => void;
+  /** When true, the primary button shows a spinner and is disabled. */
+  loading?: boolean;
 }
 
 export function EntityActionDialog({
@@ -77,11 +79,12 @@ export function EntityActionDialog({
   open,
   defaultOpen,
   onOpenChange,
-  defaultValue = "",
+  defaultValue,
   onSubmit,
+  loading = false,
 }: EntityActionDialogProps) {
   const config = MODE_CONFIG[mode];
-  const [value, setValue] = useState(defaultValue);
+  const [value, setValue] = useState(defaultValue ?? "");
 
   return (
     <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
@@ -104,7 +107,7 @@ export function EntityActionDialog({
 
         <DialogFooter>
           <DialogClose render={<Button variant="ghost">Cancel</Button>} />
-          <Button onClick={() => onSubmit?.(value)}>
+          <Button onClick={() => onSubmit?.(value)} loading={loading} disabled={loading}>
             {config.actionLabel}
           </Button>
         </DialogFooter>

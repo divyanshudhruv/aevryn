@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('wf_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { workflowStatusEnum } from "./enums";
@@ -9,7 +11,7 @@ import { workspaces } from "./workspace";
 export const workflows = pgTable(
 	"workflows",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		threadId: text("thread_id").references(() => threads.id, {
 			onDelete: "set null",
 		}),
@@ -19,7 +21,7 @@ export const workflows = pgTable(
 		userId: uuid("user_id").notNull(),
 		title: text("title").notNull(),
 		description: text("description"),
-		status: workflowStatusEnum("status").notNull().default("waiting"),
+		status: workflowStatusEnum("status").notNull().default("awaiting_approval"),
 		autoApprove: boolean("auto_approve").notNull().default(false),
 		schemaVersion: integer("schema_version").notNull().default(1),
 		createdAt: timestamp("created_at", { withTimezone: true })

@@ -44,6 +44,7 @@ import {
   slotElement,
 } from "@aevryn/ui/components/ui/sidebar-core";
 import { FluidHoverHighlight } from "@aevryn/ui/components/ui/fluid-hover-highlight";
+import { DotmCircular8 } from "../dotm-circular-8";
 
 // SSR-safe layout effect (client components still server-render in Next).
 const useIsoLayoutEffect =
@@ -1022,6 +1023,13 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
       children,
     );
 
+    // The animated dot-matrix placeholder is the default leading indicator
+    // for pure-text rows (thread items with no icon and no status). Buttons
+    // that pass an icon, a status, or custom leading content (tile, avatar,
+    // chevron) own their leading slot and must not inherit the dot.
+    const contentIsPlainText =
+      typeof content === "string" || typeof content === "number";
+
     const inner = (
       <>
         {Icon && (
@@ -1034,27 +1042,34 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
             )}
           />
         )}
+        {!status && !Icon && contentIsPlainText && (
+          <DotmCircular8 size={sizeClasses.icon} dotSize={2.1} />
+        )}
+
         {!Icon && status && (
           <span
             className="flex shrink-0 items-center justify-center"
             style={{ width: sizeClasses.icon, height: sizeClasses.icon }}
           >
-            {status === "running" ? (
+            {status === "running" && (
               <DotmCircular7 size={sizeClasses.icon} dotSize={2.1} />
-            ) : status === "failed" ? (
+            )}
+            {status === "failed" && (
               <DotmTriangle6 size={sizeClasses.icon} dotSize={2} />
-            ) : status === "sleeping" ||
-              status === "waiting" ||
-              status === "awaiting_approval" ? (
+            )}
+            {(status === "sleeping" ||
+              status === "awaiting_approval") && (
               <DotmCircular4 size={sizeClasses.icon} dotSize={2.1} />
-            ) : status === "completed" ? (
+            )}
+            {status === "completed" && (
               <span
                 className={cn(
                   "size-2 rounded-full transition-colors duration-80",
                   lit ? "bg-foreground/60" : "bg-muted-foreground/50",
                 )}
               />
-            ) : (
+            )}
+            {(status === "idle" || status === "planning" || status === "stopped") && (
               <span
                 className={cn(
                   "size-2 rounded-full border transition-colors duration-80",

@@ -13,13 +13,14 @@ import { InputCopy } from "../../components/ui/input-copy";
 /** Which deletion the dialog confirms. */
 export type DeleteMode = "delete-all" | "delete-one";
 
-const MOCK_SECTION_WORKFLOWS = [
-  { value: "New pricing page workflow" },
-  { value: "Component library audit" },
-  { value: "Dark mode token pass" },
-];
-
-const MOCK_ONE_WORKFLOW = [{ value: "Component library audit" }];
+const DEFAULT_DELETIONS: Record<DeleteMode, Array<{ value: string }>> = {
+  "delete-all": [
+    { value: "New pricing page workflow" },
+    { value: "Component library audit" },
+    { value: "Dark mode token pass" },
+  ],
+  "delete-one": [{ value: "Component library audit" }],
+};
 
 const TEXTS: Record<
   DeleteMode,
@@ -39,21 +40,30 @@ const TEXTS: Record<
   },
 };
 
+export interface WorkflowDelConfirmationDialogProps {
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  mode?: DeleteMode;
+  /** When supplied, renders the listed deletions instead of the mode defaults. */
+  deletions?: Array<{ value: string }>;
+  /** Called when the primary action is pressed. The dialog is not closed by this prop. */
+  onConfirm?: () => void;
+  /** When true, the primary button shows a spinner and is disabled. */
+  loading?: boolean;
+}
+
 export function WorkflowDelConfirmationDialog({
   open,
   defaultOpen,
   onOpenChange,
   mode = "delete-one",
-}: {
-  open?: boolean;
-  defaultOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  /** Drives the title, description, action label, and listed workflows. */
-  mode?: DeleteMode;
-}) {
+  deletions,
+  onConfirm,
+  loading = false,
+}: WorkflowDelConfirmationDialogProps) {
   const texts = TEXTS[mode];
-  const workflows =
-    mode === "delete-all" ? MOCK_SECTION_WORKFLOWS : MOCK_ONE_WORKFLOW;
+  const items = deletions ?? DEFAULT_DELETIONS[mode];
 
   return (
     <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
@@ -63,14 +73,21 @@ export function WorkflowDelConfirmationDialog({
           <DialogDescription>{texts.description}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-0">
-          {workflows.map((w) => (
-            <InputCopy key={w.value} value={w.value} className="truncate" disabled />
+          {items.map((item) => (
+            <InputCopy
+              key={item.value}
+              value={item.value}
+              className="truncate"
+              disabled
+            />
           ))}
         </div>
 
         <DialogFooter>
           <DialogClose render={<Button variant="ghost">Cancel</Button>} />
-          <Button>{texts.actionLabel}</Button>
+          <Button onClick={onConfirm} loading={loading} disabled={loading}>
+            {texts.actionLabel}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,8 @@
 import { db, ids, runs, runActivities, type Db, type Run, type RunActivity } from "@aevryn/db";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 
+const TERMINAL = new Set(["completed", "failed", "stopped"]);
+
 export interface CreateRunInput {
 	threadId: string;
 	userId: string;
@@ -8,18 +10,16 @@ export interface CreateRunInput {
 	workflowId?: string;
 	rerunOf?: string;
 	promptSnapshot?: unknown;
-}
-
-export interface RecordActivityInput {
-	runId: string;
-	type: "tool" | "thinking" | "task" | "subtask" | "system";
-	status: "pending" | "active" | "complete" | "failed";
-	stepLabel?: string;
-	title?: string;
-	description?: string;
-	detail?: unknown;
-	parentId?: string;
-}
+}export interface RecordActivityInput {
+		runId: string;
+		type: "tool" | "thinking" | "task" | "subtask" | "system";
+		status: "active" | "complete" | "failed";
+		stepLabel?: string;
+		title?: string;
+		description?: string;
+		detail?: unknown;
+		parentId?: string;
+	}
 
 export class RunService {
 	constructor(private readonly client: Db = db) {}
@@ -31,16 +31,16 @@ export class RunService {
 	async create(input: CreateRunInput): Promise<Run> {
 		const [row] = await this.scope()
 			.insert(runs)
-			.values({
-				id: ids.run(),
-				threadId: input.threadId,
-				userId: input.userId,
-				trigger: input.trigger,
-				workflowId: input.workflowId ?? null,
-				rerunOf: input.rerunOf ?? null,
-				promptSnapshot: input.promptSnapshot ?? null,
-				status: "pending",
-			})
+				.values({
+					id: ids.run(),
+					threadId: input.threadId,
+					userId: input.userId,
+					trigger: input.trigger,
+					workflowId: input.workflowId ?? null,
+					rerunOf: input.rerunOf ?? null,
+					promptSnapshot: input.promptSnapshot ?? null,
+					status: "awaiting_approval",
+				})
 			.returning();
 		return row!;
 	}
@@ -69,10 +69,10 @@ export class RunService {
 
 	async setStatus(
 		id: string,
-		status: "pending" | "running" | "sleeping" | "waiting" | "awaiting_approval" | "completed" | "failed" | "cancelled",
+		status: "running" | "sleeping" | "awaiting_approval" | "failed" | "completed" | "idle" | "planning" | "stopped",
 	): Promise<Run | undefined> {
 		const finished =
-			status === "completed" || status === "failed" || status === "cancelled";
+			status === "completed" || status === "failed" || status === "stopped";
 		const [row] = await this.scope()
 			.update(runs)
 			.set(
@@ -106,7 +106,7 @@ export class RunService {
 			return [];
 		}
 		return this.scope().query.runs.findMany({
-			where: and(eq(runs.threadId, run.threadId), eq(runs.status, "pending")),
+			where: and(eq(runs.threadId, run.threadId), eq(runs.status, "awaiting_approval")),
 			orderBy: [asc(runs.createdAt)],
 		});
 	}
@@ -212,10 +212,9 @@ export class RunService {
 		}
 		if (
 			run.status === "sleeping" ||
-			run.status === "waiting" ||
 			run.status === "awaiting_approval"
 		) {
-			return (await this.setStatus(runId, "pending")) ?? run;
+			return (await this.setStatus(runId, "awaiting_approval")) ?? run;
 		}
 		return run;
 	}

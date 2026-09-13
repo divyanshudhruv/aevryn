@@ -202,9 +202,9 @@ function createActivityAccumulator(runId: string) {
 }
 
 /**
- * Idempotent gate: if the run is already terminal, sleeping, waiting, or
- * awaiting approval, the pass must be a no-op. Returning "skipped" prevents a
- * retry or duplicate event from re-executing the same unit of work twice.
+ * Idempotent gate: if the run is already terminal, sleeping, or awaiting
+ * approval, the pass must be a no-op. Returning "skipped" prevents a retry or
+ * duplicate event from re-executing the same unit of work twice.
  */
 export async function resolveRunState(data: unknown): Promise<{
 	runId: string;
@@ -220,9 +220,8 @@ export async function resolveRunState(data: unknown): Promise<{
 	if (
 		run.status === "completed" ||
 		run.status === "failed" ||
-		run.status === "cancelled" ||
+		run.status === "stopped" ||
 		run.status === "sleeping" ||
-		run.status === "waiting" ||
 		run.status === "awaiting_approval"
 	) {
 		return {
@@ -259,9 +258,8 @@ export async function runAgentStep(data: unknown): Promise<{
 	if (
 		run.status === "completed" ||
 		run.status === "failed" ||
-		run.status === "cancelled" ||
+		run.status === "stopped" ||
 		run.status === "sleeping" ||
-		run.status === "waiting" ||
 		run.status === "awaiting_approval"
 	) {
 		return {
@@ -421,9 +419,8 @@ export async function persistAndCompleteStep(
 		!run ||
 		run.status === "completed" ||
 		run.status === "failed" ||
-		run.status === "cancelled" ||
-		run.status === "sleeping" ||
-		run.status === "waiting"
+		run.status === "stopped" ||
+		run.status === "sleeping"
 	) {
 		return {
 			runId: outcome.runId,
@@ -578,10 +575,10 @@ export async function persistAndCompleteStep(
 			await runService.setStatus(outcome.runId, "completed");
 			finalizedStatus = "completed";
 		} else if (decision.action === "stop") {
-			await runService.setStatus(outcome.runId, "cancelled");
-			finalizedStatus = "cancelled";
+			await runService.setStatus(outcome.runId, "stopped");
+			finalizedStatus = "stopped";
 		} else if (decision.action === "wait") {
-			await runService.setStatus(outcome.runId, "waiting");
+			await runService.setStatus(outcome.runId, "awaiting_approval");
 			const { url } = await webhookHookService.mint({
 				runId: outcome.runId,
 				workspaceId: thread.workspaceId,
@@ -597,7 +594,7 @@ export async function persistAndCompleteStep(
 					workspaceId: thread.workspaceId,
 					threadId: outcome.threadId,
 					type: "system",
-					title: "Waiting for external event",
+					title: "Awaiting external event",
 					body: JSON.stringify({
 						url,
 						instruction: decision.waitFor?.description,
@@ -617,7 +614,7 @@ export async function persistAndCompleteStep(
 			} catch {
 				// Best-effort.
 			}
-			finalizedStatus = "waiting";
+			finalizedStatus = "awaiting_approval";
 		} else {
 			await runService.setStatus(outcome.runId, "completed");
 			finalizedStatus = "completed";
@@ -707,14 +704,14 @@ export const threadRun = inngest.createFunction(
 			const { runId, threadId, prompt, modelContextCapChars } =
 				parsed.data.data.event.data;
 			const run = await runService.findById(runId);
-			if (
-				!run ||
-				run.status === "completed" ||
-				run.status === "failed" ||
-				run.status === "cancelled"
-			) {
-				return;
-			}
+	if (
+		!run ||
+		run.status === "completed" ||
+		run.status === "failed" ||
+		run.status === "stopped"
+	) {
+		return;
+	}
 			const reason = (
 				parsed.data.data.error?.message ??
 				error.message ??

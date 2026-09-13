@@ -15,7 +15,7 @@ const runService = new RunService();
 const threadService = new ThreadService();
 const approvalService = new ApprovalService();
 
-const TERMINAL = new Set(["completed", "failed", "cancelled"]);
+const TERMINAL = new Set(["completed", "failed", "stopped"]);
 
 function jsonError(status: number, code: string, message: string): Response {
 	return Response.json(
@@ -25,11 +25,11 @@ function jsonError(status: number, code: string, message: string): Response {
 }
 
 /**
- * Stop an in-flight run. Covers `running`/`pending` (a queued thread/run event),
- * `sleeping`, `waiting`, and `awaiting_approval`. The run is flipped to
- * `cancelled` so the thread-runner's gate treats any late event as a no-op;
- * pending approval requests for it are denied; a system chat message is
- * appended and the queue drain is re-armed so queued messages can proceed.
+ * Stop an in-flight run. Covers `running`, `awaiting_approval`, and
+ * `sleeping`. The run is flipped to `stopped` so the thread-runner's gate
+ * treats any late event as a no-op; pending approval requests for it are
+ * denied; a system chat message is appended and the queue drain is re-armed
+ * so queued messages can proceed.
  */
 export async function POST(
 	_request: Request,
@@ -59,7 +59,7 @@ export async function POST(
 		return jsonError(409, "RUN_ALREADY_FINISHED", "This run has already finished.");
 	}
 
-	await runService.setStatus(runId, "cancelled");
+	await runService.setStatus(runId, "stopped");
 	await runService.createActivity({
 		runId: runId,
 		type: "system",
@@ -69,15 +69,15 @@ export async function POST(
 		detail: { requestedBy: user.id },
 	});
 
-	const pending = await approvalService.listPendingForRun(runId);
-	for (const approval of pending) {
+	const approvalRequests = await approvalService.listPendingForRun(runId);
+	for (const approval of approvalRequests) {
 		await approvalService.resolve(approval.id, "denied");
 	}
 
 	await threadService.insertSystemMessage(
 		thread.id,
 		thread.userId,
-		`Run stopped${pending.length > 0 ? ` (${pending.length} pending approval request${pending.length === 1 ? "" : "s"} denied)` : ""}.`,
+		`Run stopped${approvalRequests.length > 0 ? ` (${approvalRequests.length} pending approval request${approvalRequests.length === 1 ? "" : "s"} denied)` : ""}.`,
 	);
 
 	await inngest.send({ name: queueDeliverEvent, data: { threadId: thread.id } });
@@ -87,8 +87,8 @@ export async function POST(
 			data: {
 				runId,
 				threadId: thread.id,
-				status: "cancelled",
-				approvalsDenied: pending.length,
+				status: "stopped",
+				approvalsDenied: approvalRequests.length,
 			},
 			error: null,
 			meta: {},

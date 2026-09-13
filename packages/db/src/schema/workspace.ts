@@ -1,12 +1,14 @@
 import { sql } from "drizzle-orm";
 import { boolean, pgPolicy, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('wp_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 // FK to auth.users (outside drizzle schema) is enforced in SQL migration.
 export const workspaces = pgTable(
 	"workspaces",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		name: text("name").notNull(),
 		createdBy: uuid("created_by").notNull(),
 		isDefault: boolean("is_default").notNull().default(false),

@@ -11,6 +11,8 @@ import {
 	timestamp,
 	uuid,
 } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('run_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { runStatusEnum, runTriggerEnum } from "./enums";
@@ -20,7 +22,7 @@ import { threads } from "./thread";
 export const runs = pgTable(
 	"runs",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "cascade" }),
@@ -30,7 +32,7 @@ export const runs = pgTable(
 		rerunOf: text("rerun_of").references((): AnyPgColumn => runs.id, {
 			onDelete: "set null",
 		}),
-		status: runStatusEnum("status").notNull().default("pending"),
+		status: runStatusEnum("status").notNull().default("awaiting_approval"),
 		promptSnapshot: jsonb("prompt_snapshot"),
 		costUsd: numeric("cost_usd", { precision: 10, scale: 6 }),
 		tokenCount: bigint("token_count", { mode: "number" }),

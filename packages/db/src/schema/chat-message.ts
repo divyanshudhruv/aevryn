@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, jsonb, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('msg_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { messageRoleEnum, messageStatusEnum } from "./enums";
@@ -9,7 +11,7 @@ import { threads } from "./thread";
 export const chatMessages = pgTable(
 	"chat_messages",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "cascade" }),

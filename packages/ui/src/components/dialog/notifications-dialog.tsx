@@ -7,8 +7,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@aevryn/ui/components/ui/dialog";
-import { Button } from "@aevryn/ui/components/ui/button";
-import { ScrollArea } from "@aevryn/ui/components/ui/scroll-area";
 
 interface Notification {
   id: string;
@@ -79,12 +77,7 @@ export function NotificationsDialog({
   defaultOpen,
   onOpenChange,
 }: NotificationsDialogProps) {
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
-
-  const markAllAsRead = () =>
-    setNotifications((items) =>
-      items.map((n) => (n.read ? n : { ...n, read: true })),
-    );
+  const [notifications] = useState(INITIAL_NOTIFICATIONS);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -100,19 +93,17 @@ export function NotificationsDialog({
                 : "You're all caught up."}
             </DialogDescription>
           </div>
-      
         </div>
 
-          <div className="flex flex-col">
-          
-            {notifications.map((m) => (
-              <SettingRow key={m.id} label={m.id} description={m.content}>
-                {!m.read && (
-                  <span className="size-2 shrink-0 rounded-full bg-foreground/60" />
-                )}
-              </SettingRow>
-            ))}
-          </div>
+        <div className="flex flex-col">
+          {notifications.map((m) => (
+            <SettingRow key={m.id} label={m.id} description={m.content}>
+              {!m.read && (
+                <span className="size-2 shrink-0 rounded-full bg-foreground/60" />
+              )}
+            </SettingRow>
+          ))}
+        </div>
       </DialogContent>
     </Dialog>
   );

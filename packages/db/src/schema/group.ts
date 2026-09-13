@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, pgPolicy, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('grp_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { groupKindEnum } from "./enums";
@@ -8,7 +10,7 @@ import { workspaces } from "./workspace";
 export const groups = pgTable(
 	"groups",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => workspaces.id, { onDelete: "cascade" }),

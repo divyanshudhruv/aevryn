@@ -35,11 +35,9 @@ export const threadRunResultSchema = z.object({
 	threadId: z.string().min(1),
 	status: z.enum([
 		"completed",
-		"skipped",
 		"failed",
+		"stopped",
 		"sleeping",
-		"waiting",
-		"cancelled",
 		"awaiting_approval",
 	]),
 	summary: z.string(),

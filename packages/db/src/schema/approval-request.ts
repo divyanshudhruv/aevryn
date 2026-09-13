@@ -1,4 +1,7 @@
+import { sql } from "drizzle-orm";
 import { boolean, index, jsonb, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('apv_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { approvalStatusEnum } from "./enums";
@@ -10,7 +13,7 @@ import { workflows } from "./workflow";
 export const approvalRequests = pgTable(
 	"approval_requests",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		runId: text("run_id")
 			.notNull()
 			.references(() => runs.id, { onDelete: "cascade" }),

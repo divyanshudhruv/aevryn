@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('not_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { notificationTypeEnum } from "./enums";
@@ -9,7 +11,7 @@ import { workspaces } from "./workspace";
 export const notifications = pgTable(
 	"notifications",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		userId: uuid("user_id").notNull(),
 		workspaceId: text("workspace_id")
 			.notNull()

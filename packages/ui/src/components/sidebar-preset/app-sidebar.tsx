@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import {
   Sidebar,
   SidebarHeader,
@@ -13,7 +14,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuBadge,
   SidebarMenuAction,
   SidebarMenuActions,
   type SidebarProps,
@@ -45,33 +45,90 @@ import {
   surfaceHoverClasses,
 } from "@aevryn/ui/lib/surface-classes";
 import { useSurface } from "@aevryn/ui/lib/surface-context";
-import { NAV_SECTIONS } from "@aevryn/ui/components/sidebar-preset/nav-data";
+import { useSidebarData } from "./use-sidebar-data";
 import { SettingsDialog } from "../dialog/settings-dialog";
 import { PlayIcon } from "lucide-react";
 import { WorkflowDelConfirmationDialog } from "../dialog/workflow-del-confirmation-dialog";
 import { EntityActionDialog } from "../dialog/entity-action-dialog";
+import { ConfirmDeleteDialog } from "../dialog/confirm-delete-dialog";
 import { useTheme } from "next-themes";
 import { useEffect } from "react";
 import { WorkflowDialog } from "../dialog/workflow-dialog";
-import { NotificationsDialog } from "../dialog/notifications-dialog";
+import { NewGroupDialog } from "../dialog/new-group-dialog";
+import { NewThreadDialog } from "../dialog/new-thread-dialog";
+import type { WorkflowSectionId } from "../dialog/workflow-sections";
+import { getBrowserSupabase } from "@aevryn/auth";
 
 const CALLOUTS = [
   { id: 1, title: "Aurora 2 is here", desc: "Longer context, faster agents" },
 ];
 
-export function AppSidebar(props: Omit<SidebarProps, "children">) {
-  const [active, setActive] = useState("New pricing page exploration");
+export function AppSidebar({
+  workspaceId,
+  ...props
+}: Omit<SidebarProps, "children"> & { workspaceId: string }) {
+  const router = useRouter();
+  const routeParams = useParams<{ workspaceId: string; threadId?: string }>();
+
+  // Real data: user identity, all workspaces, and the current workspace's
+  // groups + threads (fetched from Supabase, RLS-scoped to the user).
+  const { user, workspaces, groups, loading, refetch } =
+    useSidebarData(workspaceId);
+
+  const activeWorkspace =
+    workspaces.find((w) => w.id === workspaceId) ?? workspaces[0] ?? null;
+
+  // Keep the active-thread highlight in sync with the URL so a direct
+  // navigational visit (or a browser back/forward) lights up the right row.
+  const [activeThread, setActiveThread] = useState<string | null>(
+    routeParams.threadId ?? null,
+  );
+  useEffect(() => {
+    setActiveThread(routeParams.threadId ?? null);
+  }, [routeParams.threadId]);
   const [callouts, setCallouts] = useState(CALLOUTS);
   const dismiss = (id: number) =>
     setCallouts((c) => c.filter((x) => x.id !== id));
   // The callout rests one surface step above the rail.
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [workflowDeleteOpen, setWorkflowDeleteOpen] = useState<
+    [boolean, boolean]
+  >([false, false]);
+  const [workflowDeleteLoading, setWorkflowDeleteLoading] = useState<
     [boolean, boolean]
   >([false, false]);
   const [renameOpen, setRenameOpen] = useState(false);
   const [sectionRenameOpen, setSectionRenameOpen] = useState(false);
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
+  const [newThreadOpen, setNewThreadOpen] = useState(false);
+  const [pendingThreadGroupId, setPendingThreadGroupId] = useState<
+    string | null
+  >(null);
+
+  // Rename dialog target state.
+  const [renamingThreadId, setRenamingThreadId] = useState<string | null>(null);
+  const [renamingThreadTitle, setRenamingThreadTitle] = useState("");
+  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
+  const [renamingGroupName, setRenamingGroupName] = useState("");
+  const [renamingThreadLoading, setRenamingThreadLoading] = useState(false);
+  const [renamingGroupLoading, setRenamingGroupLoading] = useState(false);
+
+  // Permanent-delete confirmation dialogs.
+  const [deleteThreadOpen, setDeleteThreadOpen] = useState(false);
+  const [deleteThreadId, setDeleteThreadId] = useState<string | null>(null);
+  const [deleteThreadTitle, setDeleteThreadTitle] = useState("");
+  const [deleteGroupOpen, setDeleteGroupOpen] = useState(false);
+  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
+  const [deleteGroupName, setDeleteGroupName] = useState("");
+  const [deleteGroupThreadsOpen, setDeleteGroupThreadsOpen] = useState(false);
+  const [deleteGroupThreadsId, setDeleteGroupThreadsId] = useState<
+    string | null
+  >(null);
+  const [deleteGroupThreadsList, setDeleteGroupThreadsList] = useState<
+    Array<{ value: string }>
+  >([]);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState<
     [boolean, string]
   >([false, "general"]);
@@ -82,7 +139,6 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
   const LinkIcon = useIcon("link");
   const SlidersIcon = useIcon("sliders-horizontal");
   const UserIcon = useIcon("user");
-  const SettingsIcon = useIcon("settings");
   const ArrowLeftIcon = useIcon("arrow-left");
   const FooterSettingsIcon = useIcon("settings");
   const MoonIcon = useIcon("moon");
@@ -96,13 +152,202 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
   useEffect(() => setMounted(true), []);
   const isDark = mounted ? resolvedTheme === "dark" : false;
 
+  const openThread = (workspaceId_: string, threadId: string) => {
+    setActiveThread(threadId);
+    router.push(`/workspace/${workspaceId_}/${threadId}`);
+  };
+
+  const supabaseForMutations = () => getBrowserSupabase();
+
+  const confirmDeleteThread = (threadId: string, title: string) => {
+    setDeleteThreadId(threadId);
+    setDeleteThreadTitle(title);
+    setDeleteThreadOpen(true);
+  };
+
+  const handleDeleteThread = async (setLoading?: (v: boolean) => void) => {
+    if (!deleteThreadId) return;
+    setLoading?.(true);
+    try {
+      const supabase = supabaseForMutations();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase
+        .from("threads")
+        .delete()
+        .eq("id", deleteThreadId)
+        .eq("user_id", user.id);
+      setDeleteThreadOpen(false);
+      setDeleteThreadId(null);
+      refetch();
+    } finally {
+      setLoading?.(false);
+    }
+  };
+
+  const confirmDeleteGroup = (groupId: string, name: string) => {
+    setDeleteGroupId(groupId);
+    setDeleteGroupName(name);
+    setDeleteGroupOpen(true);
+  };
+
+  const confirmDeleteGroupThreads = (
+    groupId: string,
+    _groupName: string,
+    threads: Array<{ value: string }>,
+  ) => {
+    setDeleteGroupThreadsId(groupId);
+    setDeleteGroupThreadsList(threads);
+    setDeleteGroupThreadsOpen(true);
+  };
+
+  const handleDeleteGroupThreads = async (
+    setLoading?: (v: boolean) => void,
+  ) => {
+    if (!deleteGroupThreadsId) return;
+    setLoading?.(true);
+    try {
+      const supabase = supabaseForMutations();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase
+        .from("threads")
+        .delete()
+        .eq("group_id", deleteGroupThreadsId)
+        .eq("user_id", user.id);
+      setDeleteGroupThreadsOpen(false);
+      setDeleteGroupThreadsId(null);
+      setDeleteGroupThreadsList([]);
+      refetch();
+    } finally {
+      setLoading?.(false);
+    }
+  };
+
+  const handleDeleteGroup = async (setLoading?: (v: boolean) => void) => {
+    if (!deleteGroupId) return;
+    setLoading?.(true);
+    try {
+      const supabase = supabaseForMutations();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase
+        .from("threads")
+        .delete()
+        .eq("group_id", deleteGroupId)
+        .eq("user_id", user.id);
+      await supabase
+        .from("groups")
+        .delete()
+        .eq("id", deleteGroupId)
+        .eq("user_id", user.id);
+      setDeleteGroupOpen(false);
+      setDeleteGroupId(null);
+      refetch();
+    } finally {
+      setLoading?.(false);
+    }
+  };
+
+  const handleRenameThread = async (newTitle: string) => {
+    if (!renamingThreadId || !newTitle.trim()) return;
+    setRenamingThreadLoading(true);
+    try {
+      const supabase = supabaseForMutations();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase
+        .from("threads")
+        .update({ title: newTitle.trim() })
+        .eq("id", renamingThreadId)
+        .eq("user_id", user.id);
+      setRenameOpen(false);
+      setRenamingThreadId(null);
+      setRenamingThreadTitle("");
+      refetch();
+    } finally {
+      setRenamingThreadLoading(false);
+    }
+  };
+
+  const handleRenameGroup = async (newName: string) => {
+    if (!renamingGroupId || !newName.trim()) return;
+    setRenamingGroupLoading(true);
+    try {
+      const supabase = supabaseForMutations();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase
+        .from("groups")
+        .update({ name: newName.trim() })
+        .eq("id", renamingGroupId)
+        .eq("user_id", user.id);
+      setSectionRenameOpen(false);
+      setRenamingGroupId(null);
+      setRenamingGroupName("");
+      refetch();
+    } finally {
+      setRenamingGroupLoading(false);
+    }
+  };
+
+  const openRenameThread = (threadId: string, title: string) => {
+    setRenamingThreadId(threadId);
+    setRenamingThreadTitle(title);
+    setRenameOpen(true);
+  };
+
+  const openRenameGroup = (groupId: string, name: string) => {
+    setRenamingGroupId(groupId);
+    setRenamingGroupName(name);
+    setSectionRenameOpen(true);
+  };
+
   return (
     <Sidebar rail={false} bordered={false} variant="inset" {...props}>
       {" "}
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <NotificationsDialog
-        open={notificationsOpen}
-        onOpenChange={setNotificationsOpen}
+      <NewGroupDialog
+        open={newGroupOpen}
+        onOpenChange={(open) => {
+          setNewGroupOpen(open);
+          if (!open) {
+            setPendingThreadGroupId(null);
+          }
+        }}
+        workspaceId={activeWorkspace?.id || ""}
+        icon={PlusIcon}
+        onCreateSuccess={() => {
+          setNewGroupOpen(false);
+          refetch();
+        }}
+      />
+      <NewThreadDialog
+        open={newThreadOpen}
+        onOpenChange={(open) => {
+          setNewThreadOpen(open);
+          if (!open) {
+            setPendingThreadGroupId(null);
+          }
+        }}
+        workspaceId={activeWorkspace?.id || ""}
+        groupId={pendingThreadGroupId ?? ""}
+        icon={PlusIcon}
+        onCreateSuccess={() => {
+          setNewThreadOpen(false);
+          setPendingThreadGroupId(null);
+          refetch();
+        }}
       />
       <WorkflowDelConfirmationDialog
         open={workflowDeleteOpen[0]}
@@ -110,47 +355,129 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
           setWorkflowDeleteOpen([open, workflowDeleteOpen[1]]);
         }}
         mode="delete-all"
+        loading={workflowDeleteLoading[0]}
       />
       <WorkflowDelConfirmationDialog
         open={workflowDeleteOpen[1]}
         onOpenChange={(open) => {
           setWorkflowDeleteOpen([workflowDeleteOpen[0], open]);
         }}
+        loading={workflowDeleteLoading[1]}
+      />
+      <ConfirmDeleteDialog
+        open={deleteThreadOpen}
+        onOpenChange={(open) => {
+          setDeleteThreadOpen(open);
+          if (!open) {
+            setDeleteThreadId(null);
+            setDeleteThreadTitle("");
+          }
+        }}
+        title="Delete thread"
+        description="This thread and everything tied to it will be permanently removed. This action cannot be undone."
+        actionLabel="Delete thread"
+        items={[{ value: deleteThreadTitle }]}
+        onConfirm={() => handleDeleteThread(setDeleteLoading)}
+        loading={deleteLoading}
+      />
+      <ConfirmDeleteDialog
+        open={deleteGroupOpen}
+        onOpenChange={(open) => {
+          setDeleteGroupOpen(open);
+          if (!open) {
+            setDeleteGroupId(null);
+            setDeleteGroupName("");
+          }
+        }}
+        title="Delete section"
+        description="This section, its threads, and all workflow bindings will be permanently removed. Threads that are not in this section are not affected. This action cannot be undone."
+        actionLabel="Delete section"
+        items={[{ value: deleteGroupName }]}
+        onConfirm={() => handleDeleteGroup(setDeleteLoading)}
+        loading={deleteLoading}
+      />
+      <ConfirmDeleteDialog
+        open={deleteGroupThreadsOpen}
+        onOpenChange={(open) => {
+          setDeleteGroupThreadsOpen(open);
+          if (!open) {
+            setDeleteGroupThreadsId(null);
+            setDeleteGroupThreadsList([]);
+          }
+        }}
+        title="Delete all threads in section"
+        description="Every thread in this section will be permanently removed, along with their workflow bindings. The section itself will remain empty. This action cannot be undone."
+        actionLabel="Delete all threads"
+        items={deleteGroupThreadsList}
+        onConfirm={() => handleDeleteGroupThreads(setDeleteLoading)}
+        loading={deleteLoading}
       />
       <WorkflowDialog
         open={workflowDialogOpen[0]}
         onOpenChange={(open) =>
           setWorkflowDialogOpen([open, workflowDialogOpen[1]])
         }
-        defaultSection={workflowDialogOpen[1]}
+        defaultSection={workflowDialogOpen[1] as WorkflowSectionId}
       />
       <EntityActionDialog
         open={renameOpen}
-        onOpenChange={setRenameOpen}
+        onOpenChange={(open) => {
+          setRenameOpen(open);
+          if (!open) {
+            setRenamingThreadId(null);
+            setRenamingThreadTitle("");
+          }
+        }}
         mode="rename-workflow"
+        defaultValue={renamingThreadTitle}
+        onSubmit={handleRenameThread}
+        loading={renamingThreadLoading}
       />
       <EntityActionDialog
         open={sectionRenameOpen}
-        onOpenChange={setSectionRenameOpen}
+        onOpenChange={(open) => {
+          setSectionRenameOpen(open);
+          if (!open) {
+            setRenamingGroupId(null);
+            setRenamingGroupName("");
+          }
+        }}
         mode="rename-section"
+        defaultValue={renamingGroupName}
+        onSubmit={handleRenameGroup}
+        loading={renamingGroupLoading}
       />
       <SidebarHeader>
         <SidebarWorkspaceHeader
-          name="Acme Inc"
-          tile={<WorkspaceTile>A</WorkspaceTile>}
-          checkedIndex={0}
+          name={
+            loading && !activeWorkspace
+              ? "…"
+              : (activeWorkspace?.name ?? "No workspace")
+          }
+          tile={
+            <WorkspaceTile>
+              {(activeWorkspace?.name ?? "A").charAt(0).toUpperCase()}
+            </WorkspaceTile>
+          }
+          checkedIndex={Math.max(
+            0,
+            workspaces.findIndex((w) => w.id === workspaceId),
+          )}
           menu={
             <>
+              {workspaces.map((w, i) => (
+                <MenuItem
+                  key={w.id}
+                  index={i}
+                  label={w.name}
+                  checked={w.id === workspaceId}
+                  onSelect={() => router.push(`/workspace/${w.id}`)}
+                />
+              ))}
               <MenuItem
-                index={0}
-                label="Acme Inc"
-                checked
-                onSelect={() => {}}
-              />
-              <MenuItem index={1} label="Personal" onSelect={() => {}} />
-              <MenuItem
-                index={2}
+                index={workspaces.length}
                 icon={PlusIcon}
+                disabled
                 label="New workspace"
                 onSelect={() => {}}
               />
@@ -162,10 +489,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
           <SidebarSearchField />
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton
-                icon={BellIcon}
-                onClick={() => setNotificationsOpen(true)}
-              >
+              <SidebarMenuButton icon={BellIcon}>
                 Notifications
                 {/* shortcut chip, revealed on row hover */}
                 <span className="ml-auto inline-flex opacity-0 transition-opacity duration-80 group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100">
@@ -176,7 +500,10 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
               </SidebarMenuButton>
             </SidebarMenuItem>{" "}
             <SidebarMenuItem>
-              <SidebarMenuButton icon={PlusIcon}>
+              <SidebarMenuButton
+                icon={PlusIcon}
+                onClick={() => setNewGroupOpen(true)}
+              >
                 New
                 {/* shortcut chip, revealed on row hover */}
                 <span className="ml-auto inline-flex opacity-0 transition-opacity duration-80 group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100">
@@ -190,12 +517,18 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {NAV_SECTIONS.map((section) => (
-          <SidebarGroup key={section.label} collapsible>
-            <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+        {groups.map((group) => (
+          <SidebarGroup key={group.id} collapsible>
+            <SidebarGroupLabel>{group.name}</SidebarGroupLabel>
             <SidebarGroupActions>
               <Tooltip content="Add item" side="top">
-                <SidebarGroupAction aria-label="Add item">
+                <SidebarGroupAction
+                  aria-label="Add item"
+                  onClick={() => {
+                    setPendingThreadGroupId(group.id);
+                    setNewThreadOpen(true);
+                  }}
+                >
                   <PlusIcon />
                 </SidebarGroupAction>
               </Tooltip>
@@ -231,54 +564,71 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                     index={2}
                     icon={PencilIcon}
                     label="Rename section"
-                    onSelect={() => setRenameOpen(true)}
+                    onSelect={() => openRenameGroup(group.id, group.name)}
                   />
 
                   <DropdownSeparator />
-                  {/* a confirmation dialog to delete this thread permanently, includign cascade everything from database */}
+
                   <MenuItem
                     index={3}
                     icon={DeleteIcon}
-                    label="Delete all"
+                    label="Delete section"
+                    onSelect={() => confirmDeleteGroup(group.id, group.name)}
+                  />
+                  <MenuItem
+                    index={4}
+                    icon={DeleteIcon}
+                    label="Delete all threads"
                     onSelect={() =>
-                      setWorkflowDeleteOpen([true, workflowDeleteOpen[1]])
+                      confirmDeleteGroupThreads(
+                        group.id,
+                        group.name,
+                        group.threads.map((t) => ({
+                          value: t.title || "Untitled",
+                        })),
+                      )
                     }
                   />
                 </DropdownContent>
               </DropdownMenu>
             </SidebarGroupActions>
             <SidebarMenu className="gap-px">
-              {section.items.map((item) => (
-                <SidebarMenuItem key={item.label}>
+              {group.threads.length === 0 && (
+                <span className="px-2 py-1 text-[12px] text-muted-foreground">
+                  {loading ? "Loading…" : "No threads yet"}
+                </span>
+              )}
+              {group.threads.map((thread) => (
+                <SidebarMenuItem key={thread.id}>
                   <SidebarMenuButton
-                    status={item.status}
-                    isActive={item.label === active}
-                    onClick={() => setActive(item.label)}
+                    isActive={thread.id === activeThread}
+                    onClick={() => openThread(workspaceId, thread.id)}
+                    status={
+                      thread.showStatusIndicator ? thread.status : undefined
+                    }
                   >
-                    {item.label}
+                    {thread.title}
                   </SidebarMenuButton>
-                  {item.badge && (
-                    <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                  )}
                   <SidebarMenuActions showOnHover>
-                    <Tooltip
-                      content={item.status === "running" ? "Stop" : "Run"}
-                      side="top"
-                    >
-                      <SidebarMenuAction
-                        aria-label={item.status === "running" ? "Stop" : "Run"}
-                      >
-                        {item.status === "running" ? (
-                          <StopIcon />
-                        ) : (
+                    {thread.boundWorkflowId ? (
+                      <Tooltip content="Run" side="top">
+                        <SidebarMenuAction aria-label="Run">
                           <PlayIcon />
-                        )}
-                      </SidebarMenuAction>
-                    </Tooltip>
+                        </SidebarMenuAction>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip content="Create" side="top">
+                        <SidebarMenuAction aria-label="Create">
+                          <PlusIcon />
+                        </SidebarMenuAction>
+                      </Tooltip>
+                    )}
                     <Tooltip content="Rename" side="top">
                       <SidebarMenuAction
                         aria-label="Rename"
-                        onClick={() => setRenameOpen(true)}
+                        onClick={() =>
+                          openRenameThread(thread.id, thread.title)
+                        }
                       >
                         <PencilIcon />
                       </SidebarMenuAction>
@@ -307,11 +657,14 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                           index={1}
                           icon={PencilIcon}
                           label="Rename"
-                          onSelect={() => setRenameOpen(true)}
+                          onSelect={() =>
+                            openRenameThread(thread.id, thread.title)
+                          }
                         />
                         <MenuItem
                           index={2}
                           icon={LinkIcon}
+                          disabled
                           label="Share"
                           onSelect={() =>
                             setWorkflowDialogOpen([true, "share"])
@@ -319,13 +672,12 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                         />
 
                         <DropdownSeparator />
-                        {/* a confirmation dialog to delete this thread permanently, includign cascade everything from database */}
                         <MenuItem
                           index={4}
                           icon={DeleteIcon}
                           label="Delete"
                           onSelect={() =>
-                            setWorkflowDeleteOpen([workflowDeleteOpen[0], true])
+                            confirmDeleteThread(thread.id, thread.title)
                           }
                         />
                       </DropdownContent>
@@ -336,6 +688,15 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
             </SidebarMenu>
           </SidebarGroup>
         ))}
+        {!loading && groups.length === 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Getting started</SidebarGroupLabel>
+
+            <span className="px-2 py-1 text-[12px] text-muted-foreground">
+              Create a new group to start building.
+            </span>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         {callouts.length > 0 && (
@@ -379,11 +740,20 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarUserFooter
-          name="Jane Doe"
+          name={user?.name || user?.email || "Account"}
           avatar={
-            <span className="flex size-5 items-center justify-center rounded-full bg-muted-foreground text-[10px] text-background">
-              J
-            </span>
+            user?.pfp ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.pfp}
+                alt=""
+                className="size-5 rounded-full object-cover"
+              />
+            ) : (
+              <span className="flex size-5 items-center justify-center rounded-full bg-muted-foreground text-[10px] text-background">
+                {(user?.name || user?.email || "A").charAt(0).toUpperCase()}
+              </span>
+            )
           }
           menu={
             <>
@@ -393,12 +763,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                 label="Profile"
                 onSelect={() => {}}
               />
-              <MenuItem
-                index={1}
-                icon={SettingsIcon}
-                label="Settings"
-                onSelect={() => {}}
-              />
+
               <MenuItem
                 index={2}
                 icon={ArrowLeftIcon}

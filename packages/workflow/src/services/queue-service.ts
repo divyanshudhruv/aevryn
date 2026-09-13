@@ -1,7 +1,7 @@
 import { db, chatMessages, ids, runs, type ChatMessage, type Db, type DbTx } from "@aevryn/db";
 import { and, asc, desc, eq, max } from "drizzle-orm";
 
-const TERMINAL = new Set(["completed", "failed", "cancelled"]);
+const TERMINAL = new Set(["completed", "failed", "stopped"]);
 
 export interface EnqueueInput {
 	threadId: string;

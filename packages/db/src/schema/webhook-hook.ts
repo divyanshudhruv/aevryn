@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, jsonb, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('whk_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { hookStatusEnum } from "./enums";
@@ -10,7 +12,7 @@ import { workspaces } from "./workspace";
 export const webhookHooks = pgTable(
 	"webhook_hooks",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		runId: text("run_id")
 			.notNull()
 			.references(() => runs.id, { onDelete: "cascade" }),

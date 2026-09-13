@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgPolicy, pgTable, text, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('sched_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { runs } from "./run";
@@ -9,7 +11,7 @@ import { workspaces } from "./workspace";
 export const schedules = pgTable(
 	"schedules",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => workspaces.id, { onDelete: "cascade" }),

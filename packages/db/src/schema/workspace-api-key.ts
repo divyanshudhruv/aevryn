@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { customType, pgPolicy, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+
+const uuidText = sql`(concat('key_', gen_random_uuid()::text))`;
 import { authenticatedRole } from "drizzle-orm/supabase";
 
 import { apiProviderEnum } from "./enums";
@@ -15,7 +17,7 @@ const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
 export const workspaceApiKeys = pgTable(
 	"workspace_api_keys",
 	{
-		id: text("id").primaryKey(),
+		id: text("id").primaryKey().default(uuidText),
 		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => workspaces.id, { onDelete: "cascade" }),
