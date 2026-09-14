@@ -677,9 +677,11 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
       prevStatusRef.current = status;
       if (!supportsQueue) return;
       if (prev === "streaming" && status === "idle" && queueArr.length > 0) {
-        const [next, ...rest] = queueArr;
+        const head = queueArr[0];
+        if (head == null) return;
+        const rest = queueArr.slice(1);
         onQueueChange?.(rest);
-        onSend?.(next.text, next.files, { queuedId: next.id });
+        onSend?.(head.text, head.files, { queuedId: head.id });
         setLiveMsg(
           `Message sent.${rest.length ? ` ${rest.length} still queued.` : ""}`
         );
@@ -728,9 +730,12 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
         const cur = queueRef.current;
         const i = cur.findIndex((q) => q.id === item.id);
         const j = i + dir;
-        if (i < 0 || j < 0 || j >= cur.length) return;
+        const a = i >= 0 ? cur[i] : undefined;
+        const b = j >= 0 && j < cur.length ? cur[j] : undefined;
+        if (a == null || b == null) return;
         const next = [...cur];
-        [next[i], next[j]] = [next[j], next[i]];
+        next[i] = b;
+        next[j] = a;
         onQueueChange?.(next);
       },
       [onQueueChange]
@@ -793,7 +798,8 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
             }
             if (e.key === "Enter") {
               e.preventDefault();
-              acceptSuggestion(suggestionsArr[activeSuggestion]);
+              const picked = suggestionsArr[activeSuggestion];
+              if (picked != null) acceptSuggestion(picked);
               return;
             }
             if (e.key === "Escape") {
@@ -839,7 +845,8 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
               if (historyIndex == null) draftBeforeHistory.current = value;
               const ni = start - 1;
               setHistoryIndex(ni);
-              onValueChange(history[ni]);
+              const h = history[ni];
+              if (h != null) onValueChange(h);
               setCaretEnd();
             }
             return;
@@ -856,7 +863,8 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
               onValueChange(draftBeforeHistory.current);
             } else {
               setHistoryIndex(ni);
-              onValueChange(history[ni]);
+              const h = history[ni];
+              if (h != null) onValueChange(h);
             }
             setCaretEnd();
             return;

@@ -15,7 +15,6 @@
 		"@aevryn/auth": "workspace:*",
 		"@aevryn/db": "workspace:*",
 		"@aevryn/env": "workspace:*",
-		"@aevryn/inngest": "workspace:*",
 		"@aevryn/workflow": "workspace:*",
 		"dotenv": "catalog:",
 		"next": "catalog:",

@@ -5,7 +5,6 @@ import { useMemo } from "react";
 import { DotMatrixBase } from "../lib/dotmatrix-core";
 import { useDotMatrixPhases } from "../lib/dotmatrix-hooks";
 import { isWithinCircularMask } from "../lib/dotmatrix-core";
-import { useCyclePhase } from "../lib/dotmatrix-hooks";
 import { usePrefersReducedMotion } from "../lib/dotmatrix-hooks";
 import type {
   DotAnimationResolver,
@@ -37,7 +36,7 @@ export function DotmCustomFilled({
   });
 
   const resolver = useMemo<DotAnimationResolver>(() => {
-    return ({ row, col, phase }) => {
+    return ({ row, col }) => {
       if (!isWithinCircularMask(row, col)) {
         return { className: "dmx-inactive" };
       }

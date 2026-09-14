@@ -5,7 +5,7 @@ import { Button } from "../ui/button";
 import { InputGroup, InputField } from "../ui/input-group";
 import { Switch } from "../ui/switch";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
-import { ArrowUp, ArrowDown, Key, Plus, Trash2 } from "lucide-react";
+import { ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@aevryn/ui/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -97,8 +97,6 @@ function GeneralPanel() {
 }
 
 function PlanPanel() {
-  const [addPlanOpen, setAddPlanOpen] = useState(false);
-  const [creatingPlan, setCreatingPlan] = useState(false);
   const [items, setItems] = useState([
     {
       id: "plan_step_1",
@@ -174,11 +172,7 @@ function PlanPanel() {
             </SettingRow>
           ))}
           <div className="pt-4">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setAddPlanOpen(true)}
-            >
+            <Button variant="secondary" size="sm">
               Add step
             </Button>
           </div>
@@ -216,7 +210,7 @@ function InstructionsPanel() {
   );
 }
 function MemoriesPanel() {
-  const [memories, setMemories] = useState([
+  const [memories] = useState([
     {
       id: "mem_research_style",
       title: "Research style",
@@ -242,7 +236,7 @@ function MemoriesPanel() {
 
   return (
     <div className="flex flex-col">
-      {memories.map((item, index) => (
+      {memories.map((item) => (
         <SettingRow
           key={item.id}
           label={item.id}
@@ -284,19 +278,3 @@ export function WorkflowSectionPanel({ id }: { id: WorkflowSectionId }) {
 // collect title + description for memories, and provider + label + model + key
 // for API keys.
 // ---------------------------------------------------------------------------
-
-interface MemoryDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave?: () => void;
-  loading?: boolean;
-  mode?: "add" | "edit";
-}
-
-interface ApiKeyDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave?: () => void;
-  loading?: boolean;
-  mode?: "add" | "edit";
-}

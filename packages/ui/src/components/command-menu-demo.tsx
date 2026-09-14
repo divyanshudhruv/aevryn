@@ -13,7 +13,6 @@ import {
   CommandMenuShortcut,
   type CommandMenuItemData,
 } from "@aevryn/ui/components/command-menu";
-import { Button } from "@aevryn/ui/components/ui/button";
 import {
   Select,
   SelectTrigger,

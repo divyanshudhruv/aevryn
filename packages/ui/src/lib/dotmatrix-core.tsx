@@ -828,7 +828,7 @@ export function DotMatrixBase({
           animation: "none" as const
         }
         : {})
-    } as CSSProperties;
+    } as unknown as CSSProperties;
 
     return (
       <span

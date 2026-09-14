@@ -41,7 +41,6 @@ import {
 } from "@aevryn/ui/components/ui/sidebar-core";
 import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
 import type { RunStatus } from "@aevryn/db";
-import { DotmCircular2 } from "../dotm-circular-2";
 import { DotmCircular4 } from "../dotm-circular-4";
 import { DotmCircular7 } from "../dotm-circular-7";
 import { DotmCircular17 } from "../dotm-circular-17";
@@ -991,7 +990,6 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
       setButtonEl?.(buttonRef.current);
       return () => setButtonEl?.(null);
     }, [setButtonEl]);
-    const resolvedLoader = status ? status : undefined;
     const lit = effectiveActive || (item?.isHovered ?? false);
     const heightClass =
       size === "sm"
