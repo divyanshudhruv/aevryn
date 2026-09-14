@@ -1,4 +1,5 @@
 import {
+	smoothStream,
 	pruneMessages,
 	ToolLoopAgent,
 	type LanguageModel,
@@ -17,6 +18,13 @@ import {
 export { costGuardStop };
 
 export const AGENT_ID = "aevryn-agent";
+
+/**
+ * Stream polish (AI SDK group C-7): chunk markdown word-by-word so the
+ * timeline renders text smoothly instead of in network-sized bursts.
+ * Applied as `experimental_transform` at stream time (AgentService).
+ */
+export const streamTransform = [smoothStream({ delayInMs: 12, chunking: "word" })] as const;
 
 export const CHAT_BUDGET_USD = 0.5;
 export const RUN_BUDGET_USD = 1;

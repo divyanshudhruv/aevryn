@@ -30,6 +30,11 @@ export {
 } from "./browser-sessions";
 export { searchMemoryTool, storeMemoryTool } from "./memory";
 export { updateStepStatusTool } from "./workflow-progress";
+export {
+	askUserTool,
+	askUserQuestionSchema,
+	presentPlanTool,
+} from "./client";
 
 import type { ToolSet } from "ai";
 
@@ -40,6 +45,7 @@ import {
 	browserSessionList,
 	browserSessionRename,
 } from "./browser-sessions";
+import { askUserTool, presentPlanTool } from "./client";
 import { crawlSiteTool } from "./crawl-site";
 import { mapSiteTool } from "./map-site";
 import { researchTopicTool } from "./research-topic";
@@ -52,6 +58,8 @@ import { wireDiscoverTool } from "./wire-discover";
 import { updateStepStatusTool } from "./workflow-progress";
 
 void updateStepStatusTool; // registered conditionally (run mode) by AgentService
+void askUserTool; // client tools are included per-mode by AgentService
+void presentPlanTool;
 
 export const anakinToolSet = {
 	searchWeb: searchWebTool,
