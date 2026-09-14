@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "9dd049df4511",
+  "session_id": "ses_f6f5065d1ffeV57k6ASZ6Ozgg1",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-14T16:31:22.5622505Z",
+  "branch": "backend/rewrite",
+  "checkpoints_count": 6,
+  "save_step_count": 1,
+  "files_touched": [
+    "packages/db/src/ids.ts",
+    "packages/env/src/server.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "big-pickle",
+  "turn_id": "73ad964afadc",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 5889027,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 118444608,
+    "output_tokens": 806855,
+    "api_call_count": 1426
+  },
+  "session_metrics": {
+    "turn_count": 97
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-14T16:31:20.6211864Z",
+    "agent_lines": 0,
+    "agent_removed": 45,
+    "human_added": 2528,
+    "human_modified": 101,
+    "human_removed": 0,
+    "total_committed": 2628,
+    "total_lines_changed": 3115,
+    "agent_percentage": 1.4446227929373996,
+    "metric_version": 2
+  }
+}
