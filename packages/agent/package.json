@@ -16,7 +16,6 @@
 	"dependencies": {
 		"@aevryn/db": "workspace:*",
 		"@aevryn/env": "workspace:*",
-		"@aevryn/workflow": "workspace:*",
 		"@ai-sdk/openai-compatible": "^1.0.54",
 		"@anakin-io/sdk": "^0.1.0",
 		"ai": "^7.0.93",
