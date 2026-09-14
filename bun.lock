@@ -68,13 +68,16 @@
         "@aevryn/db": "workspace:*",
         "@aevryn/env": "workspace:*",
         "@aevryn/workflow": "workspace:*",
+        "@ai-sdk/openai-compatible": "^1.0.54",
         "@anakin-io/sdk": "^0.1.0",
         "ai": "^7.0.93",
+        "drizzle-orm": "^0.45.2",
         "zod": "catalog:",
       },
       "devDependencies": {
         "@aevryn/config": "workspace:*",
         "typescript": "catalog:",
+        "vitest": "^5.0.0",
       },
     },
     "packages/api": {
