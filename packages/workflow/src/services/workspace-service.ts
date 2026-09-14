@@ -23,8 +23,6 @@ export interface ThreadSummary {
 	updatedAt: string;
 }
 
-const ACTIVE_RUN = new Set(["queued", "running", "awaiting_approval"]);
-
 /**
  * Workspace + sidebar data service.
  */
@@ -73,7 +71,7 @@ export class WorkspaceService {
 				id: r.id,
 				groupId: r.groupId,
 				title: r.title,
-				status: ACTIVE_RUN.has(r.status) ? r.status : "idle",
+				status: r.status,
 				updatedAt: r.updatedAt.toISOString(),
 			}));
 	}
