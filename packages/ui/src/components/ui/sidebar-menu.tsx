@@ -40,6 +40,16 @@ import {
   slotElement,
 } from "@aevryn/ui/components/ui/sidebar-core";
 import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
+import type { RunStatus } from "@aevryn/db";
+import { DotmCircular2 } from "../dotm-circular-2";
+import { DotmCircular4 } from "../dotm-circular-4";
+import { DotmCircular7 } from "../dotm-circular-7";
+import { DotmCircular17 } from "../dotm-circular-17";
+import { DotmCircular14 } from "../dotm-circular-14";
+import { Badge } from "./badge";
+import { DotmCustomFilled } from "../dotm-custom-filled";
+import { DotmCustomOutlined } from "../dotm-custom-outlined";
+
 
 // SSR-safe layout effect (client components still server-render in Next).
 const useIsoLayoutEffect =
@@ -933,7 +943,7 @@ export interface SidebarMenuButtonProps
    *  visuals (`active`/`unread` → filled, `idle` → ring), stamps
    *  `data-status` on the button, appends visually-hidden "unread" text for
    *  screen readers, and `"active"` implies `isActive`. */
-  status?: "active" | "unread" | "idle";
+  status?: RunStatus;
   /** Visual-only dot in the icon column — the escape hatch when the
    *  semantic `status` vocabulary doesn't fit. Overrides the dot derived
    *  from `status`. Ignored when `icon` is set. */
@@ -967,7 +977,8 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
 
     // status="active" implies the row-active treatment; an explicit dot
     // overrides the status-derived one.
-    const effectiveActive = isActive || status === "active";
+    // this is the active button (the active button is the one that is selected)
+    const effectiveActive = isActive;
 
     const setActive = item?.setActive;
     useIsoLayoutEffect(() => {
@@ -980,8 +991,7 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
       setButtonEl?.(buttonRef.current);
       return () => setButtonEl?.(null);
     }, [setButtonEl]);
-    const resolvedDot =
-      dot ?? (status ? (status === "idle" ? "ring" : "filled") : undefined);
+    const resolvedLoader = status ? status : undefined;
     const lit = effectiveActive || (item?.isHovered ?? false);
     const heightClass =
       size === "sm"
@@ -1037,32 +1047,87 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
             )}
           />
         )}
-        {!Icon && resolvedDot && (
-          <span
-            className="flex shrink-0 items-center justify-center"
-            style={{ width: sizeClasses.icon, height: sizeClasses.icon }}
-          >
-            <span
-              className={cn(
-                "size-2 rounded-full transition-colors duration-80",
-                resolvedDot === "filled"
-                  ? lit
-                    ? "bg-foreground/60"
-                    : "bg-muted-foreground/50"
-                  : lit
-                    ? "border border-foreground/60"
-                    : "border border-muted-foreground/50",
-              )}
-            />
-          </span>
+        {!Icon && (
+          <div className="h-full items-center justify-center flex pb-1">
+            {resolvedLoader === "completed" && (
+              <div className="mt-1">
+                {/* <span
+                  className="flex shrink-0 items-center justify-center"
+                  style={{ width: sizeClasses.icon, height: sizeClasses.icon }}
+                >
+                  <span
+                    className={cn(
+                      "size-2 rounded-full transition-colors duration-80",
+
+                      lit ? "bg-foreground/60" : "bg-muted-foreground/50",
+                    )}
+                  />
+                </span> */}
+                <DotmCustomFilled size={17} dotSize={2} />
+              </div>
+            )}
+            {resolvedLoader === "running" && (
+              <div>
+                {/* 7 or 2 */}
+                <DotmCircular7 size={17} dotSize={2} />
+              </div>
+            )}
+            {resolvedLoader === "awaiting_approval" && (
+              <div>
+                <DotmCircular17 size={17} dotSize={2} />
+              </div>
+            )}
+
+            {resolvedLoader === "failed" && (
+              <div>
+                <DotmCircular14 size={17} dotSize={2} />
+              </div>
+            )}
+            {resolvedLoader === "sleeping" && (
+              <div>
+                <DotmCircular4 size={17} dotSize={2} />
+              </div>
+            )}
+            {resolvedLoader === "idle" && (
+              <div className="mt-1">
+                {/* <span
+                  className="flex shrink-0 items-center justify-center"
+                  style={{ width: sizeClasses.icon, height: sizeClasses.icon }}
+                >
+                  <span
+                    className={cn(
+                      "size-2 rounded-full transition-colors duration-80",
+
+                      lit
+                        ? "border border-foreground/60"
+                        : "border border-muted-foreground/50",
+                    )}
+                  />
+                </span> */}
+                                <DotmCustomOutlined size={17} dotSize={2} />
+
+              </div>
+            )}
+          </div>
         )}
+        {status == "failed" && (
+          <Badge color="red" size="sm">
+            Failed
+          </Badge>
+        )}
+        {status == "awaiting_approval" && (
+          <Badge color="yellow" size="sm">
+            Awaiting Approval
+          </Badge>
+        )}
+
         <MenuRowLabel
           content={content}
           lit={lit}
           emphasized={effectiveActive}
           textClass={textClass}
         />
-        {status === "unread" && <span className="sr-only">, unread</span>}
+        {/* {status === "unread" && <span className="sr-only">, unread</span>} */}
       </>
     );
 

@@ -23,7 +23,7 @@ import {
   type SidebarSide,
   type SidebarVariant,
   type SidebarCollapsible,
-} from "./sidebar-core";
+} from "@aevryn/ui/components/ui/sidebar-core";
 
 // ─── Mobile sheet ────────────────────────────────────────────────────────────
 //
@@ -330,7 +330,7 @@ export {
   SIDEBAR_KEYBOARD_SHORTCUT_RIGHT,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_MAX_WIDTH,
-} from "./sidebar-core";
+} from "@aevryn/ui/components/ui/sidebar-core";
 export type {
   SidebarContextValue,
   SidebarProviderProps,
@@ -344,7 +344,7 @@ export type {
   SidebarSide,
   SidebarVariant,
   SidebarCollapsible,
-} from "./sidebar-core";
+} from "@aevryn/ui/components/ui/sidebar-core";
 export {
   SidebarMenu,
   SidebarMenuItem,
@@ -357,7 +357,7 @@ export {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
   sidebarMenuButtonVariants,
-} from "./sidebar-menu";
+} from "@aevryn/ui/components/ui/sidebar-menu";
 export type {
   SidebarMenuProps,
   SidebarMenuItemProps,
@@ -368,4 +368,4 @@ export type {
   SidebarMenuSubProps,
   SidebarMenuSubItemProps,
   SidebarMenuSubButtonProps,
-} from "./sidebar-menu";
+} from "@aevryn/ui/components/ui/sidebar-menu";

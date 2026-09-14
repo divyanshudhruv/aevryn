@@ -21,7 +21,7 @@ import type { IconComponent } from "@aevryn/ui/lib/icon-context";
 import { cn } from "@aevryn/ui/lib/utils";
 import { spring, exitFallbackMs } from "@aevryn/ui/lib/springs";
 import { useFluidHover, useRegisterFluidHoverItem } from "@aevryn/ui/hooks/use-fluid-hover";
-import { useShape } from "@aevryn/ui/lib/shape-context";
+import { useShape, shapeMap } from "@aevryn/ui/lib/shape-context";
 import { SizeProvider, useSize, type SizeVariant } from "@aevryn/ui/lib/size-context";
 import { Elevated } from "@aevryn/ui/lib/elevated";
 import {
@@ -32,7 +32,7 @@ import {
 } from "@aevryn/ui/lib/popup";
 import { useKeyboardNavGate } from "@aevryn/ui/hooks/use-keyboard-nav-gate";
 import { ScrollArea } from "@aevryn/ui/components/ui/scroll-area";
-import { FluidHoverHighlight } from "@aevryn/ui/components/ui/fluid-hover-highlight";
+import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
 
 
 // ---------------------------------------------------------------------------
@@ -79,6 +79,13 @@ const SelectContentContext =
 // ---------------------------------------------------------------------------
 // Select (root)
 // ---------------------------------------------------------------------------
+
+// The trigger follows the global pill/rounded shape; the popup does not.
+// Like Dropdown and Combobox, the list keeps the smaller "rounded" radii
+// whatever the rest of the UI is shaped: pill corners on a popover distort
+// its padding and break the concentric fit of the rows' hover and selection
+// backgrounds inside it.
+const popupShape = shapeMap.rounded;
 
 interface SelectProps {
   children: ReactNode;
@@ -337,7 +344,7 @@ interface SelectContentProps {
 const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
   ({ className, children }, ref) => {
     const { open, value, actionsRef } = useSelectContext();
-    const shape = useShape();
+    const shape = popupShape;
     const containerRef = useRef<HTMLDivElement>(null);
 
     const hover = useFluidHover(containerRef, { isItemDisabled: isDisabledRow });
@@ -518,7 +525,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
                 <ScrollArea className={popupScrollAreaClass} viewportClassName={cn(popupViewportClass, "scroll-fade")}>
                   <div
                     ref={containerRef}
-                    className="relative flex flex-col gap-0.5 p-1"
+                    className="relative flex flex-col p-1"
                   >
                 {/* The three overlays are torn down as the close begins rather
                     than exit-animated, because an overlay still mounted when the
@@ -627,7 +634,7 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
     const selectCtx = useSelectContext();
     const contentCtx = useContext(SelectContentContext);
     const internalRef = useRef<HTMLDivElement>(null);
-    const shape = useShape();
+    const shape = popupShape;
     const sizeClasses = useSize();
     const compact = sizeClasses.variant === "compact";
     const hasMounted = useRef(false);

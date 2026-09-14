@@ -4,9 +4,8 @@ import { useState, type ReactNode } from "react";
 import { Button } from "../ui/button";
 import { InputGroup, InputField } from "../ui/input-group";
 import { Switch } from "../ui/switch";
-import { EntityActionDialog } from "./entity-action-dialog";
-import { WorkflowDelConfirmationDialog } from "./workflow-del-confirmation-dialog";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
+import { ArrowUp, ArrowDown, Key, Plus, Trash2 } from "lucide-react";
 import { cn } from "@aevryn/ui/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -45,61 +44,53 @@ function SettingRow({
 }
 
 // ---------------------------------------------------------------------------
-// Section panels — placeholder settings built from the library's controls.
-// Swap for your own; each row is a label + description on the left and a
-// control on the right.
+// Section panels.
 // ---------------------------------------------------------------------------
 
 function GeneralPanel() {
-  const [name, setName] = useState("Acme Inc");
-  const [description, setDescription] = useState("A long description");
-  const [deleteWorkflowOpen, setDeleteWorkflowOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [autoApprove, setAutoApprove] = useState(false);
+  const [deleteWorkflowOpen, setDeleteWorkflowOpen] = useState(false);
 
   return (
     <>
-      <WorkflowDelConfirmationDialog
+      <ConfirmDeleteDialog
         open={deleteWorkflowOpen}
         onOpenChange={setDeleteWorkflowOpen}
-        mode="delete-one"
+        title="Delete workflow"
+        description="This deletes the workflow and its plan. Threads that are bound to it will keep running with their last saved instructions."
+        actionLabel="Delete workflow"
+        items={[{ value: name || "This workflow" }]}
       />
       <InputGroup className="w-full">
         <InputField
-          index={0}
-          label="Workflow name"
+          label="Name"
           value={name}
-          onChange={setName}
-          placeholder="Component audit library"
+          onChange={(e) => setName(e)}
+          placeholder="e.g. My workflow"
+          index={0}
         />
         <InputField
-          index={1}
-          label="Workflow Description"
+          label="Description"
           value={description}
-          onChange={setDescription}
-          placeholder="Describe your workflow"
+          onChange={(e) => setDescription(e)}
+          placeholder="Describe what this workflow does"
+          index={1}
         />
       </InputGroup>
       <div>
         {" "}
         <SettingRow
           label="Auto approve"
-          description="Automatically approve workflows without manual review."
+          description="Let this workflow run without asking first when it uses known safe tools."
         >
           <Switch
-            label={autoApprove ? "Enabled" : "Disabled"}
+            label={autoApprove ? "On" : "Off"}
             checked={autoApprove}
             onToggle={() => setAutoApprove((prev) => !prev)}
           />
         </SettingRow>
-      </div>
-      <div className="pt-0 ">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setDeleteWorkflowOpen(true)}
-        >
-          Delete workflow
-        </Button>
       </div>
     </>
   );
@@ -108,7 +99,7 @@ function GeneralPanel() {
 function PlanPanel() {
   const [addPlanOpen, setAddPlanOpen] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
-  const items = [
+  const [items, setItems] = useState([
     {
       id: "plan_step_1",
       title: "Outline project scope and goals",
@@ -119,153 +110,159 @@ function PlanPanel() {
       id: "plan_step_2",
       title: "Gather requirements and conduct user research",
       content:
-        "Collaborate with stakeholders to gather project requirements. Conduct user research to understand user needs and preferences. Create a user persona and user journey map.",
+        "Collaborate with stakeholders to gather project requirements. Conduct user research to understand user needs and preferences.",
     },
     {
       id: "plan_step_3",
       title: "Design the project plan and wireframes",
       content:
-        "Create a detailed project plan, including task assignments, timelines, and dependencies. Design wireframes to visualize the project's user interface.",
+        "Create a detailed project plan, including task assignments, timelines, and dependencies.",
     },
-    {
-      id: "plan_step_4",
-      title: "Develop the project codebase",
-      content:
-        "Write clean, modular, and testable code. Implement the project's features and functionality. Test the code thoroughly to ensure quality and reliability.",
-    },
-    {
-      id: "plan_step_5",
-      title: "Deploy the project and conduct testing",
-      content:
-        "Deploy the project to a production environment. Conduct thorough testing to ensure compatibility and performance. Fix any bugs or issues identified during testing.",
-    },
-    {
-      id: "plan_step_6",
-      title: "Launch the project and provide ongoing support",
-      content:
-        "Launch the project to users. Provide ongoing support and maintenance to ensure smooth operation and bug fixes. Continuously gather feedback and improve the project over time.",
-    },
-  ];
+  ]);
+
+  const moveItem = (from: number, to: number) => {
+    if (from === to) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved!);
+    setItems(next);
+  };
+
+  const removeItem = (id: string) => {
+    setItems(items.filter((item) => item.id !== id));
+  };
 
   return (
     <div className="flex flex-col">
-      <div className="flex flex-col">
-        {items.map((m) => (
-          <SettingRow key={m.id} label={m.id} description={m.content}>
-            <div className="flex items-center gap-1">
-              <Button variant="secondary" size="icon-compact">
-                <ArrowUp />
-              </Button>
-              <Button variant="secondary" size="icon-compact">
-                <ArrowDown />
-              </Button>
-              <Button variant="secondary" size="sm">
-                Remove
-              </Button>
-            </div>
-          </SettingRow>
-        ))}
-      </div>
-
-      <div className="pt-4">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setAddPlanOpen(true)}
-        >
-          Add steps
-        </Button>
-      </div>
-      <EntityActionDialog
-        open={addPlanOpen}
-        onOpenChange={setAddPlanOpen}
-        mode="add-plan"
-        loading={creatingPlan}
-      />
+      {items.length === 0 ? (
+        <div className="flex flex-col gap-1">
+          <p className="text-[13px] text-muted-foreground">No steps yet.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col">
+          {items.map((item, index) => (
+            <SettingRow
+              key={item.id}
+              label={item.title}
+              description={item.content}
+            >
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="secondary"
+                  size="icon-compact"
+                  disabled={index === 0}
+                  onClick={() => moveItem(index, index - 1)}
+                >
+                  <ArrowUp />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon-compact"
+                  disabled={index === items.length - 1}
+                  onClick={() => moveItem(index, index + 1)}
+                >
+                  <ArrowDown />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => removeItem(item.id)}
+                >
+                  Remove
+                </Button>
+              </div>
+            </SettingRow>
+          ))}
+          <div className="pt-4">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setAddPlanOpen(true)}
+            >
+              Add step
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function InstructionsPanel() {
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [userInstructions, setUserInstructions] = useState("");
+
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-4">
       <InputGroup className="w-full">
         <InputField
           index={0}
           label="System prompt"
           value={systemPrompt}
           onChange={setSystemPrompt}
-          placeholder="Write a detailed system prompt for the LLM"
+          placeholder="You are a careful research assistant. Prefer concise answers with citations."
+        />
+      </InputGroup>
+      <InputGroup className="w-full">
+        <InputField
+          index={0}
+          label="User instructions"
+          value={userInstructions}
+          onChange={setUserInstructions}
+          placeholder="Extra rules for this workflow, such as tone, format, or things to avoid."
         />
       </InputGroup>
     </div>
   );
 }
-
 function MemoriesPanel() {
-  const [addMemoryOpen, setAddMemoryOpen] = useState(false);
-  const [creatingMemory, setCreatingMemory] = useState(false);
-  const MEMORIES = [
+  const [memories, setMemories] = useState([
     {
-      id: "mem_Xsi300KDxwaa",
+      id: "mem_research_style",
+      title: "Research style",
       description:
-        "The user wants to know how to create a landing page for their new startup. They should use a website builder like Wix or Squarespace to create a professional-looking website.",
+        "Prefer recent primary sources, and always keep a citation for each factual claim.",
+      status: "active",
     },
     {
-      id: "mem_Ytr450LFmnb",
+      id: "mem_comparison_rules",
+      title: "Comparison rules",
       description:
-        "The user wants to know how to create a professional-looking resume. They should use a resume builder like LinkedIn or Resume.io to create a polished and compelling resume.",
+        "When comparing products, always include price, pros, cons, and a short recommendation.",
+      status: "active",
     },
     {
-      id: "mem_Zuv670PHklo",
+      id: "mem_user_goals",
+      title: "User goals",
       description:
-        "The user wants to know how to set up a social media marketing campaign for their business. They should use a social media management tool like Hootsuite or Buffer to create and schedule posts on all of their social media channels.",
+        "The user cares more about long-term maintainability than raw benchmark numbers.",
+      status: "draft",
     },
-  ];
+  ]);
+
   return (
     <div className="flex flex-col">
-      {/* <InputGroup className="w-full">
-        <InputField
-          index={0}
-          label="Create a new memory"
-          value={""}
-          onChange={() => {}}
-          placeholder="Write a detailed system prompt for the LLM"
-        />
-      </InputGroup> */}
-      <div className="flex flex-col">
-        {/* <span className="font-[13px] text-muted-foreground">
-          Existing memories
-        </span> */}
-        {MEMORIES.map((m) => (
-          <SettingRow key={m.id} label={m.id} description={m.description}>
-            <Button variant="secondary" size="sm">
-              Remove
-            </Button>
-          </SettingRow>
-        ))}
-      </div>
-      <div className="pt-4">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setAddMemoryOpen(true)}
+      {memories.map((item, index) => (
+        <SettingRow
+          key={item.id}
+          label={item.id}
+          description={item.description}
         >
-          Add memory
-        </Button>
-      </div>
-      <EntityActionDialog
-        open={addMemoryOpen}
-        onOpenChange={setAddMemoryOpen}
-        mode="add-memory"
-        loading={creatingMemory}
-      />
+          <Button variant="secondary" size="sm">
+            Remove
+          </Button>
+        </SettingRow>
+      ))}
     </div>
   );
 }
 
-export type WorkflowSectionId = "general" | "plan" | "instructions" | "memories";
+export type WorkflowSectionId =
+  | "general"
+  | "plan"
+  | "instructions"
+  | "memories"
+  | "keys";
 
 export function WorkflowSectionPanel({ id }: { id: WorkflowSectionId }) {
   switch (id) {
@@ -278,4 +275,28 @@ export function WorkflowSectionPanel({ id }: { id: WorkflowSectionId }) {
     default:
       return <GeneralPanel />;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Small dialog reuse for add/edit flows.
+// These reuse EntityActionDialog as a placeholder keyed-text dialog. When the
+// real add/edit forms are ready, replace them with dedicated dialogs that
+// collect title + description for memories, and provider + label + model + key
+// for API keys.
+// ---------------------------------------------------------------------------
+
+interface MemoryDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave?: () => void;
+  loading?: boolean;
+  mode?: "add" | "edit";
+}
+
+interface ApiKeyDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave?: () => void;
+  loading?: boolean;
+  mode?: "add" | "edit";
 }

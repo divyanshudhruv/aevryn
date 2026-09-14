@@ -241,7 +241,7 @@ export function CommandMenuDemo() {
   return (
     <>
       <CommandMenuShortcut keys="mod+k" className="ml-1" />
-
+      {/* shortcut: mod is ⌘ on a Mac, Ctrl elsewhere. A pick closes the dialog. */}
       <CommandMenuDialog open={open} onOpenChange={setOpen} shortcut="mod+k">
         <CommandMenu items={items} suggestions={SUGGESTIONS} onSelect={run}>
           <CommandMenuInput placeholder="Type a command or search…" />

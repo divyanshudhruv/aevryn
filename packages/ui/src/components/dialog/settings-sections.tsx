@@ -3,17 +3,13 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "../ui/button";
 import { InputGroup, InputField } from "../ui/input-group";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-} from "../ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem } from "../ui/select";
 import { Switch } from "../ui/switch";
 import { useIcons } from "@aevryn/ui/lib/icon-context";
 import { useSizeContext } from "@aevryn/ui/lib/size-context";
 import { useTheme } from "next-themes";
 import { cn } from "@aevryn/ui/lib/utils";
+import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 
 // Switches carry their own (required) label for assistive tech; the row
 // already shows it, so the switch's copy is visually hidden.
@@ -60,10 +56,10 @@ function SettingRow({
 // control on the right.
 // ---------------------------------------------------------------------------
 
-function GeneralPanel() {
-  const [name, setName] = useState("Acme Inc");
-  const [timezone, setTimezone] = useState("utc+1");
-  const [telemetry, setTelemetry] = useState(false);
+function WorkspacePanel() {
+  const [name, setName] = useState("");
+  const [defaultThreadBehavior, setDefaultThreadBehavior] = useState("blank");
+  const [deleteWorkspaceOpen, setDeleteWorkspaceOpen] = useState(false);
   return (
     <>
       <InputGroup className="w-full">
@@ -75,80 +71,102 @@ function GeneralPanel() {
           placeholder="Acme Inc"
         />
       </InputGroup>
-      <div className="flex flex-col">
-        <SettingRow
-          label="Telemetry"
-          description="Help us improve by sharing usage data."
+      <SettingRow
+        label="New threads"
+        description="What a fresh thread looks like before the first message."
+      >
+        <Select
+          value={defaultThreadBehavior}
+          onValueChange={setDefaultThreadBehavior}
+          disabled
         >
-          <Switch
-            label={telemetry ? "Enabled" : "Disabled"}
-            checked={telemetry}
-            onToggle={() => setTelemetry((prev) => !prev)}
-          />
-        </SettingRow>
-        <SettingRow
-          label="Timezone"
-          description="Dates and reminders follow it."
+          <SelectTrigger placeholder="Default style" />
+          <SelectContent>
+            <SelectItem index={0} value="blank">
+              Blank thread
+            </SelectItem>
+            <SelectItem index={1} value="title-prompt">
+              Ask for a title first
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </SettingRow>
+      <SettingRow
+        label="Days of unread activity"
+        description="How long a thread can sit idle before it feels stale."
+      >
+        <Select value="7" onValueChange={() => {}}>
+          <SelectTrigger placeholder="7 days" />
+          <SelectContent>
+            <SelectItem index={0} value="1">
+              1 day
+            </SelectItem>
+            <SelectItem index={1} value="3">
+              3 days
+            </SelectItem>
+            <SelectItem index={2} value="7">
+              7 days
+            </SelectItem>
+            <SelectItem index={3} value="30">
+              30 days
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </SettingRow>
+      <div className="pt-4">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setDeleteWorkspaceOpen(true)}
         >
-          <Select value={timezone} onValueChange={setTimezone}>
-            <SelectTrigger placeholder="Timezone" />
-            <SelectContent>
-              <SelectItem index={0} value="utc-8">
-                (UTC−8) Pacific
-              </SelectItem>
-              <SelectItem index={1} value="utc-5">
-                (UTC−5) Eastern
-              </SelectItem>
-              <SelectItem index={2} value="utc+0">
-                (UTC+0) London
-              </SelectItem>
-              <SelectItem index={3} value="utc+1">
-                (UTC+1) Paris
-              </SelectItem>
-              <SelectItem index={4} value="utc+9">
-                (UTC+9) Tokyo
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingRow>
+          Delete workspace
+        </Button>
       </div>
+      <ConfirmDeleteDialog
+        open={deleteWorkspaceOpen}
+        onOpenChange={setDeleteWorkspaceOpen}
+        title="Delete workspace"
+        description="This deletes the workspace and everything inside it. This action cannot be undone."
+        actionLabel="Delete workspace"
+        items={[{ value: name || "This workspace" }]}
+      />
     </>
   );
 }
 
 function NotificationsPanel() {
   const [enabled, setEnabled] = useState<Record<string, boolean>>({
-    "workflow.failed": true,
-    "schedule.started": true,
-    alert: true,
-    webhook: false,
+    "thread.run.failed": true,
+    "thread.run.completed": true,
+    "thread.run.approval": true,
     "in-app": true,
+    email: false,
   });
   const toggles = [
     {
-      id: "workflow.failed",
-      label: "Workflow failures",
-      description: "When a workflow run fails and needs attention.",
+      id: "thread.run.failed",
+      label: "Run failures",
+      description: "When a thread run fails and needs attention.",
     },
     {
-      id: "schedule.started",
-      label: "Scheduled runs",
-      description: "When a scheduled workflow run starts.",
+      id: "thread.run.completed",
+      label: "Run completions",
+      description: "When a thread run finishes successfully.",
     },
     {
-      id: "alert",
-      label: "Agent alerts",
-      description: "When an agent sends an alert notification.",
-    },
-    {
-      id: "webhook",
-      label: "Webhooks",
-      description: "When the agent posts to an external webhook URL.",
+      id: "thread.run.approval",
+      label: "Approval requests",
+      description: "When a run pauses and waits for your approval.",
     },
     {
       id: "in-app",
       label: "In-app notifications",
-      description: "Deliver to the notification bell.",
+      description: "Deliver notifications to the bell in the sidebar.",
+    },
+    {
+      id: "email",
+      label: "Email summaries",
+      description: "Send a daily digest instead of individual pings.",
     },
   ];
   return (
@@ -159,9 +177,7 @@ function NotificationsPanel() {
             className={SWITCH_LABEL_HIDDEN}
             label={t.label}
             checked={enabled[t.id] ?? false}
-            onToggle={() =>
-              setEnabled((e) => ({ ...e, [t.id]: !e[t.id] }))
-            }
+            onToggle={() => setEnabled((e) => ({ ...e, [t.id]: !e[t.id] }))}
           />
         </SettingRow>
       ))}
@@ -177,14 +193,12 @@ function AppearancePanel() {
     <div className="flex flex-col">
       <SettingRow
         label="Theme"
-        description="Follows the system unless you pick one."
+        description="Light, dark, or follow the system."
       >
         <Select value={resolvedTheme} onValueChange={setTheme}>
           <SelectTrigger placeholder="Theme" />
           <SelectContent>
-            <SelectItem index={0} value="system" icon={icons.monitor}>
-              System
-            </SelectItem>
+            
             <SelectItem index={1} value="light" icon={icons.sun}>
               Light
             </SelectItem>
@@ -196,7 +210,7 @@ function AppearancePanel() {
       </SettingRow>
       <SettingRow
         label="Density"
-        description="Row height across lists and tables."
+        description="Row height across lists, tables, and chat."
       >
         <Select
           value={size}
@@ -212,6 +226,17 @@ function AppearancePanel() {
             </SelectItem>
           </SelectContent>
         </Select>
+      </SettingRow>
+      <SettingRow
+        label="Chat animation"
+        description="Show thinking and tool-call motion in chat."
+      >
+        <Switch
+          className={SWITCH_LABEL_HIDDEN}
+          label="Chat animation"
+          checked={true}
+          onToggle={() => {}}
+        />
       </SettingRow>
     </div>
   );
@@ -243,18 +268,20 @@ function SecurityPanel() {
     </div>
   );
 }
-
-export type SettingsSectionId = "general" | "notifications" | "appearance" | "security";
-
+export type SettingsSectionId =
+  | "workspace"
+  | "notifications"
+  | "appearance"
+  | "security";
 export function SettingsSectionPanel({ id }: { id: SettingsSectionId }) {
   switch (id) {
+    case "workspace":
+      return <WorkspacePanel />;
     case "notifications":
       return <NotificationsPanel />;
     case "appearance":
       return <AppearancePanel />;
     case "security":
       return <SecurityPanel />;
-    default:
-      return <GeneralPanel />;
   }
 }

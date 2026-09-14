@@ -168,7 +168,7 @@ function shortcutTokens(shortcut: string): string[] {
       if (out[out.length - 1] !== "+") out.push("+");
       continue;
     }
-    if (tokens[i] !== "") out.push(tokens[i]);
+    if (tokens[i] !== "") out.push(tokens[i]??"");
   }
   return out;
 }
@@ -619,15 +619,16 @@ const CommandMenu = forwardRef<HTMLDivElement, CommandMenuProps>(
         });
         if (enabled.length === 0) return;
         let next: number;
-        if (to === "first") next = enabled[0];
-        else if (to === "last") next = enabled[enabled.length - 1];
+        if (to === "first") next = enabled[0]?? 0;
+        else if (to === "last") next = enabled[enabled.length - 1] ?? 0;
         else {
           const current = highlightRef.current;
           const pos = current === null ? -1 : enabled.indexOf(current);
           // Wraps at both ends: the list is the whole keyboard space, there
           // is no field to stop at.
-          if (pos === -1) next = to === 1 ? enabled[0] : enabled[enabled.length - 1];
-          else next = enabled[(pos + to + enabled.length) % enabled.length];
+          if (pos === -1) next =
+            to === 1 ? (enabled[0] ?? 0) : (enabled[enabled.length - 1] ?? 0);
+          else next = enabled[(pos + to + enabled.length) % enabled.length] ?? 0;
         }
         setActiveIndex(next);
         scrollToRow(next, "center");
@@ -780,7 +781,9 @@ const CommandMenuInput = forwardRef<HTMLInputElement, CommandMenuInputProps>(
           const current = tabs.tabs.findIndex((tab) => tab.value === tabs.value);
           const step = e.key === "ArrowRight" ? 1 : -1;
           const next = ((current === -1 ? 0 : current) + step + count) % count;
-          tabs.onValueChange(tabs.tabs[next].value);
+          if (tabs && tabs.tabs[next]) {
+            tabs.onValueChange(tabs.tabs[next].value);
+          }
           return;
         }
         case "ArrowDown":

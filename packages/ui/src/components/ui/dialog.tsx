@@ -112,10 +112,18 @@ interface DialogContentProps extends HTMLAttributes<HTMLDivElement> {
    *  `<Dialog modal={false}>` — to scope a dialog to a bounded region, e.g. a
    *  docs preview. Defaults to the document body / full-viewport behaviour. */
   container?: HTMLElement | null;
+  /** The ✕ in the top-right corner. Drop it when the content has its own
+   *  way out, e.g. a command menu that closes on Escape and on a pick.
+   *  @default true */
+  showCloseButton?: boolean;
+  /** Where the panel sits: centered, or anchored 12dvh from the top so a
+   *  panel whose height follows its content (a command menu) keeps its top
+   *  edge still. @default "center" */
+  position?: "center" | "top";
 }
 
 const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
-  ({ className, children, size = "sm", container, ...props }, ref) => {
+  ({ className, children, size = "sm", container, showCloseButton = true, position = "center", ...props }, ref) => {
     const XIcon = useIcon("x");
     const shape = useShape();
     const substrate = useSurface();
@@ -188,7 +196,8 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
                 >)}
                 className={cn(
                   container ? "absolute" : "fixed",
-                  "left-1/2 top-1/2 z-50 w-[calc(100%-2rem)]",
+                  "left-1/2 z-50 w-[calc(100%-2rem)]",
+                  position === "top" ? "top-[12dvh]" : "top-1/2",
                   surfaceClasses(dialogLevel),
                   "p-6 focus:outline-none",
                   size === "sm" && (compact ? "max-w-[360px]" : "max-w-[400px]"),
@@ -201,29 +210,31 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
                   ...(baseStyle as React.CSSProperties | undefined),
                   ...(props.style as React.CSSProperties | undefined),
                 }}
-                initial={{ opacity: 0, scale: 0.97, x: "-50%", y: "-50%" }}
+                initial={{ opacity: 0, scale: 0.97, x: "-50%", y: position === "top" ? 0 : "-50%" }}
                 animate={{
                   opacity: exiting ? 0 : 1,
                   scale: exiting ? 0.97 : 1,
                   x: "-50%",
-                  y: "-50%",
+                  y: position === "top" ? 0 : "-50%",
                 }}
                 transition={exiting ? spring.slow.exit : spring.slow}
               >
                 <SurfaceProvider value={dialogLevel}>
                   {children}
-                  <DialogPrimitive.Close
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="absolute right-3 top-3"
-                      >
-                        <XIcon />
-                        <span className="sr-only">Close</span>
-                      </Button>
-                    }
-                  />
+                  {showCloseButton && (
+                    <DialogPrimitive.Close
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="absolute right-3 top-3"
+                        >
+                          <XIcon />
+                          <span className="sr-only">Close</span>
+                        </Button>
+                      }
+                    />
+                  )}
                 </SurfaceProvider>
               </motion.div>
             );
@@ -267,7 +278,7 @@ const DialogTitle = forwardRef<
         "text-foreground leading-tight",
         className
       )}
-      style={{ fontVariationSettings: "'wght' 500" }}
+      style={{ fontVariationSettings: "'wght' 600" }}
       {...props}
     />
   );

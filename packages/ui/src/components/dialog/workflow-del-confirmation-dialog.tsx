@@ -65,6 +65,25 @@ export function WorkflowDelConfirmationDialog({
   const texts = TEXTS[mode];
   const items = deletions ?? DEFAULT_DELETIONS[mode];
 
+  if (items.length === 0) {
+    return (
+      <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>{texts.title}</DialogTitle>
+            <DialogDescription>{texts.description}</DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            There is nothing to delete.
+          </p>
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost">Cancel</Button>} />
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
       <DialogContent size="sm">

@@ -234,7 +234,13 @@ export function useFluidHover<T extends HTMLElement>(
     else container?.setAttribute(ACTIVE_INDEX_ATTR, String(activeIndex));
     const active = activeIndex === null ? undefined : itemsRef.current.get(activeIndex);
     active?.setAttribute(ACTIVE_ATTR, "");
-    return () => active?.removeAttribute(ACTIVE_ATTR);
+    return () => {
+      active?.removeAttribute(ACTIVE_ATTR);
+      // A row that re-registered under this index while it was highlighted
+      // (a remount under a new key) was marked by registerItem, not by this
+      // effect: drop the mark from whatever element holds the index now.
+      if (activeIndex !== null) itemsRef.current.get(activeIndex)?.removeAttribute(ACTIVE_ATTR);
+    };
   }, [activeIndex, containerRef]);
   const [itemRects, setItemRects] = useState<ItemRect[]>([]);
   const [isMeasured, setIsMeasured] = useState(false);
@@ -375,10 +381,19 @@ export function useFluidHover<T extends HTMLElement>(
       } else {
         const previous = itemsRef.current.get(index);
         if (previous) itemRoRef.current?.unobserve(previous);
+        // The mark leaves with the element: a row that only moved to another
+        // index (a filtering list re-ordering) must not carry it there.
+        previous?.removeAttribute(ACTIVE_ATTR);
         itemsRef.current.delete(index);
         // The highlighted row is gone: nothing should stay lit or receive a
-        // routed click until the pointer picks again.
-        if (index === activeIndexRef.current) setActiveIndex(null);
+        // routed click until the pointer picks again. Decided when the
+        // update applies, after this commit's registrations, so a row that
+        // only moved index hands the highlight to the row now under it.
+        if (index === activeIndexRef.current) {
+          setActiveIndex((current) =>
+            current === index && !itemsRef.current.has(index) ? null : current
+          );
+        }
       }
       // Coalesce rapid register/unregister calls (e.g. when an AnimatePresence
       // remounts a list of rows) into a single remeasure on the next frame,

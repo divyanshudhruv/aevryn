@@ -28,19 +28,12 @@ import {
 import { useIcons, type IconName } from "@aevryn/ui/lib/icon-context";
 import { fontWeights } from "@aevryn/ui/lib/font-weight";
 
-// ---------------------------------------------------------------------------
-// A settings dialog: the `xl` Dialog as a canvas, a non-collapsing Sidebar
-// of sections down its left edge, and a scrolling panel for the section's
-// controls. The sidebar is the same composable Sidebar the app shell uses —
-// it just lives in a bounded frame: `collapsible="none"` drops the rail and
-// the drawer, the provider is told not to persist or listen for the
-// shortcut, and `h-full` pins both to the dialog's fixed height.
-//
-// Below the `sm` breakpoint the column would leave no room for the panel,
-// so it hides and a Select at the top of the panel takes over navigation.
-// ---------------------------------------------------------------------------
-
-type WorkflowSectionId = "general" | "plan" | "instructions" | "memories";
+type WorkflowSectionId =
+  | "general"
+  | "plan"
+  | "instructions"
+  | "memories"
+  | "keys";
 
 interface WorkflowSection {
   id: WorkflowSectionId;
@@ -54,26 +47,27 @@ const SECTIONS: WorkflowSection[] = [
     id: "general",
     label: "General",
     icon: "settings",
-    description: "General settings for this workflow.",
+    description: "Name, description, and how this workflow behaves by default.",
   },
   {
     id: "plan",
     label: "Plan",
     icon: "notebook",
-    description: "Manage your workflow plan.",
+    description: "The steps this workflow follows, in order.",
   },
   {
     id: "instructions",
     label: "Instructions",
     icon: "bot",
-    description: "Add instructions and system-prompts for your workflow.",
+    description: "System prompt and instructions the agent follows.",
   },
   {
     id: "memories",
     label: "Memories",
     icon: "database",
-    description: "View and manage memories for your workflow.",
+    description: "Context this workflow can use across threads.",
   },
+
 ];
 
 export interface WorkflowDialogProps {
@@ -98,8 +92,6 @@ export function WorkflowDialog({
     <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
       <DialogContent
         size="xl"
-        // The dialog's padding and centering give way to the two-column
-        // shell; the height is fixed so the panel scrolls inside it.
         className="flex h-[min(640px,calc(100dvh-4rem))] overflow-hidden p-0"
       >
         <SidebarProvider
@@ -113,22 +105,18 @@ export function WorkflowDialog({
             className="hidden h-full sm:flex bg-[rgb(var(--overlay)/0.03)]"
           >
             <SidebarHeader className="px-4 pt-5 pb-2">
-              {/* Headings here are labels, not a headline: the dialog's own
-                  title weight would out-shout the nav beneath it. */}
               <DialogTitle
                 style={{ fontVariationSettings: fontWeights.normal }}
               >
-                About
+                Workflow
               </DialogTitle>
               <DialogDescription className="sr-only">
-                Workflow settings.
+                Workflow settings, memories, and provider keys.
               </DialogDescription>
             </SidebarHeader>
             <SidebarContent>
               <SidebarGroup>
                 <SidebarGroupLabel>Workflow</SidebarGroupLabel>
-                {/* Rows are the whole surface here; keyboard focus moves the
-                    highlight instead of drawing a ring. */}
                 <SidebarMenu focusRing={false} className="gap-px">
                   {SECTIONS.map((s) => (
                     <SidebarMenuItem key={s.id}>
@@ -147,12 +135,8 @@ export function WorkflowDialog({
           </Sidebar>
 
           <div className="flex min-w-0 flex-1 flex-col">
-            {/* Panel header — pr-12 keeps clear of the dialog's ✕. */}
             <div className="flex shrink-0 flex-col gap-1 px-6 pt-5 pb-4 pr-12">
               <div className="sm:hidden">
-                {/* The dialog's one DialogTitle lives in the sidebar header
-                    (a referenced title names the dialog even while hidden);
-                    this is the visible heading for narrow screens. */}
                 <h2
                   className="mb-3 text-[16px] leading-tight text-foreground"
                   style={{ fontVariationSettings: fontWeights.normal }}
@@ -160,9 +144,11 @@ export function WorkflowDialog({
                   Workflow
                 </h2>
                 <Select
-          value={section}
-          onValueChange={(value: string) => setSection(value as WorkflowSectionId)}
-        >
+                  value={section}
+                  onValueChange={(value: string) =>
+                    setSection(value as WorkflowSectionId)
+                  }
+                >
                   <SelectTrigger placeholder="Section" />
                   <SelectContent>
                     {SECTIONS.map((s, i) => (

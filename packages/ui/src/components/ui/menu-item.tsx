@@ -43,7 +43,7 @@ export interface MenuItemRenderOptions {
   /** Checkbox-style option: a boolean `checked` inside a multiple-selection
    *  dropdown (`checkedIndices`). Takes precedence over `radio`. */
   checkbox: boolean;
-  /** The item's checked state (radio and checkbox items). */
+  /** The item's checkede (radio and checkbox items). */
   checked?: boolean;
   /** The item's index — doubles as the radio value. */
   value: number;

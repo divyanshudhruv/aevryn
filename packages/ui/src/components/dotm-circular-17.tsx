@@ -12,65 +12,59 @@ import type {
   DotMatrixCommonProps,
 } from "../lib/dotmatrix-core";
 
-export type DotmCircular5Props = DotMatrixCommonProps;
-
-const BASE_OPACITY = 0.08;
-const BLADE_OPACITY = 0.94;
-const HALO_OPACITY = 0.34;
-
-export function DotmCircular5({
-  speed = 1.7,
+export type DotmCircular17Props = DotMatrixCommonProps;
+const BASE_OPACITY = 0.07;
+const MID_OPACITY = 0.34;
+const HIGH_OPACITY = 0.95;
+/** Discrete checker frames per loop (must stay integer for `(row + col + t) % 2`). */
+const CHECKER_STEPS = 4;
+export function DotmCircular17({
+  speed = 1,
   animated = true,
   hoverAnimated = false,
   ...rest
-}: DotmCircular5Props) {
+}: DotmCircular17Props) {
   const reducedMotion = usePrefersReducedMotion();
-  const { phase: matrixPhase, onMouseEnter, onMouseLeave } = useDotMatrixPhases({
+  const {
+    phase: matrixPhase,
+    onMouseEnter,
+    onMouseLeave,
+  } = useDotMatrixPhases({
     animated: Boolean(animated && !reducedMotion),
     hoverAnimated: Boolean(hoverAnimated && !reducedMotion),
-    speed
+    speed,
   });
-  const phase = useCyclePhase({
+  const animPhase = useCyclePhase({
     active: !reducedMotion && matrixPhase !== "idle",
-    cycleMsBase: 1650,
-    speed
+    cycleMsBase: 1500,
+    speed,
   });
-
   const resolver = useMemo<DotAnimationResolver>(() => {
-    return ({ row, col, phase: p }) => {
+    return ({ row, col, phase: dmxPhase }) => {
       if (!isWithinCircularMask(row, col)) {
         return { className: "dmx-inactive" };
       }
-
-      const x = col - 2;
-      const y = row - 2;
-      const radius = Math.hypot(x, y);
-      const angle = Math.atan2(y, x);
-      const theta = (reducedMotion || p === "idle" ? 0 : phase) * Math.PI * 2;
-      const pinwheel = Math.cos(angle * 4 - theta * 2.2);
-      const radialGate = Math.sin(radius * 2.1 - theta * 1.25);
-
-      if (radius < 0.6) {
-        return { style: { opacity: 0.66 } };
+      const holdStill = reducedMotion || dmxPhase === "idle";
+      const t = holdStill
+        ? 0
+        : Math.floor(animPhase * CHECKER_STEPS) % CHECKER_STEPS;
+      const parity = (row + col + t) % 2;
+      const brailleBias = col === 1 || col === 3;
+      const centerBias = row === 2 || col === 2;
+      let opacity = BASE_OPACITY;
+      if (parity === 0 && brailleBias) {
+        opacity = HIGH_OPACITY;
+      } else if (parity === 0 || centerBias) {
+        opacity = MID_OPACITY;
+      } else if (brailleBias) {
+        opacity = 0.24;
       }
-
-      if (pinwheel > 0.48 && radialGate > -0.25) {
-        return { style: { opacity: BLADE_OPACITY } };
-      }
-
-      if (pinwheel > 0.1) {
-        return { style: { opacity: HALO_OPACITY } };
-      }
-
-      return { style: { opacity: BASE_OPACITY } };
+      return { style: { opacity } };
     };
-  }, [reducedMotion, phase]);
-
+  }, [reducedMotion, animPhase]);
   return (
     <DotMatrixBase
       {...rest}
-      size={rest.size ?? 36}
-      dotSize={rest.dotSize ?? 5}
       speed={speed}
       pattern="full"
       animated={animated}

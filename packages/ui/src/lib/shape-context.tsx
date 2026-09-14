@@ -68,6 +68,10 @@ interface ShapeContextValue {
 
 const ShapeContext = createContext<ShapeContextValue | null>(null);
 
+// Rounded is the default on every path: the site demos render under
+// <ShapeProvider defaultShape="rounded">, the shipped :focus-visible fallback
+// ring assumes its 8px radius, and the preset generators only emit a provider
+// for pill. A consumer with no provider gets the corners the docs show.
 function useShape(): ShapeClasses {
   const ctx = useContext(ShapeContext);
   if (!ctx) return shapeMap.rounded;
@@ -76,8 +80,7 @@ function useShape(): ShapeClasses {
 
 function useShapeContext() {
   const ctx = useContext(ShapeContext);
-  if (!ctx)
-    throw new Error("useShapeContext must be used within a ShapeProvider");
+  if (!ctx) throw new Error("useShapeContext must be used within a ShapeProvider");
   return ctx;
 }
 
@@ -89,9 +92,7 @@ function ShapeProvider({
   defaultShape?: ShapeVariant;
 }) {
   const [shape, setShapeState] = useState<ShapeVariant>(defaultShape);
-  const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Run a state change under the `.transitioning` guard (added + reflow-flushed
   // first so the 180ms border-radius cross-fade applies). Clearing the previous
@@ -101,11 +102,10 @@ function ShapeProvider({
     root.classList.add("transitioning");
     void root.offsetHeight;
     callback();
-    if (transitionTimeoutRef.current)
-      clearTimeout(transitionTimeoutRef.current);
+    if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
     transitionTimeoutRef.current = setTimeout(
       () => root.classList.remove("transitioning"),
-      200,
+      200
     );
   }, []);
 
@@ -113,7 +113,7 @@ function ShapeProvider({
     (next: ShapeVariant) => {
       transitionShape(() => setShapeState(next));
     },
-    [transitionShape],
+    [transitionShape]
   );
 
   // Publish the current element radius as a CSS custom property so plain-CSS
@@ -123,17 +123,19 @@ function ShapeProvider({
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--shape-input-radius",
-      `${shapeMap[shape].bgRadius}px`,
+      `${shapeMap[shape].bgRadius}px`
     );
   }, [shape]);
 
   const value = useMemo(
     () => ({ shape, setShape, classes: shapeMap[shape] }),
-    [shape, setShape],
+    [shape, setShape]
   );
 
   return (
-    <ShapeContext.Provider value={value}>{children}</ShapeContext.Provider>
+    <ShapeContext.Provider value={value}>
+      {children}
+    </ShapeContext.Provider>
   );
 }
 

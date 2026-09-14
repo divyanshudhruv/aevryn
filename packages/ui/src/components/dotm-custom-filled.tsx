@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 
-
 import { DotMatrixBase } from "../lib/dotmatrix-core";
 import { useDotMatrixPhases } from "../lib/dotmatrix-hooks";
 import { isWithinCircularMask } from "../lib/dotmatrix-core";
@@ -13,18 +12,19 @@ import type {
   DotMatrixCommonProps,
 } from "../lib/dotmatrix-core";
 
-export type DotmCircular8Props = DotMatrixCommonProps;
+export type DotmCustomFilledProps = DotMatrixCommonProps;
 
-const BASE_OPACITY = 0.08;
-const PULSE_CORE = 0.95;
-const PULSE_RING = 0.44;
+const BASE_OPACITY = 0.07;
+const RUNG_OPACITY = 0.95;
+const SIDE_OPACITY = 0.56;
+const GHOST_OPACITY = 0.28;
 
-export function DotmCircular8({
+export function DotmCustomFilled({
   speed = 1,
   animated = true,
   hoverAnimated = false,
   ...rest
-}: DotmCircular8Props) {
+}: DotmCustomFilledProps) {
   const reducedMotion = usePrefersReducedMotion();
   const {
     phase: matrixPhase,
@@ -35,36 +35,28 @@ export function DotmCircular8({
     hoverAnimated: Boolean(hoverAnimated && !reducedMotion),
     speed,
   });
-  const phase = useCyclePhase({
-    active: !reducedMotion && matrixPhase !== "idle",
-    cycleMsBase: 1400,
-    speed,
-  });
 
   const resolver = useMemo<DotAnimationResolver>(() => {
-    return ({ row, col, phase: p }) => {
+    return ({ row, col, phase }) => {
       if (!isWithinCircularMask(row, col)) {
         return { className: "dmx-inactive" };
       }
 
-      const x = col - 2;
-      const y = row - 2;
-      const radius = Math.hypot(x, y);
-      const beat =
-        reducedMotion || p === "idle" ? 0 : Math.sin(phase * Math.PI * 2);
-      const spike =
-        reducedMotion || p === "idle" ? 0 : Math.sin(phase * Math.PI * 4);
-      const pulse = Math.max(0, beat) + Math.max(0, spike) * 0.55;
+      const radius = 2;
+      const distance = Math.sqrt((col - radius) ** 2 + (row - radius) ** 2);
 
-      if (radius < 0.55) {
-        return { style: { opacity: Math.min(1, 0.35 + pulse * PULSE_CORE) } };
+      let opacity = BASE_OPACITY;
+      if (distance <= radius) {
+        opacity = RUNG_OPACITY;
+      } else if (distance <= radius + 1) {
+        opacity = SIDE_OPACITY;
+      } else if (distance <= radius + 2) {
+        opacity = GHOST_OPACITY;
       }
-      if (radius < 1.65) {
-        return { style: { opacity: 0.16 + pulse * PULSE_RING } };
-      }
-      return { style: { opacity: BASE_OPACITY + pulse * 0.08 } };
+
+      return { style: { opacity } };
     };
-  }, [reducedMotion, phase]);
+  }, []);
 
   return (
     <DotMatrixBase

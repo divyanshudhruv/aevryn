@@ -40,7 +40,7 @@ import { fontWeights } from "@aevryn/ui/lib/font-weight";
 // so it hides and a Select at the top of the panel takes over navigation.
 // ---------------------------------------------------------------------------
 
-type SettingsSectionId = "general" | "notifications" | "appearance" | "security";
+type SettingsSectionId = "workspace" | "notifications" | "appearance" | "security";
 
 interface SettingsSection {
   id: SettingsSectionId;
@@ -51,28 +51,28 @@ interface SettingsSection {
 
 const SECTIONS: SettingsSection[] = [
   {
-    id: "general",
-    label: "General",
-    icon: "settings",
-    description: "Workspace name, language, and region.",
+    id: "workspace",
+    label: "Workspace",
+    icon: "folder",
+    description: "Name, default home, and workspace-wide behavior.",
   },
   {
     id: "notifications",
     label: "Notifications",
     icon: "bell",
-    description: "What reaches your inbox and when.",
+    description: "What reaches your inbox and the notification bell.",
   },
   {
     id: "appearance",
     label: "Appearance",
     icon: "palette",
-    description: "Theme and density for this device.",
+    description: "Theme, density, and how the UI breathes.",
   },
   {
     id: "security",
     label: "Security",
     icon: "shield",
-    description: "Sign-in protection and active sessions.",
+    description: "Sign-in alerts and active sessions.",
   },
 ];
 
@@ -88,7 +88,7 @@ export function SettingsDialog({
   open,
   defaultOpen,
   onOpenChange,
-  defaultSection = "general",
+  defaultSection = "workspace",
 }: SettingsDialogProps) {
   const icons = useIcons();
   const [section, setSection] = useState<SettingsSectionId>(defaultSection);
@@ -98,8 +98,6 @@ export function SettingsDialog({
     <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
       <DialogContent
         size="xl"
-        // The dialog's padding and centering give way to the two-column
-        // shell; the height is fixed so the panel scrolls inside it.
         className="flex h-[min(640px,calc(100dvh-4rem))] overflow-hidden p-0"
       >
         <SidebarProvider
@@ -113,8 +111,6 @@ export function SettingsDialog({
             className="hidden h-full sm:flex bg-[rgb(var(--overlay)/0.03)]"
           >
             <SidebarHeader className="px-4 pt-5 pb-2">
-              {/* Headings here are labels, not a headline: the dialog's own
-                  title weight would out-shout the nav beneath it. */}
               <DialogTitle
                 style={{ fontVariationSettings: fontWeights.normal }}
               >
@@ -126,9 +122,7 @@ export function SettingsDialog({
             </SidebarHeader>
             <SidebarContent>
               <SidebarGroup>
-                <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-                {/* Rows are the whole surface here; keyboard focus moves the
-                    highlight instead of drawing a ring. */}
+                <SidebarGroupLabel>Settings</SidebarGroupLabel>
                 <SidebarMenu focusRing={false} className="gap-px">
                   {SECTIONS.map((s) => (
                     <SidebarMenuItem key={s.id}>
@@ -147,12 +141,8 @@ export function SettingsDialog({
           </Sidebar>
 
           <div className="flex min-w-0 flex-1 flex-col">
-            {/* Panel header — pr-12 keeps clear of the dialog's ✕. */}
             <div className="flex shrink-0 flex-col gap-1 px-6 pt-5 pb-4 pr-12">
               <div className="sm:hidden">
-                {/* The dialog's one DialogTitle lives in the sidebar header
-                    (a referenced title names the dialog even while hidden);
-                    this is the visible heading for narrow screens. */}
                 <h2
                   className="mb-3 text-[16px] leading-tight text-foreground"
                   style={{ fontVariationSettings: fontWeights.normal }}
@@ -161,7 +151,7 @@ export function SettingsDialog({
                 </h2>
                 <Select
                   value={section}
-                  onValueChange={(value: string) => setSection(value as any)}
+                  onValueChange={(value: string) => setSection(value as SettingsSectionId)}
                 >
                   <SelectTrigger placeholder="Section" />
                   <SelectContent>

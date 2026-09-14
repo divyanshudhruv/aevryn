@@ -37,7 +37,7 @@ export function ConfirmDeleteDialog({
   title,
   description,
   actionLabel,
-  items,
+  items = [],
   onConfirm,
   loading = false,
 }: ConfirmDeleteDialogProps) {
@@ -61,11 +61,7 @@ export function ConfirmDeleteDialog({
 
         <DialogFooter>
           <DialogClose render={<Button variant="ghost">Cancel</Button>} />
-          <Button
-            loading={loading}
-            onClick={onConfirm}
-            disabled={loading}
-          >
+          <Button loading={loading} onClick={onConfirm} disabled={loading}>
             {actionLabel}
           </Button>
         </DialogFooter>

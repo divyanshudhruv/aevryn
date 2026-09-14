@@ -5,6 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@aevryn/ui/lib/utils";
 import { useShape } from "@aevryn/ui/lib/shape-context";
 import { useSizeVariant } from "@aevryn/ui/lib/size-context";
+import { useTheme } from "next-themes";
 
 const badgeColors = {
   gray: "#a3a3a3",
@@ -46,7 +47,7 @@ const badgeVariants = cva(
       variant: "solid",
       size: "default",
     },
-  }
+  },
 );
 
 type BadgeSizeCanonical = "default" | "compact";
@@ -63,7 +64,8 @@ const legacySizeAliases: Partial<Record<BadgeSize, BadgeSizeCanonical>> = {
 };
 
 interface BadgeProps
-  extends Omit<HTMLAttributes<HTMLSpanElement>, "color">,
+  extends
+    Omit<HTMLAttributes<HTMLSpanElement>, "color">,
     Omit<VariantProps<typeof badgeVariants>, "size"> {
   color?: BadgeColor;
   /** Omitted, the badge follows the surrounding SizeProvider. Legacy
@@ -82,26 +84,29 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
       style,
       ...props
     },
-    ref
+    ref,
   ) => {
     const shape = useShape();
     // Resolve the size: explicit prop (legacy aliases mapped onto the
     // canonical ladder) > surrounding SizeProvider > default.
     const contextSize = useSizeVariant();
     const size: BadgeSizeCanonical = sizeProp
-      ? legacySizeAliases[sizeProp] ?? (sizeProp as BadgeSizeCanonical)
+      ? (legacySizeAliases[sizeProp] ?? (sizeProp as BadgeSizeCanonical))
       : contextSize === "compact"
         ? "compact"
         : "default";
     const colorValue = badgeColors[color];
     const isSolid = variant === "solid";
     const dotSize = size === "compact" ? 6 : 7;
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === "dark";
+    const textMix = isDark ? 75 : 45;
 
     const colorStyle = isSolid
       ? color === "gray"
         ? { backgroundColor: "var(--accent)", color: "var(--foreground)" }
         : {
-            color: "var(--foreground)",
+            color: `color-mix(in srgb, ${colorValue} ${textMix}%, black)`,
             backgroundColor: `color-mix(in srgb, ${colorValue} 15%, var(--background))`,
           }
       : {};
@@ -131,7 +136,7 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
         <span className="[text-box:trim-both_cap_alphabetic]">{children}</span>
       </span>
     );
-  }
+  },
 );
 
 Badge.displayName = "Badge";

@@ -12,15 +12,17 @@ import { useIcon } from "@aevryn/ui/lib/icon-context";
 // on hover/focus — the placeholder owns the field at rest.
 // ---------------------------------------------------------------------------
 
-export interface SidebarSearchFieldProps
-  extends Omit<ComponentProps<typeof SidebarInput>, "className"> {
+export interface SidebarSearchFieldProps extends Omit<
+  ComponentProps<typeof SidebarInput>,
+  "className"
+> {
   /** Keystroke shown in the trailing chip. Pass null to drop the chip. */
   shortcut?: string | null;
 }
 
 export function SidebarSearchField({
   placeholder = "Search…",
-  shortcut = "⌘K",
+  shortcut = "",
   ...props
 }: SidebarSearchFieldProps) {
   const iconSize = useSize().icon;

@@ -72,11 +72,11 @@ import {
   Share2,
   NotebookPen,
   Bot,
-  ArrowUpFromLine ,
+  ArrowUpFromLine,
   ArrowDownFromLine,
   Database,
   Command,
-  
+  Key,
 } from "lucide-react";
 
 export interface IconComponentProps {
@@ -151,10 +151,10 @@ export type IconName =
   | "notebook"
   | "database"
   | "bot"
-  | "arrowupfromline"
-  |"arrowdownfromline"
   | "share"
-  |"command";
+  | "arrowupfromline"
+  | "arrowdownfromline"
+  | "command"|"key";
 
 export const defaultIcons: Record<IconName, IconComponent> = {
   "chevron-right": ChevronRight,
@@ -219,11 +219,12 @@ export const defaultIcons: Record<IconName, IconComponent> = {
   stop: StopIcon,
   notebook: NotebookPen,
   database: Database,
-  bot:Bot,
+  bot: Bot,
   share: Share2,
   arrowupfromline: ArrowUpFromLine,
   arrowdownfromline: ArrowDownFromLine,
   command: Command,
+  key: Key,
 };
 
 const IconContext = createContext<Record<IconName, IconComponent> | null>(null);
@@ -262,4 +263,3 @@ function IconProvider({
 }
 
 export { IconProvider, useIcon, useIcons };
-

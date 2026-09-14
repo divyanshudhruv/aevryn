@@ -267,6 +267,10 @@
 	}
 }
 
+body{
+	overflow-y:hidden;
+}
+
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
@@ -474,6 +478,36 @@
 }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+}
+  @property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
 }
   @property --sf-start {
     syntax: "<number>";
