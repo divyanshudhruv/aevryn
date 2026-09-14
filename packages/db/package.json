@@ -15,7 +15,9 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:deploy": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"db:migrate": "drizzle-kit migrate"
+		"db:migrate": "drizzle-kit migrate",
+		"test": "vitest run",
+		"check-types": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@aevryn/env": "workspace:*",
@@ -30,6 +32,7 @@
 		"@types/pg": "^8.20.0",
 		"drizzle-kit": "^0.31.10",
 		"typescript": "catalog:",
-		"ulid": "^3.0.2"
+		"ulid": "^3.0.2",
+		"vitest": "^5.0.0"
 	}
 }
