@@ -3,10 +3,13 @@
   "checkpoint_id": "327348d197bd",
   "strategy": "manual-commit",
   "branch": "backend/rewrite",
-  "checkpoints_count": 25,
+  "checkpoints_count": 31,
   "files_touched": [
+    "apps/web/src/app/onboarding/page.tsx",
     "apps/web/src/app/workspace/[workspaceId]/page.tsx",
-    "packages/db/src/schema/user-profile.ts"
+    "packages/db/src/schema/index.ts",
+    "packages/db/src/schema/user-profile.ts",
+    "packages/workflow/src/index.ts"
   ],
   "sessions": [
     {
@@ -15,13 +18,20 @@
       "compact_transcript": "/32/7348d197bd/0/transcript.jsonl",
       "content_hash": "/32/7348d197bd/0/content_hash.txt",
       "prompt": "/32/7348d197bd/0/prompt.txt"
+    },
+    {
+      "metadata": "/32/7348d197bd/1/metadata.json",
+      "transcript": "/32/7348d197bd/1/full.jsonl",
+      "compact_transcript": "/32/7348d197bd/1/transcript.jsonl",
+      "content_hash": "/32/7348d197bd/1/content_hash.txt",
+      "prompt": "/32/7348d197bd/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 1843207,
+    "input_tokens": 7732234,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 9728896,
-    "output_tokens": 23837,
-    "api_call_count": 159
+    "cache_read_tokens": 128173504,
+    "output_tokens": 830692,
+    "api_call_count": 1585
   }
 }
