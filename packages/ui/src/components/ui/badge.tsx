@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, type HTMLAttributes } from "react";
+import { forwardRef, useState, useEffect, type HTMLAttributes } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@aevryn/ui/lib/utils";
 import { useShape } from "@aevryn/ui/lib/shape-context";
@@ -98,18 +98,23 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
     const colorValue = badgeColors[color];
     const isSolid = variant === "solid";
     const dotSize = size === "compact" ? 6 : 7;
+    // `resolvedTheme` is undefined during SSR and on the first client pass, so
+    // deriving textMix from it makes the server HTML disagree with the hydrated
+    // tree (different color-mix() ratios) and produces the attribute mismatch.
+    // Hold the theme-dependent style until after hydration agrees on the theme.
     const { resolvedTheme } = useTheme();
-    const isDark = resolvedTheme === "dark";
-    const textMix = isDark ? 75 : 45;
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+    const textMix = mounted && resolvedTheme === "dark" ? 75 : 45;
 
-    const colorStyle = isSolid
-      ? color === "gray"
+    const colorStyle = !mounted || !isSolid
+      ? {}
+      : color === "gray"
         ? { backgroundColor: "var(--accent)", color: "var(--foreground)" }
         : {
             color: `color-mix(in srgb, ${colorValue} ${textMix}%, black)`,
             backgroundColor: `color-mix(in srgb, ${colorValue} 15%, var(--background))`,
-          }
-      : {};
+          };
 
     const dotColor = color === "gray" ? "var(--muted-foreground)" : colorValue;
 

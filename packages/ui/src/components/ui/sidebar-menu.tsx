@@ -1049,7 +1049,7 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
         )}
         {!Icon && (
           <div className="h-full items-center justify-center flex pb-1">
-            {resolvedLoader === "completed" && (
+            {status === "completed" && (
               <div className="mt-1">
                 {/* <span
                   className="flex shrink-0 items-center justify-center"
@@ -1066,29 +1066,29 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
                 <DotmCustomFilled size={17} dotSize={2} />
               </div>
             )}
-            {resolvedLoader === "running" && (
+            {status === "running" && (
               <div>
                 {/* 7 or 2 */}
                 <DotmCircular7 size={17} dotSize={2} />
               </div>
             )}
-            {resolvedLoader === "awaiting_approval" && (
+            {status === "awaiting_approval" && (
               <div>
                 <DotmCircular17 size={17} dotSize={2} />
               </div>
             )}
 
-            {resolvedLoader === "failed" && (
+            {status === "failed" && (
               <div>
                 <DotmCircular14 size={17} dotSize={2} />
               </div>
             )}
-            {resolvedLoader === "sleeping" && (
+            {status === "sleeping" && (
               <div>
                 <DotmCircular4 size={17} dotSize={2} />
               </div>
             )}
-            {resolvedLoader === "idle" && (
+            {status === "idle" && (
               <div className="mt-1">
                 {/* <span
                   className="flex shrink-0 items-center justify-center"

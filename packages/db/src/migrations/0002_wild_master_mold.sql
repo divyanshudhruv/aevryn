@@ -1,0 +1,1 @@
+ALTER TABLE "threads" ALTER COLUMN "title" SET DEFAULT 'New thread';

@@ -12,52 +12,28 @@ import { InputGroup, InputField } from "@aevryn/ui/components/ui/input-group";
 
 import { type IconComponent } from "@aevryn/ui/lib/icon-context";
 import { useState } from "react";
-import { getBrowserSupabase } from "@aevryn/auth";
 
 export function NewThreadDialog({
   open,
   defaultOpen,
   onOpenChange,
-  workspaceId,
-  groupId,
-  onCreateSuccess,
+  onConfirm,
+  loading = false,
   icon,
 }: {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
-  workspaceId: string;
-  groupId: string;
-  onCreateSuccess?: () => void;
+  onConfirm?: (title: string) => void;
+  loading?: boolean;
   icon?: IconComponent;
 }) {
   const [name, setName] = useState("");
-  const [creating, setCreating] = useState(false);
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    setCreating(true);
-    try {
-      const supabase = getBrowserSupabase();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not signed in");
-      const { error } = await supabase
-        .from("threads")
-        .insert({
-          workspace_id: workspaceId,
-          group_id: groupId,
-          user_id: user.id,
-          title: name.trim(),
-        });
-      if (error) throw error;
-      setName("");
-      onCreateSuccess?.();
-      onOpenChange?.(false);
-    } catch {
-      // keep dialog open so user can retry
-    } finally {
-      setCreating(false);
-    }
+  const handleCreate = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onConfirm?.(trimmed);
   };
 
   return (
@@ -80,7 +56,11 @@ export function NewThreadDialog({
 
         <DialogFooter>
           <DialogClose render={<Button variant="ghost">Cancel</Button>} />
-          <Button disabled={!name.trim()} loading={creating} onClick={handleCreate}>
+          <Button
+            disabled={!name.trim()}
+            loading={loading}
+            onClick={handleCreate}
+          >
             Create
           </Button>
         </DialogFooter>

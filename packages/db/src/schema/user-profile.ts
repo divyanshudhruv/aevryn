@@ -1,14 +1,13 @@
 import { sql } from "drizzle-orm";
 import {
-  boolean,
-  jsonb,
+  foreignKey,
   pgPolicy,
   pgTable,
   text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { authenticatedRole } from "drizzle-orm/supabase";
+import { authenticatedRole, authUsers } from "drizzle-orm/supabase";
 
 import { planLevelEnum } from "./enums";
 
@@ -20,13 +19,8 @@ export const userProfiles = pgTable(
     userId: uuid("user_id").notNull().unique(),
     name: text("name").notNull().default(""),
     email: text("email").notNull().default(""),
-    pfp: text("pfp").notNull().default(""),
-    onboarded: boolean("onboarded").notNull().default(false),
-    preAnswers: jsonb("pre_answers"),
+    avatarUrl: text("avatar_url").notNull().default(""),
     plan: planLevelEnum("plan").notNull().default("free"),
-    preferOwnKeysInShared: boolean("prefer_own_keys_in_shared")
-      .notNull()
-      .default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -36,6 +30,10 @@ export const userProfiles = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [authUsers.id],
+    }).onDelete("cascade"),
     pgPolicy("user_profiles_select", {
       for: "select",
       to: authenticatedRole,

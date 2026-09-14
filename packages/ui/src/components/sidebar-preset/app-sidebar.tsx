@@ -14,7 +14,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuBadge,
   SidebarMenuAction,
   SidebarMenuActions,
   type SidebarProps,
@@ -28,7 +27,7 @@ import {
   DropdownSeparator,
 } from "@aevryn/ui/components/ui/dropdown";
 import { MenuItem } from "@aevryn/ui/components/ui/menu-item";
-import { useIcon, useIcons } from "@aevryn/ui/lib/icon-context";
+import { useIcon } from "@aevryn/ui/lib/icon-context";
 import {
   SidebarWorkspaceHeader,
   WorkspaceTile,
@@ -49,50 +48,128 @@ import {
 import { useSurface } from "@aevryn/ui/lib/surface-context";
 import { AnimatePresence, motion as m } from "framer-motion";
 import { spring } from "@aevryn/ui/lib/springs";
-import { NAV_SECTIONS } from "@aevryn/ui/components/sidebar-preset/nav-data";
 import { CommandMenuDemo } from "../command-menu-demo";
-import { DotmCircular2 } from "../dotm-circular-2";
 import type { RunStatus } from "@aevryn/db";
 import { SettingsDialog } from "../dialog/settings-dialog";
 import { NewGroupDialog } from "../dialog/new-group-dialog";
-import { NewThreadDialog } from "../dialog/new-thread-dialog";
 import { ConfirmDeleteDialog } from "../dialog/confirm-delete-dialog";
 import { RenameThreadDialog } from "../dialog/rename-thread-dialog";
 import { RenameGroupDialog } from "../dialog/rename-group-dialog";
 import { Badge } from "../ui/badge";
-const CALLOUTS = [
-  { id: 1, title: "Aurora 2 is here", desc: "Longer context, faster agents" },
-  { id: 2, title: "New workspace roles", desc: "Owner, editor, viewer" },
-  { id: 3, title: "Dark mode shipped", desc: "Follows your system" },
+export interface PromoCard {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string | null;
+}
+
+const FALLBACK_IMG =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Cdefs%3E%3CradialGradient id='a' cx='12%25' cy='16%25' r='70%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.9'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='90%25' cy='12%25' r='65%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.45'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='c' cx='82%25' cy='94%25' r='75%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.8'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='d' cx='24%25' cy='90%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.55'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='320' height='180' fill='%23ffffff'/%3E%3Crect width='320' height='180' fill='%236B97FF' fill-opacity='0.2'/%3E%3Crect width='320' height='180' fill='url(%23a)'/%3E%3Crect width='320' height='180' fill='url(%23b)'/%3E%3Crect width='320' height='180' fill='url(%23c)'/%3E%3Crect width='320' height='180' fill='url(%23d)'/%3E%3C/svg%3E";
+
+const FALLBACK_CALLOUTS: PromoCard[] = [
+  {
+    id: "1",
+    title: "Aurora 2 is here",
+    description: "Longer context, faster agents",
+    imageUrl: null,
+  },
+  {
+    id: "2",
+    title: "New workspace roles",
+    description: "Owner, editor, viewer",
+    imageUrl: null,
+  },
+  {
+    id: "3",
+    title: "Dark mode shipped",
+    description: "Follows your system",
+    imageUrl: null,
+  },
 ];
 
-export function AppSidebar(props: Omit<SidebarProps, "children">) {
-  const [active, setActive] = useState("New pricing page exploration");
+export interface SidebarData {
+  workspace: { id: string; name: string; isDefault: boolean };
+  workspaces: Array<{ id: string; name: string; isDefault: boolean }>;
+  groups: Array<{ id: string; name: string; position: number }>;
+  threads: Array<{
+    id: string;
+    groupId: string | null;
+    title: string;
+    status: string;
+    updatedAt: string;
+  }>;
+  userName: string | null;
+  userAvatarUrl: string | null;
+  promoCards: PromoCard[];
+}
+
+export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
+  /** Sidebar data from /api/sidebar. Omitted → skeleton shown. */
+  data?: SidebarData;
+  /** Thread id of the currently open conversation, for the active row. */
+  activeThreadId?: string;
+  onCreateGroup?: (workspaceId: string, name: string) => void;
+  onCreateThread?: (
+    workspaceId: string,
+    groupId: string | null,
+    title: string,
+  ) => void;
+  onOpenThread?: (workspaceId: string, threadId: string) => void;
+  onSwitchWorkspace?: (workspaceId: string) => void;
+  onRenameThread?: (threadId: string, title: string) => void;
+  onDeleteThread?: (threadId: string) => void;
+  onRenameGroup?: (groupId: string, name: string) => void;
+  onDeleteGroup?: (groupId: string) => void;
+  onLogout?: () => void;
+}
+
+export function AppSidebar({
+  data,
+  activeThreadId,
+  onCreateGroup,
+  onCreateThread,
+  onOpenThread,
+  onSwitchWorkspace,
+  onRenameThread,
+  onDeleteThread,
+  onRenameGroup,
+  onDeleteGroup,
+  onLogout,
+  ...props
+}: AppSidebarProps) {
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [callouts, setCallouts] = useState(CALLOUTS);
+  const [callouts, setCallouts] = useState<PromoCard[]>(FALLBACK_CALLOUTS);
+
+  const promoSource = data?.promoCards && data.promoCards.length > 0
+    ? data.promoCards
+    : FALLBACK_CALLOUTS;
+  const promoKey = promoSource.map((c) => c.id).join("|");
+  useEffect(() => {
+    setCallouts((prev) =>
+      prev.length === promoSource.length && promoSource.every((c, i) => c.id === prev[i]?.id)
+        ? prev
+        : promoSource,
+    );
+  }, [promoKey]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 0);
     return () => clearTimeout(timer);
   }, [search]);
-  const dismiss = (id: number) =>
-    setCallouts((c) => c.filter((x) => x.id !== id));
+  const dismiss = (id: string) => setCallouts((c) => c.filter((x) => x.id !== id));
   // The callout rests one surface step above the rail.
   const level = Math.min(useSurface() + 1, 8);
-  const [expanded, setExpanded] = useState(false);
   // Front card's measured height — never an animated "auto".
   const [cardH, setCardH] = useState(64);
   const collapsedH = cardH + Math.min(callouts.length - 1, 2) * 12;
-  const expandedH = callouts.length * cardH + (callouts.length - 1) * 4;
   const PlusIcon = useIcon("plus");
   const PencilIcon = useIcon("pencil");
   const MoreVerticalIcon = useIcon("more-vertical");
   const LinkIcon = useIcon("link");
   const SlidersIcon = useIcon("sliders-horizontal");
-  const UsersIcon = useIcon("users");
   const UserIcon = useIcon("user");
-  const SettingsIcon = useIcon("settings");
   const ArrowLeftIcon = useIcon("arrow-left");
   const FooterSettingsIcon = useIcon("settings");
   const MoonIcon = useIcon("moon");
@@ -104,15 +181,24 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
-  const [newThreadOpen, setNewThreadOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [renameThreadOpen, setRenameThreadOpen] = useState(false);
   const [renameGroupOpen, setRenameGroupOpen] = useState(false);
-  const [commandMenuOpen, setCommandMenuOpen] = useState(false);
+  const [renameThreadTarget, setRenameThreadTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [renameGroupTarget, setRenameGroupTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: "thread"; id: string; name: string }
+    | { kind: "group"; id: string; name: string }
+    | null
+  >(null);
 
   const { resolvedTheme, setTheme } = useTheme();
-
-  const themeCycle: Array<"light" | "dark"> = ["light", "dark"];
 
   const nextTheme = resolvedTheme === "dark" ? "light" : "dark";
 
@@ -120,61 +206,146 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
     setTheme(nextTheme);
   }, [nextTheme, setTheme]);
 
-  const filteredItems = useMemo(() => {
-    const query = debouncedSearch.toLowerCase();
-    if (query === "") return null;
-    return NAV_SECTIONS.map((section) => ({
+  // Map the real workspace data into the sidebar's group/thread sections.
+  const sections = useMemo(() => {
+    if (!data) return null;
+    const byGroup = new Map<string | null, SidebarData["threads"]>();
+    for (const thread of data.threads) {
+      const list = byGroup.get(thread.groupId ?? null) ?? [];
+      list.push(thread);
+      byGroup.set(thread.groupId ?? null, list);
+    }
+    const result: Array<{
+      id: string | null;
+      label: string;
+      items: SidebarData["threads"];
+    }> = data.groups.map((group) => ({
+      id: group.id,
+      label: group.name,
+      items: byGroup.get(group.id) ?? [],
+    }));
+    const ungrouped = byGroup.get(null) ?? [];
+    if (ungrouped.length > 0) {
+      result.unshift({ id: null, label: "THREADS", items: ungrouped });
+    }
+    return result;
+  }, [data]);
+
+  const query = debouncedSearch.toLowerCase();
+  const filteredSections = useMemo(() => {
+    if (query === "" || !sections) return null;
+    return sections.map((section) => ({
       ...section,
       items: section.items.filter((item) =>
-        item.label.toLowerCase().includes(query),
+        item.title.toLowerCase().includes(query),
       ),
     }));
-  }, [debouncedSearch]);
+  }, [sections, query]);
 
-  const threadCount = useMemo(() => {
-    if (filteredItems === null) return 0;
-    let count = 0;
-    for (const section of filteredItems) count += section.items.length;
-    return count;
-  }, [filteredItems]);
+  const deleteItems = useMemo(() => {
+    if (!deleteTarget) return [];
+    if (deleteTarget.kind === "thread") return [{ value: deleteTarget.name }];
+    return (sections?.find((s) => s.id === deleteTarget.id)?.items ?? []).map(
+      (t) => ({ value: t.title }),
+    );
+  }, [deleteTarget, sections]);
+
+  const currentWorkspace = data?.workspace;
+  const currentWorkspaceIndex = useMemo(
+    () =>
+      currentWorkspace
+        ? Math.max(
+            0,
+            (data?.workspaces ?? []).findIndex(
+              (w) => w.id === currentWorkspace.id,
+            ),
+          )
+        : 0,
+    [currentWorkspace, data?.workspaces],
+  );
 
   return (
     <>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
 
-      <NewGroupDialog open={newGroupOpen} onOpenChange={setNewGroupOpen} />
-      <NewThreadDialog open={newThreadOpen} onOpenChange={setNewThreadOpen} />
+      <NewGroupDialog
+        key={`new-group-${newGroupOpen}`}
+        open={newGroupOpen}
+        onOpenChange={setNewGroupOpen}
+        onConfirm={(name) => {
+          if (currentWorkspace) onCreateGroup?.(currentWorkspace.id, name);
+          setNewGroupOpen(false);
+        }}
+      />
       <ConfirmDeleteDialog
         open={confirmDeleteOpen}
         onOpenChange={setConfirmDeleteOpen}
+        title={
+          deleteTarget?.kind === "group" ? "Delete group" : "Delete thread"
+        }
+        description={
+          deleteTarget?.kind === "group"
+            ? "All threads in this group will be removed."
+            : "This thread will be permanently removed."
+        }
+        actionLabel={deleteTarget?.kind === "group" ? "Delete group" : "Delete"}
+        items={deleteItems}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          if (deleteTarget.kind === "group") {
+            onDeleteGroup?.(deleteTarget.id);
+          } else {
+            onDeleteThread?.(deleteTarget.id);
+          }
+          setConfirmDeleteOpen(false);
+        }}
       />
       <RenameThreadDialog
+        key={`rename-thread-${renameThreadTarget?.id ?? "none"}-${renameThreadOpen}`}
         open={renameThreadOpen}
         onOpenChange={setRenameThreadOpen}
+        title={renameThreadTarget?.title}
+        onRename={(title) => {
+          if (renameThreadTarget)
+            onRenameThread?.(renameThreadTarget.id, title);
+          setRenameThreadOpen(false);
+        }}
       />
       <RenameGroupDialog
+        key={`rename-group-${renameGroupTarget?.id ?? "none"}-${renameGroupOpen}`}
         open={renameGroupOpen}
         onOpenChange={setRenameGroupOpen}
+        name={renameGroupTarget?.name}
+        onRename={(name) => {
+          if (renameGroupTarget) onRenameGroup?.(renameGroupTarget.id, name);
+          setRenameGroupOpen(false);
+        }}
       />
       <Sidebar variant="inset" {...props}>
         <SidebarHeader>
           <SidebarWorkspaceHeader
-            name="Acme Inc"
-            tile={<WorkspaceTile>A</WorkspaceTile>}
-            checkedIndex={0}
+            name={currentWorkspace?.name ?? "Workspace"}
+            tile={
+              <WorkspaceTile>
+                {currentWorkspace?.name?.[0] ?? "W"}
+              </WorkspaceTile>
+            }
+            checkedIndex={currentWorkspaceIndex}
             menu={
               <>
+                {(data?.workspaces ?? []).map((workspace, index) => (
+                  <MenuItem
+                    key={workspace.id}
+                    index={index}
+                    label={workspace.name}
+                    checked={workspace.id === currentWorkspace?.id}
+                    onSelect={() => onSwitchWorkspace?.(workspace.id)}
+                  />
+                ))}
                 <MenuItem
-                  index={0}
-                  label="Acme Inc"
-                  checked
-                  onSelect={() => {}}
-                />
-                <MenuItem index={1} label="Personal" onSelect={() => {}} />
-                <MenuItem
-                  index={2}
+                  index={data?.workspaces.length ?? 0}
                   icon={PlusIcon}
-                  label="New workspace"
+                  label="New workspace" disabled
                   onSelect={() => {}}
                 />
               </>
@@ -205,10 +376,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                 >
                   New
                   {/* shortcut chip, revealed on row hover */}
-                  <span
-                    className="ml-auto inline-flex opacity-0 transition-opacity duration-80
-                  group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100"
-                  >
+                  <span className="ml-auto inline-flex opacity-0 transition-opacity duration-80 group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100">
                     <kbd className="font-sans text-[11px] text-muted-foreground">
                       ⇧⌘O
                     </kbd>
@@ -244,8 +412,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
         </SidebarHeader>
 
         <SidebarContent>
-          {" "}
-          {NAV_SECTIONS === null && (
+          {sections === null && (
             <>
               <SidebarMenuSkeleton />
               <SidebarMenuSkeleton showIcon />
@@ -258,14 +425,32 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
               <SidebarMenuSkeleton showIcon />
             </>
           )}
-          {(filteredItems ?? NAV_SECTIONS).map((section) => (
-            <SidebarGroup key={section.label} collapsible>
+          {sections !== null && sections.length === 0 && (
+            <div className="flex flex-col gap-1 px-4 py-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                No groups yet
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Create your first group to organize threads.
+              </p>
+            </div>
+          )}
+          {(filteredSections ?? sections ?? []).map((section) => (
+            <SidebarGroup key={section.id ?? section.label} collapsible>
               <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
               <SidebarGroupActions>
                 <Tooltip content="Add item" side="top">
                   <SidebarGroupAction
                     aria-label="Add thread"
-                    onClick={() => setNewThreadOpen(true)}
+                    onClick={() => {
+                      if (currentWorkspace) {
+                        onCreateThread?.(
+                          currentWorkspace.id,
+                          section.id,
+                          "New thread",
+                        );
+                      }
+                    }}
                   >
                     <PlusIcon />
                   </SidebarGroupAction>
@@ -311,7 +496,15 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                         index={2}
                         icon={PencilIcon}
                         label="Rename Group"
-                        onSelect={() => setRenameThreadOpen(true)}
+                        disabled={section.id === null}
+                        onSelect={() => {
+                          if (section.id === null) return;
+                          setRenameGroupTarget({
+                            id: section.id,
+                            name: section.label,
+                          });
+                          setRenameGroupOpen(true);
+                        }}
                       />
 
                       <DropdownSeparator />
@@ -319,113 +512,126 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                         index={3}
                         icon={DustbinIcon}
                         label="Delete Group"
-                        onSelect={() => setConfirmDeleteOpen(true)}
+                        disabled={section.id === null}
+                        onSelect={() => {
+                          if (section.id === null) return;
+                          setDeleteTarget({
+                            kind: "group",
+                            id: section.id,
+                            name: section.label,
+                          });
+                          setConfirmDeleteOpen(true);
+                        }}
                       />
                     </DropdownContent>
                   </DropdownMenu>
                 </Tooltip>
               </SidebarGroupActions>
               <SidebarMenu>
-                {section.items
-                  .filter(
-                    (item) =>
-                      debouncedSearch === "" ||
-                      item.label
-                        .toLowerCase()
-                        .includes(debouncedSearch.toLowerCase()),
-                  )
-                  .map((item) => (
-                    <SidebarMenuItem key={item.id ?? item.label}>
-                      {/* status drives the dot and the screen-reader "unread" text */}
-                      <SidebarMenuButton
-                        status={item.status as RunStatus}
-                        isActive={item.label === active}
-                        onClick={() => setActive(item.label)}
-                      >
-                        {item.label}
-                      </SidebarMenuButton>
-                      {item.badge && (
-                        <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                      )}
-                      <SidebarMenuActions showOnHover>
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.id}>
+                    {/* status drives the dot and the screen-reader "unread" text */}
+                    <SidebarMenuButton
+                      status={item.status as RunStatus}
+                      isActive={item.id === (activeThreadId ?? activeId)}
+                      onClick={() => {
+                        setActiveId(item.id);
+                        if (data) onOpenThread?.(data.workspace.id, item.id);
+                      }}
+                    >
+                      {item.title}
+                    </SidebarMenuButton>
+                    <SidebarMenuActions showOnHover>
+                      {item.status !== "awaiting_approval" && (
                         <Tooltip
                           content={item.status === "running" ? "Stop" : "Run"}
                           side="top"
                         >
-                          {item.status != "awaiting_approval" && (
-                            <Tooltip
-                              content={
-                                item.status === "running" ? "Stop" : "Run"
-                              }
-                              side="top"
-                            >
-                              <SidebarMenuAction aria-label="Run/Stop">
-                                {item.status === "running" ? (
-                                  <StopIcon />
-                                ) : (
-                                  <PlayIcon />
-                                )}
-                              </SidebarMenuAction>
-                            </Tooltip>
-                          )}
-                        </Tooltip>
-                        <Tooltip content="Rename" side="top">
-                          <SidebarMenuAction
-                            aria-label="Rename"
-                            onClick={() => setRenameThreadOpen(true)}
-                          >
-                            <PencilIcon />
+                          <SidebarMenuAction aria-label="Run/Stop">
+                            {item.status === "running" ? (
+                              <StopIcon />
+                            ) : (
+                              <PlayIcon />
+                            )}
                           </SidebarMenuAction>
                         </Tooltip>
-                        <DropdownMenu>
-                          <DropdownTrigger
-                            render={
-                              <SidebarMenuAction aria-label="More options">
-                                <MoreVerticalIcon />
-                              </SidebarMenuAction>
+                      )}
+                      <Tooltip content="Rename" side="top">
+                        <SidebarMenuAction
+                          aria-label="Rename"
+                          onClick={() => {
+                            setRenameThreadTarget({
+                              id: item.id,
+                              title: item.title,
+                            });
+                            setRenameThreadOpen(true);
+                          }}
+                        >
+                          <PencilIcon />
+                        </SidebarMenuAction>
+                      </Tooltip>
+                      <DropdownMenu>
+                        <DropdownTrigger
+                          render={
+                            <SidebarMenuAction aria-label="More options">
+                              <MoreVerticalIcon />
+                            </SidebarMenuAction>
+                          }
+                        />
+                        {/* 240px — the header/footer trigger width */}
+                        <DropdownContent
+                          className="min-w-0 w-[240px]"
+                          align="start"
+                          sideOffset={4}
+                        >
+                          <MenuItem
+                            index={0}
+                            icon={
+                              item.status === "running" ? StopIcon : PlayIcon
                             }
+                            label={item.status === "running" ? "Stop" : "Run"}
+                            onSelect={() => {}}
+                            disabled={item.status === "awaiting_approval"}
                           />
-                          {/* 240px — the header/footer trigger width */}
-                          <DropdownContent
-                            className="min-w-0 w-[240px]"
-                            align="start"
-                            sideOffset={4}
-                          >
-                            <MenuItem
-                              index={0}
-                              icon={
-                                item.status === "running" ? StopIcon : PlayIcon
-                              }
-                              label={item.status === "running" ? "Stop" : "Run"}
-                              onSelect={() => {}}
-                              disabled={item.status === "awaiting_approval"}
-                            />
 
-                            <MenuItem
-                              index={2}
-                              icon={PencilIcon}
-                              label="Rename"
-                              onSelect={() => setRenameThreadOpen(true)}
-                            />
-                            <MenuItem
-                              index={3}
-                              icon={LinkIcon}
-                              label="Share"
-                              disabled
-                              onSelect={() => {}}
-                            />
-                            <DropdownSeparator />
-                            <MenuItem
-                              index={4}
-                              icon={DustbinIcon}
-                              label="Delete"
-                              onSelect={() => setConfirmDeleteOpen(true)}
-                            />
-                          </DropdownContent>
-                        </DropdownMenu>
-                      </SidebarMenuActions>
-                    </SidebarMenuItem>
-                  ))}
+                          <MenuItem
+                            index={2}
+                            icon={PencilIcon}
+                            label="Rename"
+                            onSelect={() => {
+                              setRenameThreadTarget({
+                                id: item.id,
+                                title: item.title,
+                              });
+                              setRenameThreadOpen(true);
+                            }}
+                          />
+                          <MenuItem
+                            index={3}
+                            icon={LinkIcon}
+                            label="Share"
+                            disabled
+                            onSelect={() => {}}
+                          />
+                          <DropdownSeparator />
+                          <MenuItem
+                            index={4}
+                            icon={DustbinIcon}
+                            label="Delete"
+                            onSelect={() => {
+                              setDeleteTarget({
+                                kind: "thread",
+                                id: item.id,
+                                name: item.title,
+                              });
+                              setConfirmDeleteOpen(true);
+                            }}
+                          />
+                        </DropdownContent>
+                      </DropdownMenu>
+                    </SidebarMenuActions>
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </SidebarGroup>
           ))}
@@ -469,20 +675,20 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                     size="compact"
                     dismissible
                     onDismiss={() => dismiss(c.id)}
-                    label="Aurora 2 is here — longer context, faster agents"
+                    label={`${c.title} - ${c.description}`}
                     className={`rounded-xl overflow-hidden min-h-0 transition-[background-color,box-shadow]
                   duration-80 ${surfaceClasses(level, 2)} ${surfaceHoverClasses(level + 1, 3)}
                   shadow-(--shadow-2-inset) hover:shadow-(--shadow-3-inset)`}
                   >
                     {/* swap for your artwork */}
                     <CardImage
-                      src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Cdefs%3E%3CradialGradient id='a' cx='12%25' cy='16%25' r='70%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.9'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='90%25' cy='12%25' r='65%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.45'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='c' cx='82%25' cy='94%25' r='75%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.8'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='d' cx='24%25' cy='90%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.55'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='320' height='180' fill='%23ffffff'/%3E%3Crect width='320' height='180' fill='%236B97FF' fill-opacity='0.2'/%3E%3Crect width='320' height='180' fill='url(%23a)'/%3E%3Crect width='320' height='180' fill='url(%23b)'/%3E%3Crect width='320' height='180' fill='url(%23c)'/%3E%3Crect width='320' height='180' fill='url(%23d)'/%3E%3C/svg%3E"
+                      src={c.imageUrl ?? FALLBACK_IMG}
                       className="aspect-[2/1] max-h-28"
                     />
                     <CardHeader className="gap-0 pt-3">
                       <CardTitle className="truncate">{c.title}</CardTitle>
                       <CardDescription className="truncate text-caption text-muted-foreground">
-                        {c.desc}
+                        {c.description}
                       </CardDescription>
                     </CardHeader>
                   </Card>
@@ -507,11 +713,20 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
             </SidebarMenuItem>
           </SidebarMenu>
           <SidebarUserFooter
-            name="Jane Doe"
+            name={data?.userName ?? "User"}
             avatar={
-              <span className="flex size-5 items-center justify-center rounded-full bg-muted-foreground text-[10px] text-background">
-                J
-              </span>
+              data?.userAvatarUrl ? (
+                <img
+                  src={data.userAvatarUrl}
+                  alt={data?.userName ?? "User"}
+                  referrerPolicy="no-referrer"
+                  className="size-5 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <span className="flex size-5 items-center justify-center rounded-full bg-muted-foreground text-[10px] text-background">
+                  {(data?.userName ?? "U")[0]}
+                </span>
+              )
             }
             menu={
               <>
@@ -521,7 +736,7 @@ export function AppSidebar(props: Omit<SidebarProps, "children">) {
                   index={2}
                   icon={ArrowLeftIcon}
                   label="Log out"
-                  onSelect={() => {}}
+                  onSelect={() => onLogout?.()}
                 />
               </>
             }

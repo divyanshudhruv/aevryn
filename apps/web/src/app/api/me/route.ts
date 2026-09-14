@@ -1,13 +1,13 @@
 import { requireUser } from "@aevryn/auth";
-import { db, userProfiles } from "@aevryn/db";
-import { eq } from "drizzle-orm";
+import { WorkspaceService } from "@aevryn/workflow";
 
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/me — display name + avatar of the signed-in user. */
+const workspaceService = new WorkspaceService();
+
 export async function GET(): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();
 	let user: { id: string };
@@ -20,14 +20,10 @@ export async function GET(): Promise<Response> {
 		);
 	}
 
-	const rows = await db
-		.select({ name: userProfiles.name, pfp: userProfiles.pfp })
-		.from(userProfiles)
-		.where(eq(userProfiles.userId, user.id))
-		.limit(1);
+	const data = await workspaceService.getProfile(user.id);
 
 	return Response.json(
-		{ data: { name: rows[0]?.name ?? null, pfp: rows[0]?.pfp ?? null }, error: null, meta: {} },
+		{ data, error: null, meta: {} },
 		{ headers: { "cache-control": "no-store" } },
 	);
 }

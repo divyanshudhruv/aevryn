@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AppSidebar, type SidebarData } from "@aevryn/ui/components/sidebar-preset/app-sidebar";
+import type { Route } from "next";
+import {
+	AppSidebar,
+	type SidebarData,
+} from "@aevryn/ui/components/sidebar-preset/app-sidebar";
+import { supabaseClient } from "@/lib/supabase-client";
 
-/**
- * Real-data wrapper around the sidebar preset. Fetches GET /api/sidebar and
- * wires all mutations to POST /api/sidebar/create. Styling is the preset's.
- */
 export function WorkspaceSidebar() {
 	const params = useParams<{ workspaceId?: string; threadId?: string }>();
 	const router = useRouter();
@@ -17,7 +18,9 @@ export function WorkspaceSidebar() {
 
 	const refresh = useCallback(async () => {
 		try {
-			const qs = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : "";
+			const qs = workspaceId
+				? `?workspaceId=${encodeURIComponent(workspaceId)}`
+				: "";
 			const res = await fetch(`/api/sidebar${qs}`, { cache: "no-store" });
 			if (!res.ok) return;
 			const json = (await res.json()) as { data: SidebarData };
@@ -35,97 +38,110 @@ export function WorkspaceSidebar() {
 
 	const mutate = useCallback(
 		async (body: Record<string, unknown>) => {
-			const res = await fetch("/api/sidebar/create", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify(body),
-			});
-			const json = (await res.json().catch(() => null)) as {
-				data?: { id?: string };
-			} | null;
-			void refresh();
-			return json?.data ?? null;
+			try {
+				const res = await fetch("/api/sidebar/create", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify(body),
+				});
+				if (!res.ok) return null;
+				const json = (await res.json().catch(() => null)) as {
+					data?: { id?: string };
+				} | null;
+				await refresh();
+				return json?.data ?? null;
+			} catch {
+				return null;
+			}
 		},
 		[refresh],
 	);
 
 	const createThread = useCallback(
-		async (groupId: string | null) => {
-			if (!data) return;
+		async (wsId: string, groupId: string | null, title: string) => {
 			const created = await mutate({
 				kind: "thread",
-				workspaceId: data.workspace.id,
+				workspaceId: wsId,
 				groupId: groupId ?? undefined,
+				title,
 			});
 			if (created?.id) {
-				router.push(`/workspace/${data.workspace.id}/${created.id}`);
+				router.push(`/workspace/${wsId}/${created.id}` as Route);
 			}
 		},
-		[data, mutate, router],
+		[mutate, router],
 	);
 
-	const createGroup = useCallback(async () => {
-		if (!data) return;
-		const name = window.prompt("Group name");
-		if (!name?.trim()) return;
-		await mutate({ kind: "group", workspaceId: data.workspace.id, name });
-	}, [data, mutate]);
+	const createGroup = useCallback(
+		async (wsId: string, name: string) => {
+			await mutate({ kind: "group", workspaceId: wsId, name });
+		},
+		[mutate],
+	);
 
 	const renameThread = useCallback(
-		async (threadId: string) => {
-			const name = window.prompt("New title");
-			if (!name?.trim()) return;
-			await mutate({ kind: "rename-thread", id: threadId, name });
+		async (id: string, newTitle: string) => {
+			await mutate({ kind: "rename-thread", id, name: newTitle });
 		},
 		[mutate],
 	);
 
 	const deleteThread = useCallback(
-		async (threadId: string) => {
-			if (!window.confirm("Delete this thread?")) return;
-			await mutate({ kind: "delete-thread", id: threadId });
-			if (params?.threadId === threadId && data) {
-				router.push(`/workspace/${data.workspace.id}`);
+		async (id: string) => {
+			await mutate({ kind: "delete-thread", id });
+			if (params?.threadId === id && data) {
+				router.push(`/workspace/${data.workspace.id}` as Route);
 			}
 		},
 		[mutate, params?.threadId, data, router],
 	);
 
 	const renameGroup = useCallback(
-		async (groupId: string) => {
-			const name = window.prompt("New group name");
-			if (!name?.trim()) return;
-			await mutate({ kind: "rename-group", id: groupId, name });
+		async (id: string, newName: string) => {
+			await mutate({ kind: "rename-group", id, name: newName });
 		},
 		[mutate],
 	);
 
 	const deleteGroup = useCallback(
-		async (groupId: string) => {
-			if (!window.confirm("Delete this group? Its threads move to ungrouped."))
-				return;
-			await mutate({ kind: "delete-group", id: groupId });
+		async (id: string) => {
+			await mutate({ kind: "delete-group", id });
 		},
 		[mutate],
 	);
 
 	const switchWorkspace = useCallback(
 		(id: string) => {
-			router.push(`/workspace/${id}`);
+			router.push(`/workspace/${id}` as Route);
 		},
 		[router],
 	);
 
+	const openThread = useCallback(
+		(wsId: string, threadId: string) => {
+			router.push(`/workspace/${wsId}/${threadId}` as Route);
+		},
+		[router],
+	);
+
+	const logout = useCallback(async () => {
+		await supabaseClient.auth.signOut();
+		router.push("/login");
+	}, [router]);
+
 	return (
 		<AppSidebar
 			data={data ?? undefined}
-			onNewThread={() => void createThread(null)}
-			onCreateThread={(groupId) => void createThread(groupId)}
+			activeThreadId={params?.threadId}
+			onCreateGroup={createGroup}
+			onCreateThread={createThread}
+			onOpenThread={openThread}
 			onSwitchWorkspace={switchWorkspace}
-			onRenameThread={(id) => void renameThread(id)}
-			onDeleteThread={(id) => void deleteThread(id)}
-			onRenameGroup={(id) => void renameGroup(id)}
-			onDeleteGroup={(id) => void deleteGroup(id)}
+			onRenameThread={renameThread}
+			onDeleteThread={deleteThread}
+			onRenameGroup={renameGroup}
+			onDeleteGroup={deleteGroup}
+			onLogout={logout}
 		/>
 	);
 }

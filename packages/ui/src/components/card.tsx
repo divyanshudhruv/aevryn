@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import { cn } from "@aevryn/ui/lib/utils";
 import { fontWeights } from "@aevryn/ui/lib/font-weight";
 import { useShape } from "@aevryn/ui/lib/shape-context";
@@ -349,7 +350,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     const overlay = clickable && !disabled ? (
       href ? (
         <Link
-          href={href}
+          href={href as Route}
           onClick={onClick}
           target={external ? "_blank" : undefined}
           rel={external ? "noopener noreferrer" : undefined}
@@ -971,7 +972,7 @@ function CardButton({
   if (href) {
     return (
       <Link
-        href={href}
+        href={href as Route}
         onClick={onClick}
         target={external ? "_blank" : undefined}
         rel={external ? "noopener noreferrer" : undefined}

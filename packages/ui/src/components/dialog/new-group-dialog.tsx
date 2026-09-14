@@ -12,49 +12,28 @@ import {
 import { InputGroup, InputField } from "@aevryn/ui/components/ui/input-group";
 
 import { useState } from "react";
-import { getBrowserSupabase } from "@aevryn/auth";
 
 export function NewGroupDialog({
   open,
   defaultOpen,
   onOpenChange,
-  workspaceId,
-  onCreateSuccess,
+  onConfirm,
+  loading = false,
   icon,
 }: {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
-  workspaceId: string;
-  onCreateSuccess?: () => void;
+  onConfirm?: (name: string) => void;
+  loading?: boolean;
   icon?: IconComponent;
 }) {
   const [name, setName] = useState("");
-  const [creating, setCreating] = useState(false);
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    setCreating(true);
-    try {
-      const supabase = getBrowserSupabase();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not signed in");
-      const { error } = await supabase
-        .from("groups")
-        .insert({
-          workspace_id: workspaceId,
-          user_id: user.id,
-          name: name.trim(),
-        });
-      if (error) throw error;
-      setName("");
-      onCreateSuccess?.();
-      onOpenChange?.(false);
-    } catch {
-      // keep dialog open so user can retry
-    } finally {
-      setCreating(false);
-    }
+  const handleCreate = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onConfirm?.(trimmed);
   };
 
   return (
@@ -77,7 +56,11 @@ export function NewGroupDialog({
 
         <DialogFooter>
           <DialogClose render={<Button variant="ghost">Cancel</Button>} />
-          <Button disabled={!name.trim()} loading={creating} onClick={handleCreate}>
+          <Button
+            disabled={!name.trim()}
+            loading={loading}
+            onClick={handleCreate}
+          >
             Create
           </Button>
         </DialogFooter>
