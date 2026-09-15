@@ -22,6 +22,12 @@ export { wireDiscoverTool, type DiscoveredAction } from "./wire-discover";
 export { wireActionTool, type WireRunResult } from "./wire-action";
 export { wireBuildRequestTool, type BuildRequestResult } from "./wire-build-request";
 export { aiVisibilityTool, type VisibilitySourceResult } from "./ai-visibility";
+export { aiVisibilitySourcesTool, type VisibilitySource } from "./ai-visibility-sources";
+export { aiVisibilitySearchesTool, type VisibilitySearchSummary } from "./ai-visibility-searches";
+export { aiVisibilityRetryTool } from "./ai-visibility-retry";
+export { wireCatalogTool, type CatalogEntry, type CatalogAction } from "./wire-catalog";
+export { wireBuildRequestsTool } from "./wire-build-requests";
+export { wireDownloadTool } from "./wire-download";
 export {
 	browserSessionCreate,
 	browserSessionDelete,
@@ -39,6 +45,9 @@ export {
 import type { ToolSet } from "ai";
 
 import { aiVisibilityTool } from "./ai-visibility";
+import { aiVisibilitySearchesTool } from "./ai-visibility-searches";
+import { aiVisibilityRetryTool } from "./ai-visibility-retry";
+import { aiVisibilitySourcesTool } from "./ai-visibility-sources";
 import {
 	browserSessionCreate,
 	browserSessionDelete,
@@ -54,7 +63,10 @@ import { scrapeUrlTool } from "./scrape-url";
 import { searchWebTool } from "./search-web";
 import { wireActionTool } from "./wire-action";
 import { wireBuildRequestTool } from "./wire-build-request";
+import { wireBuildRequestsTool } from "./wire-build-requests";
+import { wireCatalogTool } from "./wire-catalog";
 import { wireDiscoverTool } from "./wire-discover";
+import { wireDownloadTool } from "./wire-download";
 import { updateStepStatusTool } from "./workflow-progress";
 
 void updateStepStatusTool; // registered conditionally (run mode) by AgentService
@@ -72,6 +84,12 @@ export const anakinToolSet = {
 	wireAction: wireActionTool,
 	wireBuildRequest: wireBuildRequestTool,
 	aiVisibility: aiVisibilityTool,
+	aiVisibilitySources: aiVisibilitySourcesTool,
+	aiVisibilitySearches: aiVisibilitySearchesTool,
+	aiVisibilityRetry: aiVisibilityRetryTool,
+	wireCatalog: wireCatalogTool,
+	wireBuildRequests: wireBuildRequestsTool,
+	wireDownload: wireDownloadTool,
 	browserSessionList,
 	browserSessionCreate,
 	browserSessionRename,

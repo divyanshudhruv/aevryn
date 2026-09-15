@@ -11,11 +11,12 @@ export interface ToolError {
 	error: {
 		code: string;
 		message: string;
-				signupUrl?: string;
-				connectUrl?: string;
-				balance?: number;
+		retryable?: boolean;
+		signupUrl?: string;
+		connectUrl?: string;
+		balance?: number;
 		required?: number;
-				retryAfterSeconds?: number;
+		retryAfterSeconds?: number;
 	};
 }
 
@@ -53,6 +54,88 @@ export function requireKey(
 	return { ok: true, apiKey: anakinKey };
 }
 
+const CODE_MAP: Record<string, { code: string; retryable?: boolean }> = {
+	invalid_request: { code: "INVALID_REQUEST" },
+	invalid_url: { code: "INVALID_REQUEST" },
+	invalid_job_type: { code: "INVALID_REQUEST" },
+	blocked_website: { code: "INVALID_REQUEST" },
+	unauthorized: { code: "AUTH_UNAUTHORIZED" },
+	forbidden: { code: "FORBIDDEN" },
+	not_found: { code: "NOT_FOUND" },
+	session_in_use: { code: "RESOURCE_CONFLICT" },
+	duplicate_name: { code: "RESOURCE_CONFLICT" },
+	action_exists: { code: "RESOURCE_CONFLICT" },
+	session_not_saved: { code: "RESOURCE_NOT_READY" },
+	server_error: { code: "SERVER_ERROR", retryable: true },
+	queue_error: { code: "SERVER_ERROR", retryable: true },
+	configuration_error: { code: "SERVER_ERROR", retryable: true },
+	internal_error: { code: "SERVER_ERROR", retryable: true },
+	execution_failed: { code: "SERVER_ERROR", retryable: true },
+	search_error: { code: "SEARCH_ERROR" },
+	service_unavailable: { code: "SERVICE_UNAVAILABLE", retryable: true },
+	action_unavailable: { code: "SERVICE_UNAVAILABLE", retryable: true },
+	insufficient_credits: { code: "ANAKIN_OUT_OF_CREDITS" },
+	rate_limit_exceeded: { code: "RATE_LIMITED" },
+	build_limit_reached: { code: "RATE_LIMITED" },
+};
+
+const STATUS_MAP: Record<number, { code: string; retryable?: boolean }> = {
+	400: { code: "INVALID_REQUEST" },
+	401: { code: "AUTH_UNAUTHORIZED" },
+	402: { code: "ANAKIN_OUT_OF_CREDITS" },
+	403: { code: "FORBIDDEN" },
+	404: { code: "NOT_FOUND" },
+	409: { code: "RESOURCE_CONFLICT" },
+	422: { code: "RESOURCE_NOT_READY" },
+	429: { code: "RATE_LIMITED" },
+	500: { code: "SERVER_ERROR", retryable: true },
+	502: { code: "SERVER_ERROR", retryable: true },
+	503: { code: "SERVICE_UNAVAILABLE", retryable: true },
+};
+
+function readErrorBody(err: unknown): Record<string, unknown> | undefined {
+	const body = (err as { body?: unknown }).body;
+	if (body != null && typeof body === "object") {
+		return body as Record<string, unknown>;
+	}
+	return undefined;
+}
+
+function readErrorCode(err: unknown): string | undefined {
+	if (err instanceof AnakinError && typeof err.code === "string") {
+		return err.code;
+	}
+	const body = readErrorBody(err);
+	if (!body) return undefined;
+	if (typeof body.error === "string") return body.error;
+	if (body.error != null && typeof body.error === "object") {
+		const nested = body.error as Record<string, unknown>;
+		if (typeof nested.code === "string") return nested.code;
+	}
+	if (typeof body.code === "string") return body.code;
+	return undefined;
+}
+
+function readStatusCode(err: unknown): number | undefined {
+	const direct = (err as { statusCode?: unknown }).statusCode;
+	if (typeof direct === "number") return direct;
+	if (err instanceof AnakinError && typeof err.statusCode === "number") {
+		return err.statusCode;
+	}
+	return undefined;
+}
+
+function readErrorMessage(err: unknown, body?: Record<string, unknown>): string {
+	if (body) {
+		if (typeof body.message === "string") return body.message;
+		if (body.error != null && typeof body.error === "object") {
+			const nested = body.error as Record<string, unknown>;
+			if (typeof nested.message === "string") return nested.message;
+		}
+	}
+	return err instanceof Error ? err.message : String(err);
+}
+
 export function mapAnakinError(err: unknown): ToolError {
 	if (err instanceof WireAuthRequiredError) {
 		return {
@@ -88,10 +171,8 @@ export function mapAnakinError(err: unknown): ToolError {
 	}
 
 	// Zero-Touch graceful 402 (per-IP allowance exhausted).
-	if (
-		err instanceof AnakinError &&
-		err.statusCode === 402
-	) {
+	const statusCode = readStatusCode(err);
+	if (err instanceof AnakinError && statusCode === 402) {
 		const body = (err.body ?? {}) as { signup_url?: string };
 		return {
 			ok: false,
@@ -104,11 +185,67 @@ export function mapAnakinError(err: unknown): ToolError {
 		};
 	}
 
+	const body = readErrorBody(err);
+	const rawCode = readErrorCode(err);
+	const normalized = rawCode?.toLowerCase();
+
+	if (normalized === "unauthorized" || normalized === "auth_expired") {
+		return {
+			ok: false,
+			error: {
+				code: "AUTH_UNAUTHORIZED",
+				message:
+					normalized === "auth_expired"
+						? `${readErrorMessage(err, body)} Reconnect the account in the Wire dashboard, then retry.`
+						: `${readErrorMessage(err, body)} Check your Anakin key in Settings → BYOK.`,
+			},
+		};
+	}
+	if (normalized === "auth_required") {
+		const connectUrl =
+			body?.error != null &&
+			typeof body.error === "object" &&
+			typeof (body.error as Record<string, unknown>).connect_url === "string"
+				? ((body.error as Record<string, unknown>).connect_url as string)
+				: undefined;
+		return {
+			ok: false,
+			error: {
+				code: "AUTH_REQUIRED",
+				message: `${readErrorMessage(err, body)} Connect the account first, then retry.`,
+				...(connectUrl ? { connectUrl } : {}),
+			},
+		};
+	}
+	if (normalized && normalized in CODE_MAP) {
+		const mapped = CODE_MAP[normalized]!;
+		return {
+			ok: false,
+			error: {
+				code: mapped.code,
+				message: readErrorMessage(err, body),
+				...(mapped.retryable != null ? { retryable: mapped.retryable } : {}),
+			},
+		};
+	}
+
+	if (statusCode != null && statusCode in STATUS_MAP) {
+		const mapped = STATUS_MAP[statusCode]!;
+		return {
+			ok: false,
+			error: {
+				code: mapped.code,
+				message: readErrorMessage(err, body),
+				...(mapped.retryable != null ? { retryable: mapped.retryable } : {}),
+			},
+		};
+	}
+
 	if (err instanceof AnakinError) {
 		return {
 			ok: false,
 			error: {
-				code: err.code ?? `ANAKIN_${err.statusCode ?? "ERROR"}`,
+				code: err.code ?? `ANAKIN_${statusCode ?? "ERROR"}`,
 				message: err.message,
 			},
 		};
@@ -117,13 +254,63 @@ export function mapAnakinError(err: unknown): ToolError {
 	return {
 		ok: false,
 		error: {
-			code: "TOOL_FAILED",
+			code: statusCode != null ? `ANAKIN_${statusCode}` : "TOOL_FAILED",
 			message: err instanceof Error ? err.message : String(err),
 		},
 	};
 }
 
 // ─── Raw HTTP helpers (endpoints the SDK doesn't cover yet) ─────────────────
+
+const RETRYABLE_STATUSES = new Set([500, 502, 503]);
+const MAX_RAW_RETRIES = 3;
+
+function isTimeoutError(err: unknown): boolean {
+	const name = (err as { name?: unknown }).name;
+	return name === "TimeoutError" || name === "AbortError";
+}
+
+function parseRetryAfter(response: Response): number | undefined {
+	const header = response.headers.get("Retry-After");
+	if (!header) return undefined;
+	const seconds = Number(header);
+	return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
+}
+
+function backoffDelayMs(attempt: number, retryAfterSeconds?: number): number {
+	if (retryAfterSeconds != null) return retryAfterSeconds * 1_000;
+	const base = 500 * 2 ** attempt;
+	return base + Math.random() * 250;
+}
+
+async function fetchWithRetry(
+	url: string,
+	init: RequestInit,
+	maxRetries = MAX_RAW_RETRIES,
+): Promise<Response> {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			const response = await fetch(url, init);
+			const retryableStatus =
+				response.status === 429 || RETRYABLE_STATUSES.has(response.status);
+			if (retryableStatus && attempt < maxRetries) {
+				const retryAfter =
+					response.status === 429 ? parseRetryAfter(response) : undefined;
+				await new Promise((resolve) =>
+					setTimeout(resolve, backoffDelayMs(attempt, retryAfter)),
+				);
+				continue;
+			}
+			return response;
+		} catch (err) {
+			if (attempt < maxRetries && !isTimeoutError(err)) {
+				await new Promise((resolve) => setTimeout(resolve, backoffDelayMs(attempt)));
+				continue;
+			}
+			throw err;
+		}
+	}
+}
 
 function rawHeaders(apiKey: string | null): Record<string, string> {
 	const headers: Record<string, string> = {
@@ -139,7 +326,7 @@ export async function anakinPost<T>(
 	apiKey: string | null,
 	timeoutMs = 120_000,
 ): Promise<{ status: number; body: T }> {
-	const response = await fetch(`${ANAKIN_BASE_URL}${path}`, {
+	const response = await fetchWithRetry(`${ANAKIN_BASE_URL}${path}`, {
 		method: "POST",
 		headers: rawHeaders(apiKey),
 		body: JSON.stringify(body),
@@ -157,7 +344,7 @@ export async function anakinGet<T>(
 	if (params) {
 		for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 	}
-	const response = await fetch(url.toString(), {
+	const response = await fetchWithRetry(url.toString(), {
 		method: "GET",
 		headers: rawHeaders(apiKey),
 	});
