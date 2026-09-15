@@ -66,7 +66,11 @@ export const presentPlanTool = tool({
 			.array(
 				z.object({
 					title: z.string().min(1),
-					description: z.string().optional(),
+					description: z
+						.string()
+						.describe(
+							"What this step concretely does — shown when the user expands the step in the review accordion.",
+						),
 				}),
 			)
 			.min(1)

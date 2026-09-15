@@ -60,7 +60,7 @@ describe("presentPlan (client tool)", () => {
 			summary: "Scrape → compare → report",
 			steps: [
 				{ title: "Scrape retailer pages", description: "3 URLs, batched" },
-				{ title: "Compare and rank" },
+				{ title: "Compare and rank", description: "Rank by price and stock" },
 			],
 		});
 		expect(parsed).toBeDefined();

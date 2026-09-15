@@ -21,11 +21,9 @@ export interface ThreadSummary {
 	title: string;
 	status: string;
 	updatedAt: string;
+		boundWorkflowId: string | null;
 }
 
-/**
- * Workspace + sidebar data service.
- */
 export class WorkspaceService {
 	async listForUser(userId: string): Promise<WorkspaceSummary[]> {
 		return db
@@ -59,6 +57,7 @@ export class WorkspaceService {
 				title: threads.title,
 				updatedAt: threads.updatedAt,
 				status: threads.status,
+				boundWorkflowId: threads.boundWorkflowId,
 				deletedAt: threads.deletedAt,
 			})
 			.from(threads)
@@ -67,13 +66,14 @@ export class WorkspaceService {
 
 		return rows
 			.filter((r) => !r.deletedAt)
-			.map((r) => ({
-				id: r.id,
-				groupId: r.groupId,
-				title: r.title,
-				status: r.status,
-				updatedAt: r.updatedAt.toISOString(),
-			}));
+		.map((r) => ({
+			id: r.id,
+			groupId: r.groupId,
+			title: r.title,
+			status: r.status,
+			updatedAt: r.updatedAt.toISOString(),
+			boundWorkflowId: r.boundWorkflowId,
+		}));
 	}
 
 	async ensureDefaultWorkspace(userId: string): Promise<string> {

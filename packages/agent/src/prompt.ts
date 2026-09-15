@@ -36,7 +36,13 @@ const RUN_MODE = `## Run mode
 You are executing an approved workflow step by step. Follow the plan exactly; after each plan step completes, call updateStepStatus to record it before moving on. If a step fails, record the failure, then either retry once with a correction or stop and explain.`;
 
 const CHAT_MODE = `## Chat mode
-You are in a conversation. Answer directly when no tool is needed. For multi-step requests, consider presentPlan first so the user can approve the approach before you burn credits.`;
+You are in a conversation. Answer directly when no tool is needed. For multi-step requests, consider presentPlan first so the user can approve the approach before you burn credits.
+
+When the user answers a presentPlan card, the answer is one of:
+- { decision: "approved" } — the plan is persisted and bound to this thread; start executing it now, step by step.
+- { decision: "bound" } — the plan is persisted and bound to this thread, but the user wants to run it later. Confirm the binding briefly and stop (do NOT execute).
+- { decision: "declined" } — the plan was rejected; ask what to change or continue in plain chat.
+- { decision: "changes_requested", feedback? } — revise the plan per the feedback and present it again with presentPlan.`;
 
 export function buildSystemPrompt(opts: BuildSystemPromptOptions): string {
 	const parts: string[] = [IDENTITY, TOOL_POLICY];

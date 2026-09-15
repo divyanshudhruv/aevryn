@@ -95,6 +95,62 @@ export async function POST(request: Request): Promise<Response> {
 				output: body.toolAnswer.answer,
 			});
 		}
+
+		// Plan decision approve/bind: persist the workflow + plan steps and bind
+		// it to the thread BEFORE the resumed loop runs. The plan's original
+		// presentPlan input lives on the pending tool part of the last message.
+		const decision =
+			body.toolAnswer.toolName === "presentPlan" &&
+			body.toolAnswer.answer != null &&
+			typeof body.toolAnswer.answer === "object"
+				? (body.toolAnswer.answer as { decision?: string }).decision
+				: undefined;
+		if (decision === "approved" || decision === "bound") {
+			// The original pending presentPlan part (with the plan in `input`)
+			// lives on an earlier assistant message; find it by toolCallId.
+			const pendingPart = uiMessages
+				.flatMap((m) => m.parts as unknown as Array<Record<string, unknown>>)
+				.find(
+					(p) =>
+						p.type === "tool-presentPlan" &&
+						p.toolCallId === body.toolAnswer!.toolCallId &&
+						typeof p.input === "object" &&
+						p.input !== null,
+				);
+			const rawPlan = pendingPart?.input as Record<string, unknown> | undefined;
+			if (
+				rawPlan &&
+				typeof rawPlan.title === "string" &&
+				typeof rawPlan.objective === "string" &&
+				Array.isArray(rawPlan.steps)
+			) {
+				try {
+					const workflow = await chatService.createWorkflowFromPlan({
+						userId: user.id,
+						threadId: body.threadId,
+						title: rawPlan.title,
+						objective: rawPlan.objective,
+						...(typeof rawPlan.summary === "string"
+							? { summary: rawPlan.summary }
+							: {}),
+						steps: rawPlan.steps as Array<{
+							title: string;
+							description?: string;
+						}>,
+					});
+					// Reflect the binding on the decision so the agent knows the
+					// workflow id (run mode uses it for updateStepStatus).
+					const answerRecord = last!.parts.at(-1) as {
+						output?: Record<string, unknown>;
+					};
+					if (answerRecord?.output && typeof answerRecord.output === "object") {
+						answerRecord.output.workflowId = workflow.id;
+					}
+				} catch (err) {
+					console.error("[api/chat] createWorkflowFromPlan failed", err);
+				}
+			}
+		}
 	}
 
 	if (body.approval) {
@@ -160,13 +216,15 @@ export async function GET(request: Request): Promise<Response> {
 		return jsonError(400, "BAD_REQUEST", "threadId query param is required.");
 	}
 
-	const { messages, stepsByMessageId } = await chatService.loadThread({
-		threadId,
-		userId: user.id,
-	});
+	try {
+		const uiMessages = await loadThreadMessages(threadId, user.id);
 
-	return Response.json(
-		{ data: { messages, stepsByMessageId }, error: null, meta: {} },
-		{ headers: { "cache-control": "no-store" } },
-	);
+		return Response.json(
+			{ data: { messages: uiMessages }, error: null, meta: {} },
+			{ headers: { "cache-control": "no-store" } },
+		);
+	} catch (err) {
+		console.error("[api/chat] GET failed", err);
+		return jsonError(500, "LOAD_FAILED", "Could not load thread.");
+	}
 }
