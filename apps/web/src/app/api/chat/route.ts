@@ -24,6 +24,17 @@ const chatBodySchema = z.object({
 	workspaceId: z.string().min(1),
 	mode: z.enum(["chat", "run"]).default("chat"),
 	message: z.string().optional(),
+	// DefaultChatTransport sends the conversation as UIMessages; the last
+	// user message carries the new text.
+	messages: z
+		.array(
+			z.object({
+				id: z.string().optional(),
+				role: z.string(),
+				parts: z.array(z.unknown()),
+			}),
+		)
+		.optional(),
 	// Resume from an askUser/presentPlan client-tool answer.
 	toolAnswer: z
 		.object({
@@ -67,18 +78,35 @@ export async function POST(request: Request): Promise<Response> {
 	// Build the UIMessage list for this turn.
 	const uiMessages = await loadThreadMessages(body.threadId, user.id);
 
-	if (body.message != null && body.message.trim().length > 0) {
+	// Extract the new user text from the transport payload (useChat sends the
+	// full UIMessage list; the last user message is the new one).
+	const message =
+		body.message ??
+		(() => {
+			const lastUser = [...(body.messages ?? [])]
+				.reverse()
+				.find((m) => m.role === "user");
+			if (!lastUser) return undefined;
+			const text = lastUser.parts
+				.map((p) => (p as { type?: string; text?: string }))
+				.filter((p) => p.type === "text")
+				.map((p) => p.text ?? "")
+				.join("\n");
+			return text.trim().length > 0 ? text : undefined;
+		})();
+
+	if (message != null && message.trim().length > 0) {
 		// New user message: persist it and append to the conversation.
 		await chatService.saveMessage({
 			userId: user.id,
 			threadId: body.threadId,
 			role: "user",
-			content: body.message,
+			content: message,
 		});
 		uiMessages.push({
 			id: `local_${Date.now()}`,
 			role: "user",
-			parts: [{ type: "text", text: body.message }],
+			parts: [{ type: "text", text: message }],
 		});
 	}
 

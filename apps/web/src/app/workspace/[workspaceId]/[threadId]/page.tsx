@@ -11,6 +11,7 @@ import {
 	WorkspaceHeader,
 } from "@/components/chat/workspace-header";
 import { useAgentChat } from "@/hooks/use-agent-chat";
+import { WorkflowDialog } from "@aevryn/ui/components/dialog/workflow-dialog";
 
 export default function ThreadPage() {
 	const resolvedParams = useParams<{
@@ -29,6 +30,7 @@ export default function ThreadPage() {
 	const [selectedModel, setSelectedModel] =
 		useState<ProviderModelOption | null>(null);
 	const [hasBoundWorkflow, setHasBoundWorkflow] = useState(false);
+	const [settingsOpen, setSettingsOpen] = useState(false);
 
 	// Replay history + header data (thread title, bound workflow) once.
 	useEffect(() => {
@@ -98,35 +100,42 @@ export default function ThreadPage() {
 	}, [threadId, workspaceId]);
 
 	// Model list for the header picker.
-	useEffect(() => {
-		let cancelled = false;
-		(async () => {
-			const res = await fetch("/api/providers", { cache: "no-store" });
-			if (!res.ok || cancelled) return;
-			const json = (await res.json()) as {
-				data: Array<{
-					slug: string;
-					displayName: string;
-					models: Array<{ id: string; name: string }>;
-				}>;
-			};
-			const options: ProviderModelOption[] = (json.data ?? []).flatMap(
-				(provider) =>
-					(provider.models ?? []).map((model) => ({
-						providerSlug: provider.slug,
-						providerName: provider.displayName,
-						modelId: model.id,
-						modelName: model.name,
-					})),
-			);
-			if (cancelled) return;
-			setModels(options);
-			if (options.length > 0) setSelectedModel(options[0]!);
-		})();
-		return () => {
-			cancelled = true;
+	const refreshProviders = useCallback(async () => {
+		const res = await fetch("/api/providers", { cache: "no-store" });
+		if (!res.ok) return;
+		const json = (await res.json()) as {
+			data: Array<{
+				slug: string;
+				displayName: string;
+				models: Array<{ id: string; displayName?: string }>;
+			}>;
 		};
+		const options: ProviderModelOption[] = (json.data ?? []).flatMap(
+			(provider) =>
+				(provider.models ?? []).map((model) => ({
+					providerSlug: provider.slug,
+					providerName: provider.displayName,
+					modelId: model.id,
+					modelName: model.displayName ?? model.id,
+				})),
+		);
+		setModels(options);
+		setSelectedModel((prev) => {
+			if (prev) {
+				const still = options.find(
+					(o) =>
+						o.providerSlug === prev.providerSlug &&
+						o.modelId === prev.modelId,
+				);
+				if (still) return still;
+			}
+			return options[0] ?? null;
+		});
 	}, []);
+
+	useEffect(() => {
+		void refreshProviders();
+	}, [refreshProviders]);
 
 	const chat = useAgentChat({
 		threadId,
@@ -162,11 +171,8 @@ export default function ThreadPage() {
 		void sendText("Run the workflow.");
 	}, [sendText]);
 
-	// Task 10 replaces this placeholder with the real settings dialog.
 	const handleOpenSettings = useCallback(() => {
-		alert(
-			"Settings (Models / BYOK) lands in the next update — Task 10.",
-		);
+		setSettingsOpen(true);
 	}, []);
 
 	const mapStatus =
@@ -231,6 +237,11 @@ export default function ThreadPage() {
 					) : null}
 				</div>
 			</footer>
+
+			<WorkflowDialog
+				open={settingsOpen}
+				onOpenChange={setSettingsOpen}
+			/>
 		</div>
 	);
 }

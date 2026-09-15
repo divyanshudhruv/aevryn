@@ -40,8 +40,6 @@ import { fontWeights } from "@aevryn/ui/lib/font-weight";
 // so it hides and a Select at the top of the panel takes over navigation.
 // ---------------------------------------------------------------------------
 
-type SettingsSectionId = "workspace" | "notifications" | "appearance" | "security";
-
 interface SettingsSection {
   id: SettingsSectionId;
   label: string;
@@ -55,6 +53,18 @@ const SECTIONS: SettingsSection[] = [
     label: "Workspace",
     icon: "folder",
     description: "Name, default home, and workspace-wide behavior.",
+  },
+  {
+    id: "models",
+    label: "Models",
+    icon: "bot",
+    description: "Model providers and API keys that power the agent.",
+  },
+  {
+    id: "byok",
+    label: "API keys",
+    icon: "key",
+    description: "Anakin and Mem0 keys — encrypted at rest.",
   },
   {
     id: "notifications",
@@ -190,4 +200,7 @@ export function SettingsDialog({
   );
 }
 
-import { SettingsSectionPanel } from "./settings-sections";
+import {
+  SettingsSectionPanel,
+  type SettingsSectionId,
+} from "./settings-sections";
