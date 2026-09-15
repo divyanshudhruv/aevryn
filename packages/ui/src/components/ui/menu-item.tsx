@@ -91,6 +91,9 @@ interface MenuItemProps extends HTMLAttributes<HTMLDivElement> {
   icon?: IconComponent;
   label: string;
   index: number;
+  /** Trailing content after the label (e.g. a relative-time stamp). Does not
+   *  participate in the fluid-hover sizing. */
+  trailing?: ReactNode;
   /** When a boolean, the item is a radio-style option (role="menuitemradio"
    *  with aria-checked). When undefined, it is a plain action item
    *  (role="menuitem", no checked state announced). */
@@ -102,12 +105,11 @@ interface MenuItemProps extends HTMLAttributes<HTMLDivElement> {
   closeOnClick?: boolean;
 }
 
-const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
-  (
-    {
+const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(    ({
       icon: Icon,
       label,
       index,
+      trailing,
       checked,
       onSelect,
       disabled,
@@ -208,6 +210,11 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
             {label}
           </span>
         </span>
+        {trailing != null && (
+          <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+            {trailing}
+          </span>
+        )}
         <AnimatePresence>
           {checked && (
             <motion.svg

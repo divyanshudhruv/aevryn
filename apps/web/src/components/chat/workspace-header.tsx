@@ -16,6 +16,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useIcon } from "@aevryn/ui/lib/icon-context";
 
+import { relativeTime } from "@/lib/relative-time";
+
 export interface ProviderModelOption {
   providerSlug: string;
   providerName: string;
@@ -27,6 +29,7 @@ type ThreadItem = {
   id: string;
   title: string;
   groupId: string | null;
+  lastMessageAt: string | null;
 };
 
 type GroupedItem = {
@@ -89,7 +92,7 @@ export function WorkspaceHeader({
     async function fetchThreads() {
       const { data, error } = await supabase
         .from("threads")
-        .select("id, title, group_id")
+        .select("id, title, group_id, last_message_at")
         .eq("workspace_id", workspaceId)
         .is("deleted_at", null);
       if (error) {
@@ -102,6 +105,7 @@ export function WorkspaceHeader({
             id: t.id as string,
             title: (t.title as string) || "Untitled",
             groupId: (t.group_id as string | null) ?? null,
+            lastMessageAt: (t.last_message_at as string | null) ?? null,
           })),
         );
       }
@@ -156,6 +160,7 @@ export function WorkspaceHeader({
                 id: row.id as string,
                 title: (row.title as string) || "Untitled",
                 groupId: (row.group_id as string | null) ?? null,
+                lastMessageAt: (row.last_message_at as string | null) ?? null,
               });
             }
             return Array.from(byId.values());
@@ -257,19 +262,24 @@ export function WorkspaceHeader({
                     </DropdownLabel>
                   ))}
                   {groupedThreads.flatMap((group) =>
-                    group.items.map((item) => (
-                      <MenuItem
-                        key={item.id}
-                        index={item.idx}
-                        label={item.title}
-                        checked={item.id === threadId ? true : undefined}
-                        onSelect={() => {
-                          if (item.id !== threadId) {
-                            router.push(`/workspace/${workspaceId}/${item.id}`);
-                          }
-                        }}
-                      />
-                    )),
+                    group.items.map((item) => {
+                      const thread = threads.find((t) => t.id === item.id);
+                      const activity = relativeTime(thread?.lastMessageAt);
+                      return (
+                        <MenuItem
+                          key={item.id}
+                          index={item.idx}
+                          label={item.title}
+                          trailing={activity}
+                          checked={item.id === threadId ? true : undefined}
+                          onSelect={() => {
+                            if (item.id !== threadId) {
+                              router.push(`/workspace/${workspaceId}/${item.id}`);
+                            }
+                          }}
+                        />
+                      );
+                    }),
                   )}
                 </>
               )}

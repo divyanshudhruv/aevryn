@@ -206,6 +206,23 @@ export class AgentService {
 
     return result.toUIMessageStreamResponse({
       ...init,
+      // Token usage rides to the client on the message metadata. Read from
+      // the finish part directly (part.totalUsage) — the agent-level onEnd
+      // that fills finalUsage fires after this stream part, so reading the
+      // variable here would race and often emit zeros.
+      messageMetadata: ({ part }) => {
+        if (part.type !== "finish") return undefined;
+        const usage = part.totalUsage;
+        const inputTokens = usage?.inputTokens ?? finalUsage.inputTokens;
+        const outputTokens = usage?.outputTokens ?? finalUsage.outputTokens;
+        return {
+          usage: {
+            inputTokens,
+            outputTokens,
+            totalTokens: inputTokens + outputTokens,
+          },
+        };
+      },
       originalMessages: input.uiMessages,
       generateMessageId: () => ids.message(),
       // Reasoning parts never reach the client/persistence: replaying them
@@ -423,6 +440,7 @@ export async function loadThreadMessages(
   const uiMessages = messageRows.map((row) => ({
     id: row.id,
     role: row.role,
+    ...(row.usage != null ? { metadata: { usage: row.usage } } : {}),
     // Persisted parts restore tool cards, QuestionFlow answers, plan
     // decisions, and approvals exactly; legacy rows fall back to text.
     // Reasoning parts are stripped: providers like Groq reject
@@ -433,8 +451,7 @@ export async function loadThreadMessages(
     ).filter(
       (p) =>
         (p as { type?: string }).type !== "reasoning" &&
-        (p as { type?: string }).type !== "reasoning-file" &&
-        (p as { type?: string }).type !== "step-start",
+        (p as { type?: string }).type !== "reasoning-file",
     ),
   }));
 

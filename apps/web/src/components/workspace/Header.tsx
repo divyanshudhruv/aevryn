@@ -18,11 +18,14 @@ import { getBrowserSupabase } from "@aevryn/auth";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 
+import { relativeTime } from "@/lib/relative-time";
+
 type ThreadItem = {
   id: string;
   title: string;
   groupId: string | null;
   boundWorkflowId: string | null;
+  lastMessageAt: string | null;
 };
 
 type GroupedItem = {
@@ -60,20 +63,22 @@ export function Header({
           id,
           title,
           group_id,
-          bound_workflow_id
+          bound_workflow_id,
+          last_message_at
         `,
         )
-        .eq("workspace_id", workspaceId);
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null);
 
-      if (!error && data) {
-        setThreads(
-          data.map((t: any) => ({
-            id: t.id,
-            title: t.title || "Untitled",
-            groupId: t.group_id ?? null,
-            boundWorkflowId: t.bound_workflow_id ?? null,
-          })),
-        );
+      if (!error && data) {          setThreads(
+            data.map((t: any) => ({
+              id: t.id,
+              title: t.title || "Untitled",
+              groupId: t.group_id ?? null,
+              boundWorkflowId: t.bound_workflow_id ?? null,
+              lastMessageAt: t.last_message_at ?? null,
+            })),
+          );
       }
     }
     fetchThreads();
@@ -94,6 +99,8 @@ export function Header({
 
             if (payload.eventType === "DELETE") {
               byId.delete(payload.old.id);
+            } else if (payload.new.deleted_at != null) {
+              byId.delete(payload.new.id);
             } else {
               const next: ThreadItem = {
                 id: payload.new.id,
@@ -101,6 +108,7 @@ export function Header({
                 groupId: (payload.new.group_id as string | null) ?? null,
                 boundWorkflowId:
                   (payload.new.bound_workflow_id as string | null) ?? null,
+                lastMessageAt: (payload.new.last_message_at as string | null) ?? null,
               };
               byId.set(payload.new.id, next);
             }
@@ -173,14 +181,19 @@ export function Header({
                 <DropdownLabel key={group.label}>{group.label}</DropdownLabel>
               ))}
               {groupedThreads.flatMap((group) =>
-                group.items.map((item) => (
-                  <MenuItem
-                    key={item.id}
-                    index={item.idx}
-                    label={item.title}
-                    onSelect={() => setActiveLabel(item.title)}
-                  ></MenuItem>
-                )),
+                group.items.map((item) => {
+                  const thread = threads.find((t) => t.id === item.id);
+                  const activity = relativeTime(thread?.lastMessageAt);
+                  return (
+                    <MenuItem
+                      key={item.id}
+                      index={item.idx}
+                      label={item.title}
+                      trailing={activity}
+                      onSelect={() => setActiveLabel(item.title)}
+                    />
+                  );
+                }),
               )}
               {threads.length === 0 && (
                 <DropdownEmpty>No threads found</DropdownEmpty>

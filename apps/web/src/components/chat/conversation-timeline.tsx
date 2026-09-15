@@ -15,6 +15,7 @@ import {
   type PlanDecisionResult,
   type PlanInput,
 } from "@aevryn/ui/components/ui/plan-approval-card";
+import { PlanStepsCard } from "@/components/chat/plan-steps-card";
 import { ApprovalFlow } from "@/components/workspace/approval-flow";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { UIMessage } from "ai";
@@ -23,9 +24,18 @@ import { useIcon } from "@aevryn/ui/lib/icon-context";
 const CLIENT_TOOLS = new Set(["askUser", "presentPlan"]);
 const APPROVAL_TOOLS = new Set(["wireAction", "wireBuildRequest"]);
 
+export interface TimelinePlanStep {
+  id: string;
+  position: number;
+  title: string;
+  description: string | null;
+  status: string;
+}
+
 interface TimelineProps {
   messages: UIMessage[];
   status: "idle" | "streaming" | "submitted" | "error";
+  planSteps?: TimelinePlanStep[];
   onToolAnswer: (toolCallId: string, toolName: string, answer: unknown) => void;
   onApproval: (toolCallId: string, approved: boolean) => void;
   onErrorCta?: () => void;
@@ -62,6 +72,27 @@ function systemEventFromOutput(output: unknown): {
 function questionsFromInput(input: unknown) {
   if (!Array.isArray(input)) return null;
   return input as Array<Record<string, unknown>>;
+}
+
+/**
+ * Splits an assistant message's parts at each `step-start` boundary — one
+ * segment per model step (agent response). Legacy rows persisted without
+ * step-start markers fall back to a single segment, preserving the old
+ * one-bubble render.
+ */
+function splitByStepStart(
+  parts: UIMessage["parts"],
+): UIMessage["parts"][] {
+  const segments: UIMessage["parts"][] = [[]];
+  let current = segments[0]!;
+  for (const part of parts) {
+    if (part.type === "step-start" && current.length > 0) {
+      current = [];
+      segments.push(current);
+    }
+    current.push(part);
+  }
+  return segments;
 }
 
 /** Human-facing copy for a completed askUser / presentPlan interaction. */
@@ -132,6 +163,7 @@ function planFromInput(input: unknown): PlanInput | null {
 export function ConversationTimeline({
   messages,
   status,
+  planSteps,
   onToolAnswer,
   onApproval,
   onErrorCta,
@@ -247,26 +279,25 @@ export function ConversationTimeline({
       );
     }
 
-    // Completed askUser / presentPlan cards stay visible but read-only: the
-    // `inert` wrapper freezes all interaction (clicks, focus, keyboard — the
-    // document-level 1-9 answer shortcut skips them because nothing inside
-    // can hold focus). The outcome SystemRow below still carries the
-    // human-readable decision text.
+    // Completed askUser / presentPlan cards render live again — the user can
+    // re-answer them. (The old inert/ResolvedCard freeze is gone; the outcome
+    // SystemRow below still carries the human-readable decision text.)
     if (toolName === "askUser" && toolPart.state === "output-available") {
       const questions = questionsFromInput(toolPart.input);
       if (!questions) return null;
       return (
-        <ResolvedCard key={key} label="Answered">
-          <AskUserCard
-            questions={questions}
-            answers={
-              toolPart.output != null && typeof toolPart.output === "object"
-                ? (toolPart.output as Record<string, AskUserAnswer>)
-                : undefined
-            }
-            onComplete={() => {}}
-          />
-        </ResolvedCard>
+        <AskUserCard
+          key={key}
+          questions={questions}
+          answers={
+            toolPart.output != null && typeof toolPart.output === "object"
+              ? (toolPart.output as Record<string, AskUserAnswer>)
+              : undefined
+          }
+          onComplete={(answers) => {
+            onToolAnswer(toolPart.toolCallId ?? "", "askUser", answers);
+          }}
+        />
       );
     }
 
@@ -274,9 +305,13 @@ export function ConversationTimeline({
       const plan = planFromInput(toolPart.input);
       if (!plan) return null;
       return (
-        <ResolvedCard key={key} label="Decided">
-          <PlanApprovalCard plan={plan} onDecision={() => {}} />
-        </ResolvedCard>
+        <PlanApprovalCard
+          key={key}
+          plan={plan}
+          onDecision={(result: PlanDecisionResult) =>
+            onToolAnswer(toolPart.toolCallId ?? "", "presentPlan", result)
+          }
+        />
       );
     }
 
@@ -316,7 +351,7 @@ export function ConversationTimeline({
       className="flex min-h-full flex-col gap-6 p-4"
     >
       {" "}
-      {messages.map((message) => {
+      {messages.flatMap((message, messageIndex) => {
         const isUser = message.role === "user";
 
         // System-event rows (completed askUser / presentPlan outcomes)
@@ -343,151 +378,195 @@ export function ConversationTimeline({
           ];
         });
 
-        // All parts render in the bubble; completed askUser / presentPlan
-        // render as read-only cards here (the outcome text lives in a
-        // SystemRow below).
+        // One assistant response (a single model step: tools + its answer
+        // text) becomes ONE ChatMessage. A multi-step turn that runs the
+        // agent twice — tools → text, tools → text — splits at each
+        // step-start boundary into separate bubbles so the transcript reads
+        // prompt → response → prompt → response. User messages are a single
+        // bubble. The final live segment carries the running state.
+        const responses: UIMessage["parts"][] = isUser
+          ? [message.parts]
+          : splitByStepStart(message.parts);
 
-        // Tool calls that are not client/approval cards get grouped into a
-        // single step card (ToolCallSequence) so a run reads like a mini
-        // pipeline: search → scrape → … → final answer.
-        const segParts = message.parts
-          .map((part, index) => ({ part, index }))
-          .filter(({ part }) => {
-            if (!part.type.startsWith("tool-")) return false;
-            const toolName = part.type.slice(5);
-            return !(
-              toolName === "askUser" ||
-              toolName === "presentPlan" ||
-              APPROVAL_TOOLS.has(toolName)
-            );
-          });
-        const hasAgentSteps = segParts.length > 0;
-        const firstSegIndex = hasAgentSteps ? segParts[0]!.index : -1;
-
-        const segments: ToolCallStepSegment[] = segParts.map(({ part, index }) => {
-          const toolPart = part as {
-            toolCallId?: string;
-            input?: unknown;
-            output?: unknown;
-            state?: string;
-            errorText?: string;
-          };
-          const toolName = part.type.slice(5);
-          return {
-            toolCallId: toolPart.toolCallId ?? `${message.id}-${index}`,
-            toolName,
-            input: toolPart.input,
-            output: toolPart.output,
-            // AI SDK v7 streams: input-streaming → input-available →
-            // output-available. Both input states are "running".
-            isRunning:
-              toolPart.state === "input-available" ||
-              toolPart.state === "input-streaming",
-            isError:
-              toolPart.state === "output-error" ||
-              toolPart.errorText != null,
-          };
-        });
-
-        // Text the model wrote BEFORE its first tool call doubles as the
-        // card title — fully model-authored, no hardcoded agent/user names.
-        const leadText = hasAgentSteps
-          ? message.parts
-              .slice(0, firstSegIndex)
-              .filter((p) => p.type === "text")
-              .map((p) => (p as { text?: string }).text ?? "")
-              .join(" ")
-              .trim()
-          : "";
-
-        const stillRunning =
-          message.id === messages[messages.length - 1]?.id &&
-          (status === "submitted" || status === "streaming");
-
-        // Render each message as a ChatMessage with its parts as children.
-        // Assistant messages get a hover action bar (copy).
-        const assistantText = isUser
-          ? ""
-          : message.parts
-              .filter((p) => p.type === "text")
-              .map((p) => (p as { text?: string }).text ?? "")
-              .join("\n");
-
-        const bubbleChildren: ReactNode[] = [];
-
-        if (hasAgentSteps) {
-          bubbleChildren.push(
-            <ToolCallSequence
-              key={`${message.id}-steps`}
-              title={leadText}
-              steps={segments}
-              answerStep={
-                stillRunning ||
-                message.parts.some((p) => p.type === "text")
-              }
-              answerRunning={stillRunning && !segments.some((s) => s.isRunning)}
-            />,
-          );
+        // The SDK creates a placeholder assistant message the moment a turn
+        // starts (status submitted/streaming). Render nothing for it — no
+        // empty bubble, no reserved gap — until real content (a tool step,
+        // text, or a client card) exists. The thinking indicator covers the
+        // wait instead.
+        if (
+          !isUser &&
+          status !== "idle" &&
+          !message.parts.some(
+            (p) =>
+              p.type === "text" ||
+              p.type.startsWith("tool-") ||
+              ((p as { text?: string }).text?.trim().length ?? 0) > 0,
+          )
+        ) {
+          return systemRows;
         }
 
-        message.parts.forEach((part, partIndex) => {
-          const key = `${message.id}-${partIndex}`;
+        return [
+          ...systemRows,
+          ...responses.map((responseParts, responseIndex) => {
+            const isLastResponse = responseIndex === responses.length - 1;
+            const responseKey =
+              responses.length === 1
+                ? message.id
+                : `${message.id}-r${responseIndex}`;
 
-          if (part.type === "text") {
-            const text = (part as { text: string }).text;
-            if (!text) return;
-            if (hasAgentSteps && partIndex < firstSegIndex) return;
-            bubbleChildren.push(
-              isUser ? (
-                <div key={key} className="whitespace-pre-wrap">
-                  {text}
-                </div>
-              ) : (
-                <Markdown key={key} content={text} />
-              ),
+            // Tool calls that are not client/approval cards get grouped into
+            // the step card so a run reads like a pipeline: tools → answer.
+            const segParts = responseParts
+              .map((part, index) => ({ part, index }))
+              .filter(({ part }) => {
+                if (!part.type.startsWith("tool-")) return false;
+                const toolName = part.type.slice(5);
+                return !(
+                  toolName === "askUser" ||
+                  toolName === "presentPlan" ||
+                  APPROVAL_TOOLS.has(toolName)
+                );
+              });
+            const hasAgentSteps = segParts.length > 0;
+            const firstSegIndex = hasAgentSteps ? segParts[0]!.index : -1;
+
+            const segments: ToolCallStepSegment[] = segParts.map(
+              ({ part, index }) => {
+                const toolPart = part as {
+                  toolCallId?: string;
+                  input?: unknown;
+                  output?: unknown;
+                  state?: string;
+                  errorText?: string;
+                };
+                const toolName = part.type.slice(5);
+                return {
+                  toolCallId: toolPart.toolCallId ?? `${responseKey}-${index}`,
+                  toolName,
+                  input: toolPart.input,
+                  output: toolPart.output,
+                  // AI SDK v7 streams: input-streaming → input-available →
+                  // output-available. Both input states are "running".
+                  isRunning:
+                    toolPart.state === "input-available" ||
+                    toolPart.state === "input-streaming",
+                  isError:
+                    toolPart.state === "output-error" ||
+                    toolPart.errorText != null,
+                };
+              },
             );
-            return;
-          }
 
-          if (!part.type.startsWith("tool-")) return;
+            // Text the model wrote BEFORE its first tool call doubles as the
+            // card title — fully model-authored, no hardcoded agent/user names.
+            const leadText = hasAgentSteps
+              ? responseParts
+                  .slice(0, firstSegIndex)
+                  .filter((p) => p.type === "text")
+                  .map((p) => (p as { text?: string }).text ?? "")
+                  .join(" ")
+                  .trim()
+              : "";
 
-          const toolName = part.type.slice(5);
-          if (hasAgentSteps) {
-            if (
-              toolName === "askUser" ||
-              toolName === "presentPlan" ||
-              APPROVAL_TOOLS.has(toolName)
-            ) {
+            const stillRunning =
+              message.id === messages[messages.length - 1]?.id &&
+              isLastResponse &&
+              (status === "submitted" || status === "streaming");
+
+            const responseText = isUser
+              ? ""
+              : responseParts
+                  .filter((p) => p.type === "text")
+                  .map((p) => (p as { text?: string }).text ?? "")
+                  .join("\n");
+
+            // Usage is a per-message (per-turn) figure from the stream's
+            // finish event — show it once, on the turn's final bubble.
+            const assistantUsage = isLastResponse
+              ? (
+                  message.metadata as
+                    | {
+                        usage?: {
+                          inputTokens?: number;
+                          outputTokens?: number;
+                          totalTokens?: number;
+                        };
+                      }
+                    | undefined
+                )?.usage
+              : undefined;
+
+            const bubbleChildren: ReactNode[] = [];
+
+            if (hasAgentSteps) {
+              bubbleChildren.push(
+                <ToolCallSequence
+                  key={`${responseKey}-steps`}
+                  title={leadText}
+                  steps={segments}
+                  answerStep={
+                    stillRunning ||
+                    responseParts.some((p) => p.type === "text")
+                  }
+                  answerRunning={
+                    stillRunning && !segments.some((s) => s.isRunning)
+                  }
+                />,
+              );
+            }
+
+            responseParts.forEach((part, partIndex) => {
+              const key = `${responseKey}-${partIndex}`;
+
+              if (part.type === "text") {
+                const text = (part as { text: string }).text;
+                if (!text) return;
+                if (hasAgentSteps && partIndex < firstSegIndex) return;
+                bubbleChildren.push(
+                  isUser ? (
+                    <div key={key} className="whitespace-pre-wrap">
+                      {text}
+                    </div>
+                  ) : (
+                    <Markdown key={key} content={text} />
+                  ),
+                );
+                return;
+              }
+
+              if (!part.type.startsWith("tool-")) return;
+
+              const toolName = part.type.slice(5);
               const card = renderClientCard(toolName, part, key);
               if (card) bubbleChildren.push(card);
-            }
-            return;
-          }
+            });
 
-          const card = renderClientCard(toolName, part, key);
-          if (card) bubbleChildren.push(card);
-        });
+            if (bubbleChildren.length === 0) return null;
 
-        return (
-          <div key={message.id} className="flex min-w-0 flex-col gap-4">
-            <ChatMessage
-              from={isUser ? "user" : "assistant"}
-              time={new Date().toLocaleString(undefined, {
-                weekday: "short",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-              actions={
-                !isUser && assistantText.trim().length > 0 ? (
-                  <AssistantActions text={assistantText} />
-                ) : undefined
-              }
-            >
-              {bubbleChildren}
-            </ChatMessage>
-            {systemRows}
-          </div>
-        );
+            return (
+              <ChatMessage
+                key={responseKey}
+                from={isUser ? "user" : "assistant"}
+                time={new Date().toLocaleString(undefined, {
+                  weekday: "short",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+                actions={
+                  !isUser && responseText.trim().length > 0 ? (
+                    <AssistantActions
+                      text={responseText}
+                      usage={assistantUsage}
+                    />
+                  ) : undefined
+                }
+              >
+                {bubbleChildren}
+              </ChatMessage>
+            );
+          }),
+        ];
       })}
       {showThinking && (
         <ThinkingIndicator
@@ -499,38 +578,66 @@ export function ConversationTimeline({
           {errorMessage}
         </SystemMessage>
       )}
+      {planSteps != null && planSteps.length > 0 && (
+        <PlanStepsCard steps={planSteps} />
+      )}
       <div ref={bottomRef} />
     </div>
   );
 }
 
-/** Hover action bar under an assistant message: copy to clipboard. */
-function AssistantActions({ text }: { text: string }) {
+/** Hover action bar under an assistant message: token usage + copy. */
+function AssistantActions({
+  text,
+  usage,
+}: {
+  text: string;
+  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null;
+}) {
   const Copy = useIcon("copy");
   const Check = useIcon("check");
   const [copied, setCopied] = useState(false);
 
+  const usageLabel =
+    usage?.totalTokens != null && usage.totalTokens > 0
+      ? `${usage.totalTokens.toLocaleString()} tokens`
+      : undefined;
+
   return (
-    <button
-      type="button"
-      aria-label="Copy message"
-      className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1_500);
-        } catch {
-          // Clipboard unavailable (permissions/insecure context).
-        }
-      }}
-    >
-      {copied ? (
-        <Check size={13} strokeWidth={1.75} />
-      ) : (
-        <Copy size={13} strokeWidth={1.75} />
+    <>
+      {usageLabel && (
+        <span
+          className="text-[11px] tabular-nums text-muted-foreground select-none"
+          title={
+            usage?.inputTokens != null && usage?.outputTokens != null
+              ? `${usage.inputTokens.toLocaleString()} in · ${usage.outputTokens.toLocaleString()} out`
+            : undefined
+          }
+        >
+          {usageLabel}
+        </span>
       )}
-    </button>
+      <button
+        type="button"
+        aria-label="Copy message"
+        className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1_500);
+          } catch {
+            // Clipboard unavailable (permissions/insecure context).
+          }
+        }}
+      >
+        {copied ? (
+          <Check size={13} strokeWidth={1.75} />
+        ) : (
+          <Copy size={13} strokeWidth={1.75} />
+        )}
+      </button>
+    </>
   );
 }
 
@@ -550,27 +657,5 @@ function AskUserCard({
       defaultAnswers={answers as never}
       onComplete={onComplete}
     />
-  );
-}
-
-/**
- * Wraps a completed interactive card (QuestionFlow, plan card) so it stays
- * visible in history but cannot be interacted with: `inert` disables clicks,
- * focus and keyboard for the whole subtree, and a small chip labels it.
- */
-function ResolvedCard({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div inert aria-label={label} className="space-y-2 opacity-75">
-      <span className="inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </div>
   );
 }

@@ -11,6 +11,7 @@ import {
 	WorkspaceHeader,
 } from "@/components/chat/workspace-header";
 import { useAgentChat } from "@/hooks/use-agent-chat";
+import { usePlanSteps } from "@/hooks/use-plan-steps";
 import { WorkflowDialog } from "@aevryn/ui/components/dialog/workflow-dialog";
 
 export default function ThreadPage() {
@@ -32,6 +33,8 @@ export default function ThreadPage() {
 	const [hasBoundWorkflow, setHasBoundWorkflow] = useState(false);
 	const [boundWorkflowId, setBoundWorkflowId] = useState<string | null>(null);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+
+	const { steps: planSteps } = usePlanSteps(boundWorkflowId);
 
 	// Replay history + header data (thread title, bound workflow) once.
 	useEffect(() => {
@@ -232,10 +235,10 @@ export default function ThreadPage() {
 				aria-label="Conversation"
 				className="min-h-0 flex-1 overflow-y-auto"
 			>
-				<div className="mx-auto max-w-3xl">
-					<ConversationTimeline
-						messages={messages}
-						status={mapStatus}
+				<div className="mx-auto max-w-3xl">						<ConversationTimeline
+							messages={messages}
+							status={mapStatus}
+							planSteps={planSteps}
 						onToolAnswer={(toolCallId, toolName, answer) => {
 							sendToolAnswer(toolCallId, toolName, answer);
 						}}

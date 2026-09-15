@@ -146,6 +146,11 @@ export class ChatService {
 			usage: input.usage,
 		});
 
+		await this.client
+			.update(threads)
+			.set({ lastMessageAt: new Date() })
+			.where(eq(threads.id, input.threadId));
+
 		if (input.steps && input.steps.length > 0) {
 			await this.client.insert(steps).values(
 				input.steps.map((step) => ({
