@@ -10,6 +10,7 @@ import { useSizeContext } from "@aevryn/ui/lib/size-context";
 import { useTheme } from "next-themes";
 import { cn } from "@aevryn/ui/lib/utils";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
+import { SidebarMenuSkeleton } from "../ui/sidebar-menu";
 
 // Switches carry their own (required) label for assistive tech; the row
 // already shows it, so the switch's copy is visually hidden.
@@ -126,11 +127,21 @@ function ModelsPanel() {
       .map((m) => m.trim())
       .filter(Boolean)
       .map((id) => ({ id }));
-    if (!displayName.trim() || !baseUrl.trim() || !apiKey.trim() || models.length === 0) {
-      setError("Fill in the name, base URL, API key, and at least one model id.");
+    if (
+      !displayName.trim() ||
+      !baseUrl.trim() ||
+      !apiKey.trim() ||
+      models.length === 0
+    ) {
+      setError(
+        "Fill in the name, base URL, API key, and at least one model id.",
+      );
       return;
     }
-    const slug = preset === "custom" ? displayName.trim().toLowerCase().replace(/\s+/g, "-") : preset;
+    const slug =
+      preset === "custom"
+        ? displayName.trim().toLowerCase().replace(/\s+/g, "-")
+        : preset;
     setSaving(true);
     const res = await fetch("/api/providers", {
       method: "POST",
@@ -165,7 +176,11 @@ function ModelsPanel() {
   return (
     <div className="flex flex-col">
       {loading ? (
-        <p className="py-4 text-[13px] text-muted-foreground">Loading providers…</p>
+        <div className=" flex flex-col">
+          <SidebarMenuSkeleton />
+          <SidebarMenuSkeleton showIcon />
+          <SidebarMenuSkeleton />
+        </div>
       ) : rows.length === 0 ? (
         <p className="py-4 text-[13px] text-muted-foreground">
           No model providers yet. Add one below to start chatting.
@@ -175,9 +190,13 @@ function ModelsPanel() {
           <SettingRow
             key={p.id}
             label={`${p.displayName} (${p.slug})`}
-            description={`${p.models.map((m) => m.id).join(", ")} — ${p.baseUrl}`}
+            description={`${p.models.map((m) => m.id).join(", ")} - ${p.baseUrl}`}
           >
-            <Button variant="secondary" size="sm" onClick={() => void remove(p.slug)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void remove(p.slug)}
+            >
               Remove
             </Button>
           </SettingRow>
@@ -224,15 +243,20 @@ function ModelsPanel() {
           />
           <InputField
             index={3}
-            label="Model ids (comma-separated)"
+            label="Model ids"
             value={modelsText}
             onChange={setModelsText}
-            placeholder="llama-3.3-70b-versatile, llama-3.1-8b-instant"
+            placeholder="llama-3.3-70b-versatile"
           />
         </InputGroup>
         {error && <p className="text-[12px] text-destructive">{error}</p>}
-        <div>
-          <Button size="sm" onClick={() => void save()} disabled={saving}>
+        <div className="mt-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void save()}
+            disabled={saving}
+          >
             {saving ? "Saving…" : "Save provider"}
           </Button>
         </div>
@@ -306,7 +330,18 @@ function ByokPanel() {
   };
 
   if (loading) {
-    return <p className="py-4 text-[13px] text-muted-foreground">Loading keys…</p>;
+    return (
+      <div className="mt-2">
+        <SidebarMenuSkeleton showIcon />
+        <SidebarMenuSkeleton />
+        <SidebarMenuSkeleton />
+        <SidebarMenuSkeleton />
+        <SidebarMenuSkeleton showIcon />
+        <SidebarMenuSkeleton />
+        <SidebarMenuSkeleton />
+        <SidebarMenuSkeleton />
+      </div>
+    );
   }
 
   return (
@@ -331,6 +366,20 @@ function ByokPanel() {
                 {k.description}
               </span>
             </div>
+          </div>
+          <div className="flex items-end gap-2">
+            <InputGroup className="w-full">
+              <InputField
+                index={0}
+                label=""
+                type="password"
+                value={drafts[k.name] ?? ""}
+                onChange={(value) =>
+                  setDrafts((d) => ({ ...d, [k.name]: value }))
+                }
+                placeholder={saved[k.name] ? "•••••••• (saved)" : k.placeholder}
+              />
+            </InputGroup>{" "}
             {saved[k.name] && (
               <Button
                 variant="secondary"
@@ -341,20 +390,6 @@ function ByokPanel() {
                 Remove
               </Button>
             )}
-          </div>
-          <div className="flex items-end gap-2">
-            <InputGroup className="w-full">
-              <InputField
-                index={0}
-                label={saved[k.name] ? "Replace key" : "Paste key"}
-                type="password"
-                value={drafts[k.name] ?? ""}
-                onChange={(value) =>
-                  setDrafts((d) => ({ ...d, [k.name]: value }))
-                }
-                placeholder={saved[k.name] ? "•••••••• (saved)" : k.placeholder}
-              />
-            </InputGroup>
             <Button
               size="sm"
               disabled={!(drafts[k.name] ?? "").trim() || busy === k.name}
@@ -482,7 +517,7 @@ function WorkspacePanel() {
         label="Days of unread activity"
         description="How long a thread can sit idle before it feels stale."
       >
-        <Select value="7" onValueChange={() => {}}>
+        <Select value="7" onValueChange={() => {}} disabled>
           <SelectTrigger placeholder="7 days" />
           <SelectContent>
             <SelectItem index={0} value="1">
@@ -534,7 +569,6 @@ function AppearancePanel() {
         <Select value={resolvedTheme} onValueChange={setTheme}>
           <SelectTrigger placeholder="Theme" />
           <SelectContent>
-            
             <SelectItem index={1} value="light" icon={icons.sun}>
               Light
             </SelectItem>
@@ -571,6 +605,7 @@ function AppearancePanel() {
           className={SWITCH_LABEL_HIDDEN}
           label="Chat animation"
           checked={true}
+          disabled
           onToggle={() => {}}
         />
       </SettingRow>

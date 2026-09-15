@@ -63,29 +63,30 @@ export interface PromoCard {
   imageUrl: string | null;
 }
 
-const FALLBACK_IMG =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Cdefs%3E%3CradialGradient id='a' cx='12%25' cy='16%25' r='70%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.9'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='90%25' cy='12%25' r='65%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.45'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='c' cx='82%25' cy='94%25' r='75%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.8'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='d' cx='24%25' cy='90%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.55'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='320' height='180' fill='%23ffffff'/%3E%3Crect width='320' height='180' fill='%236B97FF' fill-opacity='0.2'/%3E%3Crect width='320' height='180' fill='url(%23a)'/%3E%3Crect width='320' height='180' fill='url(%23b)'/%3E%3Crect width='320' height='180' fill='url(%23c)'/%3E%3Crect width='320' height='180' fill='url(%23d)'/%3E%3C/svg%3E";
-
+/** Shown only while the callouts table has no visible rows. */
 const FALLBACK_CALLOUTS: PromoCard[] = [
   {
-    id: "1",
-    title: "Aurora 2 is here",
-    description: "Longer context, faster agents",
+    id: "fallback-1",
+    title: "Aevryn is here",
+    description: "An agent that shows its work",
     imageUrl: null,
   },
   {
-    id: "2",
-    title: "New workspace roles",
-    description: "Owner, editor, viewer",
+    id: "fallback-2",
+    title: "Bring your own key",
+    description: "Groq and any OpenAI-compatible API",
     imageUrl: null,
   },
   {
-    id: "3",
-    title: "Dark mode shipped",
-    description: "Follows your system",
+    id: "fallback-3",
+    title: "Live web answers",
+    description: "Search, scrape, crawl, and visibility",
     imageUrl: null,
   },
 ];
+
+const FALLBACK_IMG =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Cdefs%3E%3CradialGradient id='a' cx='12%25' cy='16%25' r='70%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.9'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='90%25' cy='12%25' r='65%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.45'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='c' cx='82%25' cy='94%25' r='75%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.8'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='d' cx='24%25' cy='90%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%236B97FF' stop-opacity='0.55'/%3E%3Cstop offset='100%25' stop-color='%236B97FF' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='320' height='180' fill='%23ffffff'/%3E%3Crect width='320' height='180' fill='%236B97FF' fill-opacity='0.2'/%3E%3Crect width='320' height='180' fill='url(%23a)'/%3E%3Crect width='320' height='180' fill='url(%23b)'/%3E%3Crect width='320' height='180' fill='url(%23c)'/%3E%3Crect width='320' height='180' fill='url(%23d)'/%3E%3C/svg%3E";
 
 export interface SidebarData {
   workspace: { id: string; name: string; isDefault: boolean };
@@ -97,6 +98,7 @@ export interface SidebarData {
     title: string;
     status: string;
     updatedAt: string;
+    boundWorkflowId: string | null;
   }>;
   userName: string | null;
   userAvatarUrl: string | null;
@@ -120,6 +122,14 @@ export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
   onDeleteThread?: (threadId: string) => void;
   onRenameGroup?: (groupId: string, name: string) => void;
   onDeleteGroup?: (groupId: string) => void;
+  /** Run a single thread's bound workflow. */
+  onRunThread?: (threadId: string) => void;
+  /** Stop a running thread. */
+  onStopThread?: (threadId: string) => void;
+  /** Run every runnable thread in a section (has a bound workflow, not running). */
+  onRunAll?: (threadIds: string[]) => void;
+  /** Stop every active thread in a section. */
+  onStopAll?: (threadIds: string[]) => void;
   onLogout?: () => void;
 }
 
@@ -134,6 +144,10 @@ export function AppSidebar({
   onDeleteThread,
   onRenameGroup,
   onDeleteGroup,
+  onRunThread,
+  onStopThread,
+  onRunAll,
+  onStopAll,
   onLogout,
   ...props
 }: AppSidebarProps) {
@@ -142,9 +156,12 @@ export function AppSidebar({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [callouts, setCallouts] = useState<PromoCard[]>(FALLBACK_CALLOUTS);
 
-  const promoSource = data?.promoCards && data.promoCards.length > 0
-    ? data.promoCards
-    : FALLBACK_CALLOUTS;
+  // Real callouts come from the callouts table via /api/sidebar. Empty table =
+  // fall back to the three promo cards.
+  const promoSource =
+    data?.promoCards && data.promoCards.length > 0
+      ? data.promoCards
+      : FALLBACK_CALLOUTS;
   const promoKey = promoSource.map((c) => c.id).join("|");
   useEffect(() => {
     setCallouts((prev) =>
@@ -475,7 +492,17 @@ export function AppSidebar({
                         index={0}
                         icon={PlayIcon}
                         label={"Run All"}
-                        onSelect={() => {}}
+                        onSelect={() => {
+                          const runnable = section.items
+                            .filter(
+                              (item) =>
+                                item.boundWorkflowId != null &&
+                                item.status !== "running" &&
+                                item.status !== "awaiting_approval",
+                            )
+                            .map((item) => item.id);
+                          if (runnable.length > 0) onRunAll?.(runnable);
+                        }}
                       />
                       <MenuItem
                         index={1}
@@ -490,7 +517,18 @@ export function AppSidebar({
                             ].includes(item.status),
                           )
                         }
-                        onSelect={() => {}}
+                        onSelect={() => {
+                          const active = section.items
+                            .filter((item) =>
+                              [
+                                "running",
+                                "sleeping",
+                                "waiting_for_approval",
+                              ].includes(item.status),
+                            )
+                            .map((item) => item.id);
+                          if (active.length > 0) onStopAll?.(active);
+                        }}
                       />
                       <MenuItem
                         index={2}
@@ -547,7 +585,16 @@ export function AppSidebar({
                           content={item.status === "running" ? "Stop" : "Run"}
                           side="top"
                         >
-                          <SidebarMenuAction aria-label="Run/Stop">
+                          <SidebarMenuAction
+                            aria-label="Run/Stop"
+                            onClick={() => {
+                              if (item.status === "running") {
+                                onStopThread?.(item.id);
+                              } else if (item.boundWorkflowId != null) {
+                                onRunThread?.(item.id);
+                              }
+                            }}
+                          >
                             {item.status === "running" ? (
                               <StopIcon />
                             ) : (
@@ -590,8 +637,18 @@ export function AppSidebar({
                               item.status === "running" ? StopIcon : PlayIcon
                             }
                             label={item.status === "running" ? "Stop" : "Run"}
-                            onSelect={() => {}}
-                            disabled={item.status === "awaiting_approval"}
+                            onSelect={() => {
+                              if (item.status === "running") {
+                                onStopThread?.(item.id);
+                              } else if (item.boundWorkflowId != null) {
+                                onRunThread?.(item.id);
+                              }
+                            }}
+                            disabled={
+                              item.status === "awaiting_approval" ||
+                              (item.status !== "running" &&
+                                item.boundWorkflowId == null)
+                            }
                           />
 
                           <MenuItem

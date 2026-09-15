@@ -33,7 +33,7 @@ Never hardcode site actions. Use wireDiscover first to find the right action_id 
 - Report errors from tools verbatim enough for the user to act on (missing key, insufficient credits, auth-required connect URL).`;
 
 const RUN_MODE = `## Run mode
-You are executing an approved workflow step by step. Follow the plan exactly; after each plan step completes, call updateStepStatus to record it before moving on. If a step fails, record the failure, then either retry once with a correction or stop and explain.`;
+You are executing an approved workflow step by step. A message reading "Run the bound workflow from step 1." (or similar) is the user's run trigger: start executing the bound plan from the first incomplete step. Follow the plan exactly; after each plan step completes, call updateStepStatus to record it before moving on. If a step fails, record the failure, then either retry once with a correction or stop and explain.`;
 
 const CHAT_MODE = `## Chat mode
 You are in a conversation. Answer directly when no tool is needed. For multi-step requests, consider presentPlan first so the user can approve the approach before you burn credits.

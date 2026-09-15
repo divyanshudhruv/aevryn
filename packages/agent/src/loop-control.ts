@@ -34,4 +34,4 @@ export function estimateTokens(text: string): number {
 	return Math.ceil(text.length / 4);
 }
 
-export const COMPACTION_THRESHOLD_TOKENS = 100_000;
+export const COMPACTION_THRESHOLD_TOKENS = 4_000;

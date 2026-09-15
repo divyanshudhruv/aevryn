@@ -1,0 +1,65 @@
+import { requireUser } from "@aevryn/auth";
+import { db, threads } from "@aevryn/db";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+
+import { createServerSupabaseForNext } from "@/lib/supabase-server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function jsonError(status: number, code: string, message: string): Response {
+	return Response.json(
+		{ data: null, error: { code, message, details: null }, meta: {} },
+		{ status, headers: { "cache-control": "no-store" } },
+	);
+}
+
+const patchSchema = z.object({
+	title: z.string().min(1).max(200).optional(),
+	groupId: z.string().nullable().optional(),
+});
+
+type RouteContext = { params: Promise<{ threadId: string }> };
+
+export async function PATCH(
+	request: Request,
+	{ params }: RouteContext,
+): Promise<Response> {
+	const { threadId } = await params;
+	const supabase = await createServerSupabaseForNext();
+	let user: { id: string };
+	try {
+		user = await requireUser(supabase);
+	} catch {
+		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
+	}
+
+	let body: unknown;
+	try {
+		body = await request.json();
+	} catch {
+		return jsonError(400, "INVALID_JSON", "Request body must be JSON.");
+	}
+	const parsed = patchSchema.safeParse(body);
+	if (!parsed.success) {
+		return jsonError(
+			400,
+			"VALIDATION_ERROR",
+			parsed.error.issues[0]?.message ?? "Invalid input.",
+		);
+	}
+
+	const [row] = await db
+		.update(threads)
+		.set(parsed.data)
+		.where(and(eq(threads.id, threadId), eq(threads.userId, user.id)))
+		.returning({ id: threads.id, title: threads.title });
+	if (!row) {
+		return jsonError(404, "NOT_FOUND", "Thread not found.");
+	}
+	return Response.json(
+		{ data: row, error: null, meta: {} },
+		{ headers: { "cache-control": "no-store" } },
+	);
+}

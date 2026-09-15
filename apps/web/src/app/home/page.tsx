@@ -20,9 +20,10 @@ import {
   TabItem,
   TabPanel,
 } from "@aevryn/ui/components/ui/tabs";
+import { Logo } from "@/components/logo";
 
 export const metadata = {
-  title: "Sign in — Aevryn",
+  title: "Home - Aevryn",
 };
 import { useIcons, type IconName } from "@aevryn/ui/lib/icon-context";
 
@@ -68,17 +69,15 @@ export default function Home() {
     <main className="container mx-auto flex h-full flex-col w-full max-w-7xl items-center justify-center border-l-2 border-r-2 gap-4 border-solid">
       <header className="border-b-2 border-dashed flex flex-row items-center justify-between w-full px-12 py-4">
         <div className="flex flex-row gap-1 items-center justify-center">
-          <img src="/logo.svg" alt="Aevryn" className="size-9" />
+          <Logo className="size-9" />
           evryn
         </div>
         <Button>Sign Up</Button>
       </header>
 
       <section className="border-b-2 border-dashed flex flex-col items-start w-full gap-4 p-12">
-        <div className="text-[50px] leading-14.25 text-foreground/90 inline">
-          Just ask{" "}
-          <img src="/logo.svg" alt="Aevryn" className="inline size-12 mb-2" />{" "}
-          aevryn.
+        <div className="text-[50px] leading-13.5 text-foreground/90 inline">
+          Just ask <Logo className="inline size-12 mb-2" /> aevryn.
           <br />
           Your
           <span className="inline font-bold"> keys</span>,
@@ -125,12 +124,12 @@ export default function Home() {
             <br />
             <TabPanel value="night">
               <div>
-                <img src="/night.jpg" className="rounded-lg" />
+                <img src="/aevryn.png" className="rounded-lg" />
               </div>
             </TabPanel>
             <TabPanel value="day">
               <div>
-                <img src="/night.jpg" className="rounded-lg" />
+                <img src="/aevryn.png" className="rounded-lg" />
               </div>
             </TabPanel>
           </Tabs>

@@ -30,6 +30,7 @@ export default function ThreadPage() {
 	const [selectedModel, setSelectedModel] =
 		useState<ProviderModelOption | null>(null);
 	const [hasBoundWorkflow, setHasBoundWorkflow] = useState(false);
+	const [boundWorkflowId, setBoundWorkflowId] = useState<string | null>(null);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 
 	// Replay history + header data (thread title, bound workflow) once.
@@ -84,6 +85,7 @@ export default function ThreadPage() {
 						if (thread) {
 							setTitle(thread.title || "Chat");
 							setHasBoundWorkflow(thread.boundWorkflowId != null);
+							setBoundWorkflowId(thread.boundWorkflowId);
 						}
 					}
 				}
@@ -156,6 +158,7 @@ export default function ThreadPage() {
 		sendText,
 		sendToolAnswer,
 		sendApproval,
+		runWorkflow,
 		stop,
 	} = chat;
 
@@ -167,9 +170,8 @@ export default function ThreadPage() {
 	);
 
 	const handleRun = useCallback(() => {
-		// Run mode: prompt the bound workflow without new user text.
-		void sendText("Run the workflow.");
-	}, [sendText]);
+		void runWorkflow();
+	}, [runWorkflow]);
 
 	const handleOpenSettings = useCallback(() => {
 		setSettingsOpen(true);
@@ -177,6 +179,27 @@ export default function ThreadPage() {
 
 	const mapStatus =
 		isStreaming ? "streaming" : status === "error" ? "error" : status === "submitted" ? "submitted" : "idle";
+
+	// Descriptive client-facing error: prefer the API's structured message,
+	// fall back to the thrown message (skip the SDK's generic placeholder).
+	const errorMessage = (() => {
+		if (!error) return null;
+		const e = error as {
+			message?: unknown;
+			data?: { error?: { message?: string } };
+		};
+		const apiMessage = e.data?.error?.message;
+		if (typeof apiMessage === "string" && apiMessage.trim().length > 0)
+			return apiMessage;
+		const msg = e.message;
+		if (
+			typeof msg === "string" &&
+			msg.trim().length > 0 &&
+			msg.trim() !== "An error occurred."
+		)
+			return msg;
+		return null;
+	})();
 
 	if (loadError) {
 		return (
@@ -201,7 +224,6 @@ export default function ThreadPage() {
 					models={models}
 					selectedModel={selectedModel}
 					onSelectModel={setSelectedModel}
-					onRenameTitle={setTitle}
 					onRun={hasBoundWorkflow ? handleRun : undefined}
 					isRunning={isStreaming}
 					onOpenSettings={handleOpenSettings}
@@ -220,6 +242,7 @@ export default function ThreadPage() {
 						onApproval={(toolCallId, approved) => {
 							sendApproval(toolCallId, approved);
 						}}
+						errorMessage={errorMessage}
 					/>
 				</div>
 			</section>
@@ -230,17 +253,21 @@ export default function ThreadPage() {
 						onSend={handleSend}
 						onStop={stop}
 					/>
-					{error ? (
-						<p className="mt-2 text-center text-xs text-destructive">
-							{(error as Error).message}
-						</p>
-					) : null}
+					<p className="mt-2 text-center text-xs text-muted-foreground">
+						Aevryn is an AI — check important information before relying on it.
+					</p>
 				</div>
 			</footer>
 
 			<WorkflowDialog
 				open={settingsOpen}
 				onOpenChange={setSettingsOpen}
+				workflowId={boundWorkflowId}
+				threadId={threadId}
+				onWorkflowDeleted={() => {
+					setBoundWorkflowId(null);
+					setHasBoundWorkflow(false);
+				}}
 			/>
 		</div>
 	);

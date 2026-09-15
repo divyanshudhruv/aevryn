@@ -7,8 +7,8 @@ import { ThinkingIndicator } from "@aevryn/ui/components/ui/thinking-indicator";
 import { QuestionFlow } from "@aevryn/ui/components/question-flow";
 import { type AskUserAnswer } from "@aevryn/ui/components/ui/ask-user-questions";
 import {
-  ToolCallStep,
-  type ToolCallView,
+  ToolCallSequence,
+  type ToolCallStepSegment,
 } from "@aevryn/ui/components/ui/tool-call-step";
 import {
   PlanApprovalCard,
@@ -16,7 +16,7 @@ import {
   type PlanInput,
 } from "@aevryn/ui/components/ui/plan-approval-card";
 import { ApprovalFlow } from "@/components/workspace/approval-flow";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { UIMessage } from "ai";
 import { useIcon } from "@aevryn/ui/lib/icon-context";
 
@@ -29,6 +29,7 @@ interface TimelineProps {
   onToolAnswer: (toolCallId: string, toolName: string, answer: unknown) => void;
   onApproval: (toolCallId: string, approved: boolean) => void;
   onErrorCta?: () => void;
+  errorMessage?: string | null;
 }
 
 function systemEventFromOutput(output: unknown): {
@@ -134,20 +135,36 @@ export function ConversationTimeline({
   onToolAnswer,
   onApproval,
   onErrorCta,
+  errorMessage,
 }: TimelineProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLElement | null>(null);
 
-  // Auto-scroll: snap to bottom whenever content grows or streaming state
-  // changes. Use instant scroll while streaming (smooth lags bursts).
+  const autoScrollRef = useRef(true);
+
+  // Track whether the user has manually scrolled away from the bottom.
+  // Auto-scroll only fires when the user hasn't intervened.
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    const nearBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight <
-      240;
+    const onScroll = () => {
+      const distFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      autoScrollRef.current = distFromBottom < 240;
+    };
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Auto-scroll: only when user is near bottom or a fresh user message arrives.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const lastMsg = messages.at(-1);
+    const isUserMessage = lastMsg?.role === "user";
+    if (!autoScrollRef.current && !isUserMessage) return;
     bottomRef.current?.scrollIntoView({
-      behavior: status === "streaming" && !nearBottom ? "smooth" : "instant",
+      behavior: isUserMessage ? "instant" : "smooth",
       block: "end",
     });
   }, [messages, status]);
@@ -179,17 +196,122 @@ export function ConversationTimeline({
     status === "submitted" ||
     (status === "streaming" &&
       lastMessage?.role === "assistant" &&
+      // Tool steps render their own per-step indicators inside the grouped
+      // card, so the oversized standalone thinking indicator only shows while
+      // nothing has streamed yet.
       !lastMessage.parts.some(
-        (p) =>
-          p.type === "text" ||
-          (p.type.startsWith("tool-") &&
-            (p as { state?: string }).state === "output-available"),
+        (p) => p.type === "text" || p.type.startsWith("tool-"),
       ));
+
+  // Renders one client/approval card (askUser, presentPlan, wire approvals)
+  // for a given tool part, or null when the part needs no standalone card.
+  const renderClientCard = (
+    toolName: string,
+    part: UIMessage["parts"][number],
+    key: string,
+  ): ReactNode | null => {
+    const toolPart = part as {
+      type: string;
+      state?: string;
+      toolCallId?: string;
+      input?: unknown;
+      output?: unknown;
+      errorText?: string;
+    };
+
+    if (toolName === "askUser" && toolPart.state !== "output-available") {
+      const questions = questionsFromInput(toolPart.input);
+      if (!questions) return null;
+      return (
+        <AskUserCard
+          key={key}
+          questions={questions}
+          onComplete={(answers) => {
+            onToolAnswer(toolPart.toolCallId ?? "", "askUser", answers);
+          }}
+        />
+      );
+    }
+
+    if (toolName === "presentPlan" && toolPart.state !== "output-available") {
+      const plan = planFromInput(toolPart.input);
+      if (!plan) return null;
+      return (
+        <PlanApprovalCard
+          key={key}
+          plan={plan}
+          onDecision={(result: PlanDecisionResult) =>
+            onToolAnswer(toolPart.toolCallId ?? "", "presentPlan", result)
+          }
+        />
+      );
+    }
+
+    // Completed askUser / presentPlan cards stay visible but read-only: the
+    // `inert` wrapper freezes all interaction (clicks, focus, keyboard — the
+    // document-level 1-9 answer shortcut skips them because nothing inside
+    // can hold focus). The outcome SystemRow below still carries the
+    // human-readable decision text.
+    if (toolName === "askUser" && toolPart.state === "output-available") {
+      const questions = questionsFromInput(toolPart.input);
+      if (!questions) return null;
+      return (
+        <ResolvedCard key={key} label="Answered">
+          <AskUserCard
+            questions={questions}
+            answers={
+              toolPart.output != null && typeof toolPart.output === "object"
+                ? (toolPart.output as Record<string, AskUserAnswer>)
+                : undefined
+            }
+            onComplete={() => {}}
+          />
+        </ResolvedCard>
+      );
+    }
+
+    if (toolName === "presentPlan" && toolPart.state === "output-available") {
+      const plan = planFromInput(toolPart.input);
+      if (!plan) return null;
+      return (
+        <ResolvedCard key={key} label="Decided">
+          <PlanApprovalCard plan={plan} onDecision={() => {}} />
+        </ResolvedCard>
+      );
+    }
+
+    // Native approvals (wireAction, wireBuildRequest).
+    if (
+      APPROVAL_TOOLS.has(toolName) &&
+      toolPart.state === "approval-requested"
+    ) {
+      return (
+        <ApprovalFlow
+          key={key}
+          toolName={toolName}
+          input={toolPart.input}
+          onDecide={(decision) =>
+            onApproval(toolPart.toolCallId ?? "", decision === "approved")
+          }
+        />
+      );
+    }
+
+    return null;
+  };
 
   return (
     <div
       ref={(node) => {
-        scrollContainerRef.current = node?.parentElement ?? null;
+        // Climb to the real scroll container (the overflow-y-auto section),
+        // not the enclosing max-width wrapper.
+        let el = node?.parentElement ?? null;
+        while (el) {
+          const overflowY = getComputedStyle(el).overflowY;
+          if (overflowY === "auto" || overflowY === "scroll") break;
+          el = el.parentElement;
+        }
+        scrollContainerRef.current = el;
       }}
       className="flex min-h-full flex-col gap-6 p-4"
     >
@@ -221,30 +343,131 @@ export function ConversationTimeline({
           ];
         });
 
-        const bubbleParts = message.parts.filter((part) => {
-          if (!part.type.startsWith("tool-")) return true;
+        // All parts render in the bubble; completed askUser / presentPlan
+        // render as read-only cards here (the outcome text lives in a
+        // SystemRow below).
+
+        // Tool calls that are not client/approval cards get grouped into a
+        // single step card (ToolCallSequence) so a run reads like a mini
+        // pipeline: search → scrape → … → final answer.
+        const segParts = message.parts
+          .map((part, index) => ({ part, index }))
+          .filter(({ part }) => {
+            if (!part.type.startsWith("tool-")) return false;
+            const toolName = part.type.slice(5);
+            return !(
+              toolName === "askUser" ||
+              toolName === "presentPlan" ||
+              APPROVAL_TOOLS.has(toolName)
+            );
+          });
+        const hasAgentSteps = segParts.length > 0;
+        const firstSegIndex = hasAgentSteps ? segParts[0]!.index : -1;
+
+        const segments: ToolCallStepSegment[] = segParts.map(({ part, index }) => {
           const toolPart = part as {
-            state?: string;
+            toolCallId?: string;
+            input?: unknown;
             output?: unknown;
+            state?: string;
+            errorText?: string;
           };
           const toolName = part.type.slice(5);
-          if (
-            (toolName === "askUser" || toolName === "presentPlan") &&
-            toolPart.state === "output-available"
-          ) {
-            return clientToolOutcomeRow(toolName, toolPart.output) == null;
-          }
-          return true;
+          return {
+            toolCallId: toolPart.toolCallId ?? `${message.id}-${index}`,
+            toolName,
+            input: toolPart.input,
+            output: toolPart.output,
+            // AI SDK v7 streams: input-streaming → input-available →
+            // output-available. Both input states are "running".
+            isRunning:
+              toolPart.state === "input-available" ||
+              toolPart.state === "input-streaming",
+            isError:
+              toolPart.state === "output-error" ||
+              toolPart.errorText != null,
+          };
         });
+
+        // Text the model wrote BEFORE its first tool call doubles as the
+        // card title — fully model-authored, no hardcoded agent/user names.
+        const leadText = hasAgentSteps
+          ? message.parts
+              .slice(0, firstSegIndex)
+              .filter((p) => p.type === "text")
+              .map((p) => (p as { text?: string }).text ?? "")
+              .join(" ")
+              .trim()
+          : "";
+
+        const stillRunning =
+          message.id === messages[messages.length - 1]?.id &&
+          (status === "submitted" || status === "streaming");
 
         // Render each message as a ChatMessage with its parts as children.
         // Assistant messages get a hover action bar (copy).
         const assistantText = isUser
           ? ""
-          : bubbleParts
+          : message.parts
               .filter((p) => p.type === "text")
               .map((p) => (p as { text?: string }).text ?? "")
               .join("\n");
+
+        const bubbleChildren: ReactNode[] = [];
+
+        if (hasAgentSteps) {
+          bubbleChildren.push(
+            <ToolCallSequence
+              key={`${message.id}-steps`}
+              title={leadText}
+              steps={segments}
+              answerStep={
+                stillRunning ||
+                message.parts.some((p) => p.type === "text")
+              }
+              answerRunning={stillRunning && !segments.some((s) => s.isRunning)}
+            />,
+          );
+        }
+
+        message.parts.forEach((part, partIndex) => {
+          const key = `${message.id}-${partIndex}`;
+
+          if (part.type === "text") {
+            const text = (part as { text: string }).text;
+            if (!text) return;
+            if (hasAgentSteps && partIndex < firstSegIndex) return;
+            bubbleChildren.push(
+              isUser ? (
+                <div key={key} className="whitespace-pre-wrap">
+                  {text}
+                </div>
+              ) : (
+                <Markdown key={key} content={text} />
+              ),
+            );
+            return;
+          }
+
+          if (!part.type.startsWith("tool-")) return;
+
+          const toolName = part.type.slice(5);
+          if (hasAgentSteps) {
+            if (
+              toolName === "askUser" ||
+              toolName === "presentPlan" ||
+              APPROVAL_TOOLS.has(toolName)
+            ) {
+              const card = renderClientCard(toolName, part, key);
+              if (card) bubbleChildren.push(card);
+            }
+            return;
+          }
+
+          const card = renderClientCard(toolName, part, key);
+          if (card) bubbleChildren.push(card);
+        });
+
         return (
           <div key={message.id} className="flex min-w-0 flex-col gap-4">
             <ChatMessage
@@ -260,138 +483,20 @@ export function ConversationTimeline({
                 ) : undefined
               }
             >
-              {bubbleParts.map((part, partIndex) => {
-                const key = `${message.id}-${partIndex}`;
-
-                if (part.type === "text") {
-                  const text = (part as { text: string }).text;
-                  if (!text) return null;
-                  return isUser ? (
-                    <div key={key} className="whitespace-pre-wrap">
-                      {text}
-                    </div>
-                  ) : (
-                    <Markdown key={key} content={text} />
-                  );
-                }
-
-                if (part.type.startsWith("tool-")) {
-                  const toolPart = part as {
-                    type: string;
-                    state?: string;
-                    toolCallId?: string;
-                    input?: unknown;
-                    output?: unknown;
-                    errorText?: string;
-                  };
-                  const toolName = part.type.slice(5);
-
-                  // Client tools render their own interactive cards.
-                  if (
-                    toolName === "askUser" &&
-                    toolPart.state !== "output-available"
-                  ) {
-                    const questions = questionsFromInput(toolPart.input);
-                    if (!questions) return null;
-                    return (
-                      <AskUserCard
-                        key={key}
-                        questions={questions}
-                        onComplete={(answers) => {
-                          onToolAnswer(
-                            toolPart.toolCallId ?? "",
-                            "askUser",
-                            answers,
-                          );
-                        }}
-                      />
-                    );
-                  }
-
-                  if (
-                    toolName === "presentPlan" &&
-                    toolPart.state !== "output-available"
-                  ) {
-                    const plan = planFromInput(toolPart.input);
-                    if (!plan) return null;
-                    return (
-                      <PlanApprovalCard
-                        key={key}
-                        plan={plan}
-                        onDecision={(result: PlanDecisionResult) =>
-                          onToolAnswer(
-                            toolPart.toolCallId ?? "",
-                            "presentPlan",
-                            result,
-                          )
-                        }
-                      />
-                    );
-                  }
-
-                  // Completed askUser / presentPlan outcomes already render
-                  // as full-width SystemRows outside the bubble.
-                  if (
-                    (toolName === "askUser" || toolName === "presentPlan") &&
-                    toolPart.state === "output-available"
-                  ) {
-                    return null;
-                  }
-
-                  // Native approvals (wireAction, wireBuildRequest).
-                  if (
-                    APPROVAL_TOOLS.has(toolName) &&
-                    toolPart.state === "approval-requested"
-                  ) {
-                    return (
-                      <ApprovalFlow
-                        key={key}
-                        toolName={toolName}
-                        input={toolPart.input}
-                        onDecide={(decision) =>
-                          onApproval(
-                            toolPart.toolCallId ?? "",
-                            decision === "approved",
-                          )
-                        }
-                      />
-                    );
-                  }
-
-                  const view: ToolCallView = {
-                    toolCallId: toolPart.toolCallId ?? key,
-                    toolName,
-                    input: toolPart.input,
-                    output: toolPart.output,
-                    // AI SDK v7 streams: input-streaming → input-available →
-                    // output-available. Both input states are "running".
-                    isRunning:
-                      toolPart.state === "input-available" ||
-                      toolPart.state === "input-streaming",
-                    isError:
-                      toolPart.state === "output-error" ||
-                      toolPart.errorText != null,
-                  };
-                  return <ToolCallStep key={key} call={view} />;
-                }
-
-                return null;
-              })}
+              {bubbleChildren}
             </ChatMessage>
             {systemRows}
           </div>
         );
       })}
       {showThinking && (
-        <ChatMessage from="assistant">
-          <ThinkingIndicator
-            words={activityWords ?? ["Thinking", "Planning", "Refining"]}
-          />
-        </ChatMessage>
+        <ThinkingIndicator
+          words={activityWords ?? ["Thinking", "Planning", "Refining"]}
+        />
       )}
-      {status === "error" && (
+      {errorMessage && (
         <SystemMessage variant="error" fill>
-          Something went wrong with this turn. Try again.
+          {errorMessage}
         </SystemMessage>
       )}
       <div ref={bottomRef} />
@@ -431,16 +536,41 @@ function AssistantActions({ text }: { text: string }) {
 
 function AskUserCard({
   questions,
+  answers,
   onComplete,
 }: {
   questions: Array<Record<string, unknown>>;
+  answers?: Record<string, AskUserAnswer>;
   onComplete: (answers: Record<string, AskUserAnswer>) => void;
 }) {
   return (
     <QuestionFlow
       // The UI component's contract: AskUserQuestion[] minus view-only fields.
       questions={questions as never}
+      defaultAnswers={answers as never}
       onComplete={onComplete}
     />
+  );
+}
+
+/**
+ * Wraps a completed interactive card (QuestionFlow, plan card) so it stays
+ * visible in history but cannot be interacted with: `inert` disables clicks,
+ * focus and keyboard for the whole subtree, and a small chip labels it.
+ */
+function ResolvedCard({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div inert aria-label={label} className="space-y-2 opacity-75">
+      <span className="inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </div>
   );
 }

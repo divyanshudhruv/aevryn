@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Button } from "../ui/button";
 import { InputGroup, InputField } from "../ui/input-group";
 import { Switch } from "../ui/switch";
@@ -44,14 +44,115 @@ function SettingRow({
 }
 
 // ---------------------------------------------------------------------------
+// Shared data types + loading.
+// ---------------------------------------------------------------------------
+
+export interface WorkflowStepItem {
+  id: string;
+  title: string;
+  description: string | null;
+}
+
+export interface WorkflowData {
+  workflow: {
+    id: string;
+    title: string;
+    objective: string;
+    instructions: string | null;
+    autoApprove: boolean;
+    status: string;
+  };
+  steps: WorkflowStepItem[];
+}
+
+export function useWorkflowData(workflowId: string | null) {
+  const [data, setData] = useState<WorkflowData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const reload = useCallback(async () => {
+    if (!workflowId) {
+      setData(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/workflows/${encodeURIComponent(workflowId)}`,
+        { cache: "no-store" },
+      );
+      if (res.ok) {
+        const json = (await res.json()) as { data: WorkflowData };
+        setData(json.data);
+      } else {
+        setData(null);
+      }
+    } catch {
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [workflowId]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  return { data, loading, reload };
+}
+
+// ---------------------------------------------------------------------------
 // Section panels.
 // ---------------------------------------------------------------------------
 
-function GeneralPanel() {
+function GeneralPanel({
+  workflowId,
+  onDeleted,
+}: {
+  workflowId: string;
+  onDeleted?: () => void;
+}) {
+  const { data, reload } = useWorkflowData(workflowId);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [autoApprove, setAutoApprove] = useState(false);
   const [deleteWorkflowOpen, setDeleteWorkflowOpen] = useState(false);
+
+  // Sync the form once data arrives; afterwards it's locally editable.
+  const [synced, setSynced] = useState<string | null>(null);
+  useEffect(() => {
+    if (data && synced !== data.workflow.id) {
+      setName(data.workflow.title);
+      setDescription(data.workflow.objective);
+      setSynced(data.workflow.id);
+    }
+  }, [data, synced]);
+
+  const patch = useCallback(
+    async (body: Record<string, unknown>) => {
+      await fetch(`/api/workflows/${encodeURIComponent(workflowId)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      void reload();
+    },
+    [workflowId, reload],
+  );
+
+  const handleDelete = async () => {
+    await fetch(`/api/workflows/${encodeURIComponent(workflowId)}`, {
+      method: "DELETE",
+    });
+    setDeleteWorkflowOpen(false);
+    onDeleted?.();
+  };
+
+  if (!data) {
+    return (
+      <p className="text-[13px] text-muted-foreground">
+        {deleteWorkflowOpen ? null : "No workflow is bound to this thread yet."}
+      </p>
+    );
+  }
 
   return (
     <>
@@ -61,7 +162,8 @@ function GeneralPanel() {
         title="Delete workflow"
         description="This deletes the workflow and its plan. Threads that are bound to it will keep running with their last saved instructions."
         actionLabel="Delete workflow"
-        items={[{ value: name || "This workflow" }]}
+        items={[{ value: data.workflow.title || "This workflow" }]}
+        onConfirm={handleDelete}
       />
       <InputGroup className="w-full">
         <InputField
@@ -70,6 +172,10 @@ function GeneralPanel() {
           onChange={(e) => setName(e)}
           placeholder="e.g. My workflow"
           index={0}
+          onBlur={() => {
+            const t = name.trim();
+            if (t && t !== data.workflow.title) void patch({ title: t });
+          }}
         />
         <InputField
           label="Description"
@@ -77,6 +183,10 @@ function GeneralPanel() {
           onChange={(e) => setDescription(e)}
           placeholder="Describe what this workflow does"
           index={1}
+          onBlur={() => {
+            if (description !== data.workflow.objective)
+              void patch({ objective: description });
+          }}
         />
       </InputGroup>
       <div>
@@ -86,9 +196,12 @@ function GeneralPanel() {
           description="Let this workflow run without asking first when it uses known safe tools."
         >
           <Switch
-            label={autoApprove ? "On" : "Off"}
-            checked={autoApprove}
-            onToggle={() => setAutoApprove((prev) => !prev)}
+            label={data.workflow.autoApprove ? "On" : "Off"}
+            checked={data.workflow.autoApprove}
+            onToggle={() => {
+              const next = !data.workflow.autoApprove;
+              void patch({ autoApprove: next });
+            }}
           />
         </SettingRow>
       </div>
@@ -96,39 +209,53 @@ function GeneralPanel() {
   );
 }
 
-function PlanPanel() {
-  const [items, setItems] = useState([
-    {
-      id: "plan_step_1",
-      title: "Outline project scope and goals",
-      content:
-        "Define the purpose and objectives of the project. Identify the key stakeholders and their roles. Determine the project timeline and milestones.",
+function PlanPanel({ workflowId }: { workflowId: string }) {
+  const { data, reload } = useWorkflowData(workflowId);
+  const items = data?.steps ?? [];
+
+  const persist = useCallback(
+    async (
+      steps: Array<{ id?: string; title: string; description: string | null }>,
+    ) => {
+      await fetch(`/api/workflows/${encodeURIComponent(workflowId)}/steps`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          steps: steps.map((s) => ({
+            id: s.id,
+            title: s.title,
+            description: s.description,
+          })),
+        }),
+      });
+      void reload();
     },
-    {
-      id: "plan_step_2",
-      title: "Gather requirements and conduct user research",
-      content:
-        "Collaborate with stakeholders to gather project requirements. Conduct user research to understand user needs and preferences.",
-    },
-    {
-      id: "plan_step_3",
-      title: "Design the project plan and wireframes",
-      content:
-        "Create a detailed project plan, including task assignments, timelines, and dependencies.",
-    },
-  ]);
+    [workflowId, reload],
+  );
 
   const moveItem = (from: number, to: number) => {
     if (from === to) return;
     const next = [...items];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved!);
-    setItems(next);
+    void persist(next);
   };
 
   const removeItem = (id: string) => {
-    setItems(items.filter((item) => item.id !== id));
+    void persist(items.filter((item) => item.id !== id));
   };
+
+  const addStep = () => {
+    void persist([...items, { title: "New step", description: null }]);
+  };
+
+  if (!data) {
+    return (
+      <p className="text-[13px] text-muted-foreground">
+        No workflow is bound to this thread yet.
+      </p>
+    );
+  }
 
   return (
     <div className="flex flex-col">
@@ -142,7 +269,7 @@ function PlanPanel() {
             <SettingRow
               key={item.id}
               label={item.title}
-              description={item.content}
+              description={item.description ?? undefined}
             >
               <div className="flex items-center gap-1">
                 <Button
@@ -172,7 +299,7 @@ function PlanPanel() {
             </SettingRow>
           ))}
           <div className="pt-4">
-            <Button variant="secondary" size="sm">
+            <Button variant="secondary" size="sm" onClick={addStep}>
               Add step
             </Button>
           </div>
@@ -182,71 +309,129 @@ function PlanPanel() {
   );
 }
 
-function InstructionsPanel() {
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [userInstructions, setUserInstructions] = useState("");
+function InstructionsPanel({ workflowId }: { workflowId: string }) {
+  const { data, reload } = useWorkflowData(workflowId);
+  const [instructions, setInstructions] = useState("");
+  const [synced, setSynced] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (data && synced !== data.workflow.id) {
+      setInstructions(data.workflow.instructions ?? "");
+      setSynced(data.workflow.id);
+    }
+  }, [data, synced]);
+
+  const persist = useCallback(
+    async (value: string) => {
+      await fetch(`/api/workflows/${encodeURIComponent(workflowId)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ instructions: value || null }),
+      });
+      void reload();
+    },
+    [workflowId, reload],
+  );
+
+  if (!data) {
+    return (
+      <p className="text-[13px] text-muted-foreground">
+        No workflow is bound to this thread yet.
+      </p>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
       <InputGroup className="w-full">
         <InputField
           index={0}
-          label="System prompt"
-          value={systemPrompt}
-          onChange={setSystemPrompt}
-          placeholder="You are a careful research assistant. Prefer concise answers with citations."
-        />
-      </InputGroup>
-      <InputGroup className="w-full">
-        <InputField
-          index={0}
-          label="User instructions"
-          value={userInstructions}
-          onChange={setUserInstructions}
+          label="Instructions"
+          value={instructions}
+          onChange={setInstructions}
           placeholder="Extra rules for this workflow, such as tone, format, or things to avoid."
+          onBlur={() => {
+            if (instructions !== (data.workflow.instructions ?? ""))
+              void persist(instructions);
+          }}
         />
       </InputGroup>
+      <p className="text-[12px] text-muted-foreground">
+        The agent follows these instructions whenever this workflow runs —
+        alongside the plan it generated.
+      </p>
     </div>
   );
 }
-function MemoriesPanel() {
-  const [memories] = useState([
-    {
-      id: "mem_research_style",
-      title: "Research style",
-      description:
-        "Prefer recent primary sources, and always keep a citation for each factual claim.",
-      status: "active",
-    },
-    {
-      id: "mem_comparison_rules",
-      title: "Comparison rules",
-      description:
-        "When comparing products, always include price, pros, cons, and a short recommendation.",
-      status: "active",
-    },
-    {
-      id: "mem_user_goals",
-      title: "User goals",
-      description:
-        "The user cares more about long-term maintainability than raw benchmark numbers.",
-      status: "draft",
-    },
-  ]);
+
+function MemoriesPanel({ threadId }: { threadId: string }) {
+  const [memories, setMemories] = useState<
+    Array<{ id: string; memory: string }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/memories?threadId=${encodeURIComponent(threadId)}`,
+        { cache: "no-store" },
+      );
+      if (res.ok) {
+        const json = (await res.json()) as {
+          data: { memories: Array<{ id: string; memory: string }> };
+        };
+        setMemories(json.data.memories ?? []);
+      } else {
+        setMemories([]);
+      }
+    } catch {
+      setMemories([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [threadId]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const removeMemory = async (id: string) => {
+    await fetch(
+      `/api/memories?threadId=${encodeURIComponent(threadId)}&id=${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    void reload();
+  };
+
+  if (loading) {
+    return (
+      <p className="text-[13px] text-muted-foreground">
+        {memories.length === 0 ? "No memories yet." : "Loading memories…"}
+      </p>
+    );
+  }
 
   return (
     <div className="flex flex-col">
-      {memories.map((item) => (
-        <SettingRow
-          key={item.id}
-          label={item.id}
-          description={item.description}
-        >
-          <Button variant="secondary" size="sm">
-            Remove
-          </Button>
-        </SettingRow>
-      ))}
+      {memories.length === 0 ? (
+        <p className="text-[13px] text-muted-foreground">
+          No memories yet. The agent saves what it learns here as this workflow
+          runs.
+        </p>
+      ) : (
+        memories.map((item) => (
+          <SettingRow key={item.id} label="Memory" description={item.memory}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void removeMemory(item.id)}
+            >
+              Remove
+            </Button>
+          </SettingRow>
+        ))
+      )}
     </div>
   );
 }
@@ -255,26 +440,41 @@ export type WorkflowSectionId =
   | "general"
   | "plan"
   | "instructions"
-  | "memories"
-  | "keys";
+  | "memories";
 
-export function WorkflowSectionPanel({ id }: { id: WorkflowSectionId }) {
+export function WorkflowSectionPanel({
+  id,
+  workflowId,
+  threadId,
+  onDeleted,
+}: {
+  id: WorkflowSectionId;
+  workflowId: string | null;
+  threadId: string | null;
+  onDeleted?: () => void;
+}) {
+  if (!workflowId) {
+    return (
+      <p className="text-[13px] text-muted-foreground">
+        Ask the agent to plan something, approve the plan, and bind it — then
+        its settings appear here.
+      </p>
+    );
+  }
   switch (id) {
     case "plan":
-      return <PlanPanel />;
+      return <PlanPanel workflowId={workflowId} />;
     case "instructions":
-      return <InstructionsPanel />;
+      return <InstructionsPanel workflowId={workflowId} />;
     case "memories":
-      return <MemoriesPanel />;
+      return threadId ? (
+        <MemoriesPanel threadId={threadId} />
+      ) : (
+        <p className="text-[13px] text-muted-foreground">
+          Memories are per-conversation — open this dialog from a thread.
+        </p>
+      );
     default:
-      return <GeneralPanel />;
+      return <GeneralPanel workflowId={workflowId} onDeleted={onDeleted} />;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Small dialog reuse for add/edit flows.
-// These reuse EntityActionDialog as a placeholder keyed-text dialog. When the
-// real add/edit forms are ready, replace them with dedicated dialogs that
-// collect title + description for memories, and provider + label + model + key
-// for API keys.
-// ---------------------------------------------------------------------------

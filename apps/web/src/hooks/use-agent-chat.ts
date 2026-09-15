@@ -78,6 +78,14 @@ export function useAgentChat({
 		[sendMessage],
 	);
 
+	/** Run trigger: an explicit user message the system prompt's Run-mode
+	 *  section instructs the agent to treat as "execute the bound workflow". */
+	const runWorkflow = useCallback(() => {
+		sendMessage({ text: "Run the bound workflow from step 1." }).catch(
+			() => undefined,
+		);
+	}, [sendMessage]);
+
 	const sendToolAnswer = useCallback(
 		(toolCallId: string, toolName: string, answer: unknown) => {
 			addToolOutput({
@@ -109,6 +117,7 @@ export function useAgentChat({
 		sendText,
 		sendToolAnswer,
 		sendApproval,
+		runWorkflow,
 		stop,
 		setMessages,
 	};

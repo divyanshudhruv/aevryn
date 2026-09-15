@@ -98,6 +98,16 @@ export class ChatService {
 			.where(eq(workflows.id, input.workflowId));
 	}
 
+	async setThreadStatus(input: {
+		threadId: string;
+		status: RunStatus;
+	}): Promise<void> {
+		await this.client
+			.update(threads)
+			.set({ status: input.status })
+			.where(eq(threads.id, input.threadId));
+	}
+
 		async boundWorkflow(threadId: string): Promise<Workflow | null> {
 		const [row] = await this.client
 			.select()

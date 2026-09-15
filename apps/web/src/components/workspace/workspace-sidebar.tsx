@@ -129,6 +129,57 @@ export function WorkspaceSidebar() {
 		router.push("/login");
 	}, [router]);
 
+	/** Run trigger: opens the thread, which starts in run mode and shows the
+	 *  Run button; the actual run request goes through /api/threads/[id]/run
+	 *  then the thread page sends the run-trigger message. */
+	const runThread = useCallback(
+		async (threadId: string) => {
+			await fetch(`/api/threads/${encodeURIComponent(threadId)}/run`, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ action: "run" }),
+			}).catch(() => undefined);
+			if (data?.workspace && params?.threadId !== threadId) {
+				router.push(
+					`/workspace/${data.workspace.id}/${threadId}` as Route,
+				);
+			}
+		},
+		[data?.workspace, params?.threadId, router],
+	);
+
+	const stopThread = useCallback(async (threadId: string) => {
+		await fetch(`/api/threads/${encodeURIComponent(threadId)}/run`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ action: "stop" }),
+		}).catch(() => undefined);
+		void refresh();
+	}, [refresh]);
+
+	const runAll = useCallback(
+		(threadIds: string[]) => {
+			void (async () => {
+				for (const id of threadIds) {
+					await runThread(id);
+				}
+				void refresh();
+			})();
+		},
+		[runThread, refresh],
+	);
+
+	const stopAll = useCallback(
+		(threadIds: string[]) => {
+			void (async () => {
+				for (const id of threadIds) {
+					await stopThread(id);
+				}
+			})();
+		},
+		[stopThread],
+	);
+
 	return (
 		<AppSidebar
 			data={data ?? undefined}
@@ -141,6 +192,10 @@ export function WorkspaceSidebar() {
 			onDeleteThread={deleteThread}
 			onRenameGroup={renameGroup}
 			onDeleteGroup={deleteGroup}
+			onRunThread={runThread}
+			onStopThread={stopThread}
+			onRunAll={runAll}
+			onStopAll={stopAll}
 			onLogout={logout}
 		/>
 	);

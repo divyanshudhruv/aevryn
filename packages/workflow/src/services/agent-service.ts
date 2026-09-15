@@ -51,6 +51,12 @@ export class AgentService {
         ? await this.chat.boundWorkflow(input.threadId)
         : null;
 
+    // Thread status lifecycle: running while the agent works; onEnd sets the
+    // terminal state. Sidebar dots and Run/Stop buttons read this.
+    await this.chat
+      .setThreadStatus({ threadId: input.threadId, status: "running" })
+      .catch(() => undefined);
+
     const tools = {
       ...anakinToolSet,
       askUser: askUserTool,
@@ -60,7 +66,9 @@ export class AgentService {
         : {}),
     } as const;
 
-    const toolsContext: ToolContext = {
+    // toolsContext is a per-tool map (AI SDK v5): each tool name maps to its own
+    // context object, validated against the tool's contextSchema before execution.
+    const context: ToolContext = {
       userId: input.userId,
       threadId: input.threadId,
       workspaceId: input.workspaceId,
@@ -70,6 +78,9 @@ export class AgentService {
         ? { workflowId: boundWorkflow.id }
         : {}),
     };
+    const toolsContext = Object.fromEntries(
+      Object.keys(tools).map((k) => [k, context]),
+    );
 
     const agent = createAevrynAgent({
       model,
@@ -230,6 +241,26 @@ export class AgentService {
               status: "running",
             });
           }
+          // Terminal thread status: awaiting_approval when a client tool is
+          // still pending (QuestionFlow / plan card), otherwise idle.
+          const hasPendingClientTool = (responseMessage?.parts ?? []).some(
+            (p) =>
+              typeof p === "object" &&
+              p !== null &&
+              "state" in p &&
+              (p as { state?: string }).state === "input-available" &&
+              String((p as { type?: string }).type ?? "").startsWith(
+                "tool-askUser",
+              ) ||
+              (typeof p === "object" &&
+                p !== null &&
+                "state" in p &&
+                (p as { state?: string }).state === "approval-requested"),
+          );
+          await this.chat.setThreadStatus({
+            threadId: input.threadId,
+            status: hasPendingClientTool ? "awaiting_approval" : "idle",
+          });
         } catch (err) {
           console.error("[agent-service] persist-on-finish failed", err);
         }

@@ -13,6 +13,7 @@ import {
 } from "@aevryn/ui/components/ui/thinking-steps";
 import { ThinkingIndicator } from "@aevryn/ui/components/ui/thinking-indicator";
 import type { IconName } from "@aevryn/ui/lib/icon-context";
+import { cn } from "@aevryn/ui/lib/utils";
 
 // ─── Shared shapes ──────────────────────────────────────────────────────────
 
@@ -268,22 +269,121 @@ export function ToolCallStep({ call, className }: ToolCallStepProps) {
     );
   }
 
-  const hasError = call.isError || outputHasError(call.output);
-  const detail = hasError ? errorDetail(call.output) : undefined;
-  const stepIcon: IconName = hasError ? "x" : meta.icon;
-
   return (
-    <ThinkingSteps open={open} onOpenChange={setOpen} className={className}>
+    <ThinkingSteps open={open} onOpenChange={setOpen} className={cn("w-full", className)}>
       <ThinkingStepsHeader>{label}</ThinkingStepsHeader>
       <ThinkingStepsContent>
-        <ThinkingStep
-          icon={stepIcon}
-          label={hasError ? "Failed" : "Completed"}
-          description={detail}
-          isLast={!call.output}
-        >
-          {call.output != null && !hasError && <OutputDetails output={call.output} />}
-        </ThinkingStep>
+        <ToolStepLine call={call} isLast />
+      </ThinkingStepsContent>
+    </ThinkingSteps>
+  );
+}
+
+/** One inner line of a step card — shared by the single ToolCallStep and the
+ *  grouped ToolCallSequence. Running calls get the active shimmer; failures
+ *  swap to an error icon and message. */
+function ToolStepLine({
+  call,
+  isLast,
+}: {
+  call: ToolCallStepSegment;
+  isLast: boolean;
+}) {
+  const meta = metaFor(call.toolName);
+  const summary = summarizeInput(call.toolName, call.input);
+  const label = [meta.label, summary].filter(Boolean).join(" · ") || meta.label;
+
+  if (call.isRunning) {
+    return (
+      <ThinkingStep
+        icon={meta.icon}
+        label={label}
+        description="Running…"
+        status="active"
+        isLast={isLast}
+      />
+    );
+  }
+
+  const hasError = call.isError || outputHasError(call.output);
+  return (
+    <ThinkingStep
+      icon={hasError ? "x" : meta.icon}
+      label={hasError ? `${label} — failed` : label}
+      description={hasError ? errorDetail(call.output) : undefined}
+      isLast={isLast}
+    >
+      {call.output != null && !hasError && <OutputDetails output={call.output} />}
+    </ThinkingStep>
+  );
+}
+
+// ─── ToolCallSequence (one card, many steps) ────────────────────────────────
+//
+// Groups every tool call of a single assistant turn into ONE expandable card
+// with one inner step per call, so a run reads as a mini pipeline (search →
+// scrape → … → final answer) instead of a stack of standalone cards. The
+// header is whatever the model itself wrote leading into the calls — no
+// hardcoded agent names.
+
+export interface ToolCallStepSegment {
+  toolCallId?: string;
+  toolName: string;
+  input: unknown;
+  output?: unknown;
+  isRunning: boolean;
+  isError?: boolean;
+}
+
+export interface ToolCallSequenceProps {
+  /** AI-authored title for the whole card. When empty, falls back to the
+   *  first step's tool label. */
+  title?: string;
+  /** Tool-call segments in chronological order. */
+  steps: ToolCallStepSegment[];
+  /** Render the trailing "Final answer" step (default true). */
+  answerStep?: boolean;
+  /** Keep the "Final answer" step shimmering while the answer streams. */
+  answerRunning?: boolean;
+  className?: string;
+}
+
+export function ToolCallSequence({
+  title,
+  steps,
+  answerStep = true,
+  answerRunning = false,
+  className,
+}: ToolCallSequenceProps) {
+  const [open, setOpen] = useState(true);
+
+  const first = steps[0];
+  const headline =
+    title != null && title.trim()
+      ? title.trim()
+      : first
+        ? metaFor(first.toolName).label + (first.isRunning ? "…" : "")
+        : "Tools";
+
+  return (
+    <ThinkingSteps open={open} onOpenChange={setOpen} className={cn("w-full", className)}>
+      <ThinkingStepsHeader>{headline}</ThinkingStepsHeader>
+      <ThinkingStepsContent>
+        {steps.map((call, i) => (
+          <ToolStepLine
+            key={call.toolCallId ?? `${i}`}
+            call={call}
+            isLast={i === steps.length - 1 && !answerStep}
+          />
+        ))}
+        {answerStep && (
+          <ThinkingStep
+            icon="check"
+            label="Final answer"
+            status={answerRunning ? "active" : "complete"}
+            isLast
+          />
+        )}
       </ThinkingStepsContent>
     </ThinkingSteps>
   );

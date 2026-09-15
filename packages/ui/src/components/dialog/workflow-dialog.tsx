@@ -32,8 +32,7 @@ type WorkflowSectionId =
   | "general"
   | "plan"
   | "instructions"
-  | "memories"
-  | "keys";
+  | "memories";
 
 interface WorkflowSection {
   id: WorkflowSectionId;
@@ -76,6 +75,12 @@ export interface WorkflowDialogProps {
   onOpenChange?: (open: boolean) => void;
   /** The section shown first. @default "general" */
   defaultSection?: WorkflowSectionId;
+  /** The bound workflow to edit. Null/undefined = empty-state panels. */
+  workflowId?: string | null;
+  /** The owning thread — memories are per-conversation. */
+  threadId?: string | null;
+  /** Called after the workflow is deleted from the General panel. */
+  onWorkflowDeleted?: () => void;
 }
 
 export function WorkflowDialog({
@@ -83,6 +88,9 @@ export function WorkflowDialog({
   defaultOpen,
   onOpenChange,
   defaultSection = "general",
+  workflowId = null,
+  threadId = null,
+  onWorkflowDeleted,
 }: WorkflowDialogProps) {
   const icons = useIcons();
   const [section, setSection] = useState<WorkflowSectionId>(defaultSection);
@@ -111,7 +119,7 @@ export function WorkflowDialog({
                 Workflow
               </DialogTitle>
               <DialogDescription className="sr-only">
-                Workflow settings, memories, and provider keys.
+                Workflow settings, memories, and instructions.
               </DialogDescription>
             </SidebarHeader>
             <SidebarContent>
@@ -176,7 +184,14 @@ export function WorkflowDialog({
             </div>
             <ScrollArea className="min-h-0 flex-1">
               <div className="flex flex-col gap-6 px-6 pb-6">
-                {current && <WorkflowSectionPanel id={current.id} />}
+                {current && (
+                  <WorkflowSectionPanel
+                    id={current.id}
+                    workflowId={workflowId}
+                    threadId={threadId}
+                    onDeleted={onWorkflowDeleted}
+                  />
+                )}
               </div>
             </ScrollArea>
           </div>

@@ -230,7 +230,13 @@ export async function POST(request: Request): Promise<Response> {
 			);
 		}
 		console.error("[api/chat] streaming failed", err);
-		return jsonError(500, "INTERNAL_SERVER_ERROR", "Agent turn failed.");
+		return jsonError(
+			500,
+			"INTERNAL_SERVER_ERROR",
+			err instanceof Error
+				? err.message
+				: "Agent turn failed. Please try again.",
+		);
 	}
 }
 

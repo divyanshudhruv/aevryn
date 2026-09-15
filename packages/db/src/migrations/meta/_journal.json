@@ -29,6 +29,13 @@
       "when": 1789403311221,
       "tag": "0003_lyrical_tigra",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789452064766,
+      "tag": "0004_amazing_lizard",
+      "breakpoints": true
     }
   ]
 }
