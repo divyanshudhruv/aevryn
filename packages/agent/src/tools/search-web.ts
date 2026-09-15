@@ -17,7 +17,7 @@ const inputSchema = z.object({
 		.min(1)
 		.max(20)
 		.optional()
-		.describe("Max results (default 10, max 20)."),
+		.describe("Max results (default 5, max 20)."),
 });
 
 export const searchWebTool = tool({
@@ -35,6 +35,7 @@ export const searchWebTool = tool({
 				title?: string;
 				snippet?: string;
 				date?: string;
+				lastUpdated?: string;
 			}>;
 		}>
 	> => {
@@ -44,7 +45,7 @@ export const searchWebTool = tool({
 		try {
 			const client = anakinClient(key.apiKey);
 			const result = await client.search(input.prompt, {
-				limit: input.limit ?? 10,
+				limit: input.limit ?? 5,
 			});
 			return {
 				ok: true,
@@ -52,7 +53,8 @@ export const searchWebTool = tool({
 					url: item.url,
 					title: item.title,
 					snippet: item.snippet,
-					date: item.date ?? item.lastUpdated,
+					date: item.date,
+					lastUpdated: item.lastUpdated,
 				})),
 			};
 		} catch (err) {

@@ -18,7 +18,7 @@ const inputSchema = z.object({
 
 export const researchTopicTool = tool({
 	description:
-		"Deep multi-source research report (searches the web, scrapes the best citations, and synthesizes an analysis). Costs 10 Anakin credits + 1 per cited URL; requires an API key. Takes 1–5 minutes — announce that you're starting it and narrate the wait. For a quick ranked list of links use searchWeb (3 credits) instead.",
+		"Deep multi-source research report (searches the web, scrapes the best citations, and synthesizes an analysis). Costs 10 Anakin credits + 1 per cited URL; requires an API key. Takes 1–5 minutes — announce that you're starting it and narrate the wait. Returns a summary, structured data, and the schema describing that data's shape. For a quick ranked list of links use searchWeb (3 credits) instead.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (
@@ -28,6 +28,7 @@ export const researchTopicTool = tool({
 		ToolResult<{
 			summary?: string;
 			structuredData?: Record<string, unknown>;
+			dataSchema?: Record<string, unknown>;
 		}>
 	> => {
 		if (!context.anakinKey) {
@@ -60,6 +61,7 @@ export const researchTopicTool = tool({
 				ok: true,
 				summary: result.generatedJson?.summary,
 				structuredData: result.generatedJson?.structured_data,
+				dataSchema: result.generatedJson?.data_schema,
 			};
 		} catch (err) {
 			return mapAnakinError(err);

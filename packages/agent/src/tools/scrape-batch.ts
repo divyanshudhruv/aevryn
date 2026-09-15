@@ -3,11 +3,13 @@ import { z } from "zod";
 
 import { toolContextSchema, type ToolContext } from "./context";
 import {
+	anakinGet,
+	anakinPost,
 	isValidCountry,
 	mapAnakinError,
 	type ToolResult,
 } from "./anakin-client";
-import type { InlineDocument } from "./scrape-url";
+import type { BatchDocument } from "./scrape-url";
 
 const inputSchema = z.object({
 	urls: z
@@ -23,13 +25,13 @@ const inputSchema = z.object({
 
 export const scrapeBatchTool = tool({
 	description:
-		"Scrape 2–10 URLs in parallel (1 credit per URL, one rate-limit slot). Requires an Anakin API key. Returns per-URL documents including each one's status and error if it failed individually.",
+		"Scrape 2–10 URLs in parallel (1 credit per URL, one rate-limit slot). Requires an Anakin API key. Returns per-URL documents including each one's index, status and error if it failed individually.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (
 		input,
 		{ context }: { context: ToolContext },
-	): Promise<ToolResult<{ documents: InlineDocument[] }>> => {
+	): Promise<ToolResult<{ documents: BatchDocument[] }>> => {
 		if (!context.anakinKey) {
 			return {
 				ok: false,
@@ -55,61 +57,58 @@ export const scrapeBatchTool = tool({
 			// POST /v1/url-scraper/batch polled at /v1/url-scraper/{id} (same
 			// job-status shape). Batch in ONE rate-limit slot is the whole point,
 			// so submit raw rather than fanning out client.scrape() per URL.
-			const submitted = await fetch("https://api.anakin.io/v1/url-scraper/batch", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"X-API-Key": context.anakinKey,
-				},
-				body: JSON.stringify({
+			const { status, body: submitted } = await anakinPost<{ jobId?: string; status?: string }>(
+				"/url-scraper/batch",
+				{
 					urls: input.urls,
 					country: input.country ?? "us",
 					useBrowser: input.useBrowser ?? false,
 					generateJson: input.generateJson ?? false,
 					...(input.sessionId ? { sessionId: input.sessionId } : {}),
-				}),
-				signal: AbortSignal.timeout(30_000),
-			});
-			if (!submitted.ok) {
-				const errBody = (await submitted.json().catch(() => ({}))) as Record<string, unknown>;
+				},
+				context.anakinKey,
+				30_000,
+			);
+			if (status !== 202 && status !== 200) {
+				const errBody = submitted as Record<string, unknown>;
 				throw Object.assign(
 					new Error(
 						typeof errBody.message === "string"
 							? errBody.message
-							: `Batch submit failed (${submitted.status})`,
+							: `Batch submit failed (${status})`,
 					),
-					{ statusCode: submitted.status, body: errBody },
+					{ statusCode: status, body: errBody },
 				);
 			}
-			const { jobId } = (await submitted.json()) as { jobId: string };
+			const jobId = submitted.jobId;
+			if (typeof jobId !== "string" || jobId.length === 0) {
+				throw new Error("Batch submit did not return a jobId.");
+			}
 
 			// Poll the shared job endpoint until terminal (batch parent settles
 			// when every child settles; partial failures don't fail the parent).
-			const result = (await pollBatchJob(
+			const result = await pollBatchJob<BatchDocument & { results?: BatchDocument[] }>(
+				`/url-scraper/${jobId}`,
 				context.anakinKey,
-				jobId,
-			)) as { results?: InlineDocument[] } & InlineDocument;
+			);
 
-			const documents = result.results ?? [result];
+			const documents = result.results ?? [{ ...result, index: 0 }];
 			return { ok: true, documents };
 		} catch (err) {
-			return mapAnakinError(err) as ToolResult<{ documents: InlineDocument[] }>;
+			return mapAnakinError(err) as ToolResult<{ documents: BatchDocument[] }>;
 		}
 	},
 });
 
-async function pollBatchJob(
+async function pollBatchJob<T extends { status?: string }>(
+	path: string,
 	apiKey: string,
-	jobId: string,
 	maxAttempts = 90,
-): Promise<unknown> {
+): Promise<T> {
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
-		const response = await fetch(`https://api.anakin.io/v1/url-scraper/${jobId}`, {
-			headers: { "X-API-Key": apiKey },
-		});
-		const body = (await response.json()) as { status?: string };
+		const { body } = await anakinGet<T>(path, undefined, apiKey);
 		if (body.status === "completed" || body.status === "failed") return body;
 		await new Promise((resolve) => setTimeout(resolve, 2_500));
 	}
-	throw new Error(`Batch job ${jobId} did not settle within the poll window.`);
+	throw new Error(`Batch job did not settle within the poll window.`);
 }

@@ -16,9 +16,11 @@ const inputSchema = z.object({
 		.max(2_000)
 		.describe("The prompt sent verbatim to every selected AI engine."),
 	sources: z
-		.array(z.enum(["chatgpt", "gemini", "google-ai-overview"]))
+		.array(z.string())
 		.optional()
-		.describe("Engines to query. Omit for all enabled sources."),
+		.describe(
+			"Source slugs to query (see aiVisibilitySources for the live roster). Omit for all enabled sources.",
+		),
 	country: z
 		.string()
 		.length(2)
@@ -26,19 +28,46 @@ const inputSchema = z.object({
 		.describe("ISO-2 search geography (default 'us'). Answers vary by region."),
 });
 
+export type VisibilitySourceStatus = "completed" | "failed" | "timed_out";
+
 export interface VisibilitySourceResult {
 	source: string;
-	status: string;
+	status: VisibilitySourceStatus | string;
 	summary?: string;
+	fullContent?: string;
 	latencyMs?: number;
 	creditsUsed?: number;
 	verdict?: string;
 	error?: string;
 }
 
+interface ApiSourceResult extends Record<string, unknown> {
+	source?: string;
+	status?: string;
+	summary?: string;
+	full_content?: string;
+	latency_ms?: number;
+	credits_used?: number;
+	verdict?: string;
+	error?: string;
+}
+
+function mapSourceResult(item: ApiSourceResult): VisibilitySourceResult {
+	return {
+		source: typeof item.source === "string" ? item.source : "unknown",
+		status: typeof item.status === "string" ? item.status : "failed",
+		summary: typeof item.summary === "string" ? item.summary : undefined,
+		fullContent: typeof item.full_content === "string" ? item.full_content : undefined,
+		latencyMs: typeof item.latency_ms === "number" ? item.latency_ms : undefined,
+		creditsUsed: typeof item.credits_used === "number" ? item.credits_used : undefined,
+		verdict: typeof item.verdict === "string" ? item.verdict : undefined,
+		error: typeof item.error === "string" ? item.error : undefined,
+	};
+}
+
 export const aiVisibilityTool = tool({
 	description:
-		"Ask multiple AI engines (ChatGPT, Gemini, Google AI Overview) the same question and compare their answers, with per-engine latency and an automatic consensus summary. Requires an API key. Takes ~10–60s; results arrive per engine. Never cached — every run queries fresh.",
+		"Ask multiple AI engines (ChatGPT, Gemini, Google AI Overview, …) the same question and compare their answers, with per-engine latency and an automatic consensus summary. Requires an API key. Takes ~10–60s; results arrive per engine. Never cached — every run queries fresh.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (
@@ -55,7 +84,7 @@ export const aiVisibilityTool = tool({
 
 		try {
 			const submitBody: Record<string, unknown> = { query: input.query };
-			if (input.sources) submitBody.sources = input.sources;
+			if (input.sources && input.sources.length > 0) submitBody.sources = input.sources;
 			if (input.country) submitBody.country = input.country;
 
 			const { body: submitted } = await anakinPost<{ search_id?: string; status?: string }>(
@@ -79,7 +108,7 @@ export const aiVisibilityTool = tool({
 			let final: {
 				status?: string;
 				synthesis?: string;
-				results?: VisibilitySourceResult[];
+				results?: ApiSourceResult[];
 			} = {};
 
 			while (Date.now() < deadline) {
@@ -93,11 +122,22 @@ export const aiVisibilityTool = tool({
 				await new Promise((resolve) => setTimeout(resolve, 3_000));
 			}
 
+			const failed = final.status === "failed";
 			return {
-				ok: true,
-				synthesis: final.synthesis,
-				results: final.results ?? [],
-			};
+				ok: !failed,
+				...(failed
+					? {
+							error: {
+								code: "VISIBILITY_FAILED",
+								message:
+									"Every AI visibility source failed. Retry individual sources with aiVisibilityRetry.",
+							},
+						}
+					: {
+							synthesis: final.synthesis,
+							results: (final.results ?? []).map(mapSourceResult),
+						}),
+			} as ToolResult<{ synthesis?: string; results: VisibilitySourceResult[] }>;
 		} catch (err) {
 			return {
 				ok: false,

@@ -24,7 +24,7 @@ const inputSchema = z.object({
 		.min(1)
 		.max(5)
 		.optional()
-		.describe("Link-follow depth (max 5)."),
+		.describe("Link-discovery depth (default 1, max 5)."),
 	includePatterns: z
 		.array(z.string())
 		.optional()
@@ -34,12 +34,16 @@ const inputSchema = z.object({
 		.optional()
 		.describe("Glob patterns to skip."),
 	country: z.string().length(2).optional().describe("ISO-2 proxy country."),
+	useBrowser: z
+		.boolean()
+		.optional()
+		.describe("Headless Chrome rendering for JS-heavy sites (default false)."),
 	sessionId: z.string().optional().describe("Browser session id."),
 });
 
 export const crawlSiteTool = tool({
 	description:
-		"Crawl many pages of ONE site and get each page's markdown (≈1 credit/page, max 100 pages). Requires an API key. For a list of URLs only (no content) use mapSite — it's cheaper.",
+		"Crawl many pages of ONE site and get each page's markdown and html (≈1 credit/page, max 100 pages). Requires an API key. For a list of URLs only (no content) use mapSite — it's cheaper.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (
@@ -51,10 +55,15 @@ export const crawlSiteTool = tool({
 				url: string;
 				status: string;
 				markdown?: string;
+				html?: string;
+				durationMs?: number;
 				error?: string;
 			}>;
 			totalPages: number;
 			completedPages: number;
+			createdAt?: string;
+			completedAt?: string;
+			durationMs?: number;
 		}>
 	> => {
 		if (!context.anakinKey) {
@@ -85,6 +94,7 @@ export const crawlSiteTool = tool({
 				includePatterns: input.includePatterns,
 				excludePatterns: input.excludePatterns,
 				country: input.country,
+				useBrowser: input.useBrowser,
 				sessionId: input.sessionId,
 				pollTimeoutMs: 10 * 60_000,
 			});
@@ -95,10 +105,13 @@ export const crawlSiteTool = tool({
 					url: page.url,
 					status: page.status,
 					markdown: page.markdown,
+					html: page.html,
+					durationMs: page.durationMs,
 					error: page.error,
 				})),
 				totalPages: result.totalPages,
 				completedPages: result.completedPages,
+				durationMs: result.durationMs,
 			};
 		} catch (err) {
 			return mapAnakinError(err);

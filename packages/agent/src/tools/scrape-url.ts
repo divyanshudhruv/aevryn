@@ -23,22 +23,38 @@ const SCRAPE_FORMATS = [
 	"summary",
 ] as const;
 
+export type ScrapeStatus =
+	| "pending"
+	| "queued"
+	| "processing"
+	| "completed"
+	| "failed";
+
 export interface InlineDocument {
 	id: string;
-	status: string;
+	status: ScrapeStatus;
 	url: string;
+	jobType?: "url_scraper" | "batch_url_scraper";
+	country?: string;
 	markdown?: string;
 	html?: string;
 	cleanedHtml?: string;
-	links?: string[];
-	images?: string[];
-	summary?: string;
 	generatedJson?: Record<string, unknown>;
+	links?: Array<{ href: string; text?: string }>;
+	images?: Array<{ src: string; alt?: string }>;
+	summary?: string;
 	screenshotUrl?: string;
 	fullPageScreenshotUrl?: string;
 	cached?: boolean;
-	durationMs?: number;
 	error?: string | null;
+	durationMs?: number;
+	createdAt?: string;
+	completedAt?: string;
+}
+
+export interface BatchDocument extends Omit<InlineDocument, "jobType"> {
+	index: number;
+	jobType?: "batch_url_scraper";
 }
 
 interface ScrapeBody extends Record<string, unknown> {
@@ -58,7 +74,9 @@ const inputSchema = z.object({
 		.array(z.enum(SCRAPE_FORMATS))
 		.max(9)
 		.optional()
-		.describe("Outputs to produce. Default: markdown."),
+		.describe(
+			"Outputs to produce. Default: markdown + html + cleanedHtml.",
+		),
 	useBrowser: z
 		.boolean()
 		.optional()
@@ -86,7 +104,7 @@ const inputSchema = z.object({
 
 export const scrapeUrlTool = tool({
 	description:
-		"Scrape ONE page and get its content inline (markdown by default). Works without an API key. Costs 1 credit (2 with JSON extraction); free if the URL was scraped in the last 24h unless forceFresh. For 2–10 pages use scrapeBatch; for a whole site use crawlSite; for just the URL list use mapSite.",
+		"Scrape ONE page and get its content inline (markdown + html + cleanedHtml by default). Works without an API key. Costs 1 credit (2 with JSON extraction); free if the URL was scraped in the last 24h unless forceFresh. For 2–10 pages use scrapeBatch; for a whole site use crawlSite; for just the URL list use mapSite.",
 	inputSchema,
 	// Zero Touch: no context key required.
 	contextSchema: toolContextSchema,
@@ -104,7 +122,7 @@ export const scrapeUrlTool = tool({
 
 			const body: ScrapeBody = {
 				url: input.url,
-				formats: input.formats ?? ["markdown"],
+				formats: input.formats ?? ["markdown", "html", "cleanedHtml"],
 				useBrowser: input.useBrowser ?? false,
 			};
 			if (input.country) body.country = input.country;
@@ -122,7 +140,7 @@ export const scrapeUrlTool = tool({
 				120_000, // inline endpoint blocks up to ~90s; give headroom
 			);
 
-			if (status === 202 || (document.status !== "completed" && document.status !== "failed")) {
+			if (status === 202 || !isTerminal(document.status)) {
 				// Non-terminal: poll the same job id until terminal.
 				const polled = await pollScrapeJob(document.id, context.anakinKey);
 				return { ok: true, document: polled };
@@ -141,6 +159,10 @@ export const scrapeUrlTool = tool({
 	},
 });
 
+function isTerminal(status: string): boolean {
+	return status === "completed" || status === "failed";
+}
+
 async function pollScrapeJob(
 	jobId: string,
 	apiKey: string | null,
@@ -152,7 +174,7 @@ async function pollScrapeJob(
 			undefined,
 			apiKey,
 		);
-		if (body.status === "completed" || body.status === "failed") return body;
+		if (isTerminal(body.status)) return body;
 		await new Promise((resolve) => setTimeout(resolve, 2_000));
 	}
 	throw new Error(`Scrape job ${jobId} did not settle within the poll window.`);

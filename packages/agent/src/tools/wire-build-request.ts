@@ -15,6 +15,11 @@ const inputSchema = z.object({
 		.min(1)
 		.max(2_000)
 		.describe("What the new action should do or extract — be specific; Anakin's builder synthesizes the scraper from this."),
+	catalogId: z
+		.string()
+		.uuid()
+		.optional()
+		.describe("Attach the action to an existing catalog (id from wireCatalog) instead of creating one."),
 	visibility: z
 		.enum(["private", "public"])
 		.optional()
@@ -32,6 +37,8 @@ export interface BuildRequestResult {
 	creditsCharged?: number;
 	actionId?: string;
 	error?: string;
+	createdAt?: string;
+	updatedAt?: string;
 }
 
 export const wireBuildRequestTool = tool({
@@ -51,6 +58,7 @@ export const wireBuildRequestTool = tool({
 				website_url: input.siteUrl,
 				goal: input.goal,
 			};
+			if (input.catalogId) body.catalog_id = input.catalogId;
 			if (input.visibility) body.visibility = input.visibility;
 			if (input.force != null) body.force = input.force;
 
@@ -70,6 +78,8 @@ export const wireBuildRequestTool = tool({
 						typeof br.credits_charged === "number" ? br.credits_charged : undefined,
 					actionId: typeof br.action_id === "string" ? br.action_id : undefined,
 					error: typeof br.error === "string" ? br.error : undefined,
+					createdAt: typeof br.created_at === "string" ? br.created_at : undefined,
+					updatedAt: typeof br.updated_at === "string" ? br.updated_at : undefined,
 				},
 			};
 		} catch (err) {
