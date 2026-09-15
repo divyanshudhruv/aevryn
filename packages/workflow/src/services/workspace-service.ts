@@ -206,6 +206,63 @@ export class WorkspaceService {
 		return { name: row?.name ?? null, avatarUrl: row?.avatarUrl ?? null };
 	}
 
+	async updateWorkspace(input: {
+		workspaceId: string;
+		userId: string;
+		patch: { name?: string; isDefault?: boolean };
+	}): Promise<WorkspaceSummary | null> {
+		if (input.patch.isDefault === true) {
+			// Only one default: clear the flag on the current default first.
+			await db
+				.update(workspaces)
+				.set({ isDefault: false })
+				.where(
+					and(
+						eq(workspaces.createdBy, input.userId),
+						eq(workspaces.isDefault, true),
+					),
+				);
+		}
+		const [row] = await db
+			.update(workspaces)
+			.set(input.patch)
+			.where(
+				and(
+					eq(workspaces.id, input.workspaceId),
+					eq(workspaces.createdBy, input.userId),
+				),
+			)
+			.returning({
+				id: workspaces.id,
+				name: workspaces.name,
+				isDefault: workspaces.isDefault,
+			});
+		return row ?? null;
+	}
+
+	/** Deletes a workspace (its threads/groups cascade). The last workspace
+	 *  cannot be deleted — the app always needs one. */
+	async deleteWorkspace(input: {
+		workspaceId: string;
+		userId: string;
+	}): Promise<{ deleted: true } | { deleted: false; reason: string }> {
+		const owned = await this.listForUser(input.userId);
+		const target = owned.find((w) => w.id === input.workspaceId);
+		if (!target) return { deleted: false, reason: "NOT_FOUND" };
+		if (owned.length <= 1) {
+			return { deleted: false, reason: "LAST_WORKSPACE" };
+		}
+		await db
+			.delete(workspaces)
+			.where(
+				and(
+					eq(workspaces.id, input.workspaceId),
+					eq(workspaces.createdBy, input.userId),
+				),
+			);
+		return { deleted: true };
+	}
+
 	async getSidebarData(userId: string, requestedWorkspaceId?: string | null) {
 		const workspaces = await this.listForUser(userId);
 		if (workspaces.length === 0) {

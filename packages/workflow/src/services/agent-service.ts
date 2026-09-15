@@ -13,7 +13,7 @@ import {
   type ToolContext,
 } from "@aevryn/agent";
 import type { StepToolCall, Workflow } from "@aevryn/db";
-import { db, decryptSecret, ids, userKeys, userProviders } from "@aevryn/db";
+import { db, decryptSecret, ids, userKeys, userProviders, userSettings } from "@aevryn/db";
 import { eq } from "drizzle-orm";
 
 import { ChatService } from "./chat-service";
@@ -43,8 +43,20 @@ export class AgentService {
 
     async respond(input: AgentRunInput, init?: ResponseInit): Promise<Response> {
     const { model } = await this.resolveModel(input);
-    const { anakinKey, mem0Key } = await this.resolveKeys(input.userId);
-    const memoryContext = await this.recallMemory(mem0Key, input);
+    const [{ anakinKey, mem0Key }, settingsRows] = await Promise.all([
+      this.resolveKeys(input.userId),
+      this.client
+        .select({ settings: userSettings.settings })
+        .from(userSettings)
+        .where(eq(userSettings.userId, input.userId))
+        .limit(1),
+    ]);
+    // Memory switch: null means "on when a key exists" (legacy behavior).
+    const memoryEnabled =
+      (settingsRows[0]?.settings.memoryEnabled ?? null) !== false;
+    const memoryContext = memoryEnabled
+      ? await this.recallMemory(mem0Key, input)
+      : undefined;
 
     const boundWorkflow: Workflow | null =
       input.mode === "run"
@@ -73,7 +85,7 @@ export class AgentService {
       threadId: input.threadId,
       workspaceId: input.workspaceId,
       anakinKey,
-      mem0Key,
+      mem0Key: memoryEnabled ? mem0Key : null,
       ...(input.mode === "run" && boundWorkflow
         ? { workflowId: boundWorkflow.id }
         : {}),
@@ -187,7 +199,7 @@ export class AgentService {
             totalTokens: usage.totalTokens ?? 0,
           };
 
-          if (mem0Key) {
+          if (mem0Key && memoryEnabled) {
             const lastUser = lastUserText(input.uiMessages);
             if (lastUser) {
               await storeMemoryTurn(
@@ -291,10 +303,17 @@ export class AgentService {
   private async resolveModel(
     input: AgentRunInput,
   ): Promise<{ model: ReturnType<typeof ModelRegistry.resolve> }> {
-    const providers = await this.client
-      .select()
-      .from(userProviders)
-      .where(eq(userProviders.userId, input.userId));
+    const [providers, settingsRows] = await Promise.all([
+      this.client
+        .select()
+        .from(userProviders)
+        .where(eq(userProviders.userId, input.userId)),
+      this.client
+        .select({ settings: userSettings.settings })
+        .from(userSettings)
+        .where(eq(userSettings.userId, input.userId))
+        .limit(1),
+    ]);
 
     if (providers.length === 0) {
       throw Object.assign(
@@ -305,13 +324,19 @@ export class AgentService {
       );
     }
 
+    const savedDefault = settingsRows[0]?.settings.defaultModel ?? null;
+
+    // Precedence: per-request override → saved default → first provider.
+    const override = input.modelOverride?.providerSlug
+      ? input.modelOverride
+      : savedDefault;
+
     const provider =
-      (input.modelOverride?.providerSlug
-        ? providers.find((p) => p.slug === input.modelOverride?.providerSlug)
+      (override?.providerSlug
+        ? providers.find((p) => p.slug === override.providerSlug)
         : undefined) ?? providers[0]!;
 
-    const modelId =
-      input.modelOverride?.modelId ?? provider.models[0]?.id ?? "";
+    const modelId = override?.modelId ?? provider.models[0]?.id ?? "";
     if (!modelId) {
       throw Object.assign(
         new Error(`Provider '${provider.slug}' has no models configured.`),

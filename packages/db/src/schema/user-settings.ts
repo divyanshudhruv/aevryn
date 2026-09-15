@@ -20,11 +20,14 @@ export interface UserSettingsData {
 		runApproval: boolean;
 	};
 	defaultModel: { providerSlug: string; modelId: string } | null;
+	/** Master switch for Mem0 recall/store. Null = default on when a key exists. */
+	memoryEnabled: boolean | null;
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettingsData = {
 	notifications: { runFailed: true, runCompleted: true, runApproval: true },
 	defaultModel: null,
+	memoryEnabled: null,
 };
 
 export const userSettings = pgTable(

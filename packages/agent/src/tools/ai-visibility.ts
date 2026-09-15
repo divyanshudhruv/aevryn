@@ -83,8 +83,34 @@ export const aiVisibilityTool = tool({
 		if (!key.ok) return key;
 
 		try {
+			// Runtime validation against the live roster — the schema is a plain
+			// string[] because the platform adds engines without code releases.
+			let sources = input.sources;
+			if (sources && sources.length > 0) {
+				const { body } = await anakinGet<{ sources?: Array<{ slug?: unknown }> }>(
+					"/ai-visibility/sources",
+					undefined,
+					key.apiKey,
+				);
+				const roster = (body.sources ?? [])
+					.map((s) => (typeof s?.slug === "string" ? s.slug : null))
+					.filter((s): s is string => s != null);
+				if (roster.length > 0) {
+					const unknown = sources.filter((s) => !roster.includes(s));
+					if (unknown.length > 0) {
+						return {
+							ok: false,
+							error: {
+								code: "INVALID_REQUEST",
+								message: `Unknown AI visibility source${unknown.length === 1 ? "" : "s"}: ${unknown.join(", ")}. Available: ${roster.join(", ")}.`,
+							},
+						};
+					}
+				}
+			}
+
 			const submitBody: Record<string, unknown> = { query: input.query };
-			if (input.sources && input.sources.length > 0) submitBody.sources = input.sources;
+			if (sources && sources.length > 0) submitBody.sources = sources;
 			if (input.country) submitBody.country = input.country;
 
 			const { body: submitted } = await anakinPost<{ search_id?: string; status?: string }>(

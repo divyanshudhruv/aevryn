@@ -74,6 +74,17 @@ export async function POST(request: Request): Promise<Response> {
 		return jsonError(400, "BAD_REQUEST", `Invalid provider: ${err instanceof Error ? err.message : String(err)}`);
 	}
 
+	// Re-saving a key (Keys tab) must not wipe the provider's models when the
+	// caller sends none.
+	const [existing] = await db
+		.select({ models: userProviders.models })
+		.from(userProviders)
+		.where(
+			and(eq(userProviders.userId, user.id), eq(userProviders.slug, body.slug)),
+		)
+		.limit(1);
+	const models = body.models.length > 0 ? body.models : (existing?.models ?? []);
+
 	const [row] = await db
 		.insert(userProviders)
 		.values({
@@ -82,7 +93,7 @@ export async function POST(request: Request): Promise<Response> {
 			displayName: body.displayName,
 			baseUrl: body.baseUrl,
 			apiKeyEncrypted: encryptSecret(body.apiKey),
-			models: body.models,
+			models,
 		})
 		.onConflictDoUpdate({
 			target: [userProviders.userId, userProviders.slug],
@@ -90,10 +101,65 @@ export async function POST(request: Request): Promise<Response> {
 				displayName: body.displayName,
 				baseUrl: body.baseUrl,
 				apiKeyEncrypted: encryptSecret(body.apiKey),
-				models: body.models,
+				models,
 				updatedAt: new Date(),
 			},
 		})
+		.returning({ id: userProviders.id, slug: userProviders.slug });
+
+	return Response.json(
+		{ data: row, error: null, meta: {} },
+		{ headers: { "cache-control": "no-store" } },
+	);
+}
+
+// Append ONE model to an existing provider (no key re-entry, no commas).
+const modelAppendSchema = z.object({
+	slug: z.string().min(1).max(64),
+	modelId: z.string().min(1).max(120),
+	displayName: z.string().max(120).optional(),
+});
+
+export async function PATCH(request: Request): Promise<Response> {
+	const supabase = await createServerSupabaseForNext();
+	let user: { id: string };
+	try {
+		user = await requireUser(supabase);
+	} catch {
+		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
+	}
+
+	let body: z.infer<typeof modelAppendSchema>;
+	try {
+		body = modelAppendSchema.parse(await request.json());
+	} catch (err) {
+		return jsonError(400, "BAD_REQUEST", `Invalid model: ${err instanceof Error ? err.message : String(err)}`);
+	}
+
+	const [existing] = await db
+		.select({ models: userProviders.models })
+		.from(userProviders)
+		.where(
+			and(eq(userProviders.userId, user.id), eq(userProviders.slug, body.slug)),
+		)
+		.limit(1);
+	if (!existing) {
+		return jsonError(404, "NOT_FOUND", "Provider not found. Save its API key first (Settings → API Keys).");
+	}
+	if (existing.models.some((m) => m.id === body.modelId)) {
+		return jsonError(409, "MODEL_EXISTS", `Model '${body.modelId}' already exists on this provider.`);
+	}
+
+	const models = [
+		...existing.models,
+		{ id: body.modelId, ...(body.displayName ? { displayName: body.displayName } : {}) },
+	];
+	const [row] = await db
+		.update(userProviders)
+		.set({ models, updatedAt: new Date() })
+		.where(
+			and(eq(userProviders.userId, user.id), eq(userProviders.slug, body.slug)),
+		)
 		.returning({ id: userProviders.id, slug: userProviders.slug });
 
 	return Response.json(

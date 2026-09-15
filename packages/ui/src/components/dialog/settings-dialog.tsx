@@ -92,6 +92,10 @@ export interface SettingsDialogProps {
   onOpenChange?: (open: boolean) => void;
   /** The section shown first. @default "general" */
   defaultSection?: SettingsSectionId;
+  /** The active workspace, for the workspace settings panel. */
+  workspace?: { id: string; name: string; isDefault: boolean };
+  /** Called after a rename or delete so the shell can refresh its data. */
+  onWorkspaceMutated?: () => void;
 }
 
 export function SettingsDialog({
@@ -99,6 +103,8 @@ export function SettingsDialog({
   defaultOpen,
   onOpenChange,
   defaultSection = "workspace",
+  workspace,
+  onWorkspaceMutated,
 }: SettingsDialogProps) {
   const icons = useIcons();
   const [section, setSection] = useState<SettingsSectionId>(defaultSection);
@@ -190,7 +196,13 @@ export function SettingsDialog({
             </div>
             <ScrollArea className="min-h-0 flex-1">
               <div className="flex flex-col gap-6 px-6 pb-6">
-                {current && <SettingsSectionPanel id={current.id} />}
+                {current && (
+                  <SettingsSectionPanel
+                    id={current.id}
+                    workspace={workspace}
+                    onWorkspaceMutated={onWorkspaceMutated}
+                  />
+                )}
               </div>
             </ScrollArea>
           </div>

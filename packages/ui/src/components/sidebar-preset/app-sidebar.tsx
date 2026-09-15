@@ -118,6 +118,8 @@ export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
   ) => void;
   onOpenThread?: (workspaceId: string, threadId: string) => void;
   onSwitchWorkspace?: (workspaceId: string) => void;
+  /** Called after the settings dialog renames or deletes a workspace. */
+  onWorkspaceMutated?: () => void;
   onRenameThread?: (threadId: string, title: string) => void;
   onDeleteThread?: (threadId: string) => void;
   onRenameGroup?: (groupId: string, name: string) => void;
@@ -140,6 +142,7 @@ export function AppSidebar({
   onCreateThread,
   onOpenThread,
   onSwitchWorkspace,
+  onWorkspaceMutated,
   onRenameThread,
   onDeleteThread,
   onRenameGroup,
@@ -283,7 +286,12 @@ export function AppSidebar({
 
   return (
     <>
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        workspace={currentWorkspace}
+        onWorkspaceMutated={onWorkspaceMutated}
+      />
 
       <NewGroupDialog
         key={`new-group-${newGroupOpen}`}

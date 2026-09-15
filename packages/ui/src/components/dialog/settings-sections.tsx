@@ -95,14 +95,27 @@ function ModelsPanel() {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [defaultModel, setDefaultModel] = useState<{
+    providerSlug: string;
+    modelId: string;
+  } | null>(null);
+  const [addingModel, setAddingModel] = useState<string | null>(null);
+  const [newModelId, setNewModelId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/providers", { cache: "no-store" });
-    const json = (await res.json().catch(() => null)) as {
+    const [providersRes, settingsRes] = await Promise.all([
+      fetch("/api/providers", { cache: "no-store" }),
+      fetch("/api/settings", { cache: "no-store" }),
+    ]);
+    const json = (await providersRes.json().catch(() => null)) as {
       data?: ProviderRow[];
     } | null;
     if (json?.data) setRows(json.data);
+    const settingsJson = (await settingsRes.json().catch(() => null)) as {
+      data?: { defaultModel?: { providerSlug: string; modelId: string } | null };
+    } | null;
+    if (settingsJson?.data) setDefaultModel(settingsJson.data.defaultModel ?? null);
     setLoading(false);
   }, []);
 
@@ -170,6 +183,52 @@ function ModelsPanel() {
     await fetch(`/api/providers?slug=${encodeURIComponent(slug)}`, {
       method: "DELETE",
     });
+    if (defaultModel?.providerSlug === slug) {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ defaultModel: null }),
+      });
+      setDefaultModel(null);
+    }
+    await load();
+  };
+
+  const setAsDefault = async (
+    providerSlug: string,
+    modelId: string,
+  ) => {
+    const isSame =
+      defaultModel?.providerSlug === providerSlug &&
+      defaultModel?.modelId === modelId;
+    const next = isSame ? null : { providerSlug, modelId };
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ defaultModel: next }),
+    });
+    if (res.ok) setDefaultModel(next);
+  };
+
+  const appendModel = async (slug: string) => {
+    const modelId = newModelId.trim();
+    if (!modelId) return;
+    setAddingModel(slug);
+    const res = await fetch("/api/providers", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug, modelId }),
+    });
+    setAddingModel(null);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(body?.error?.message ?? "Could not add the model.");
+      return;
+    }
+    setNewModelId("");
+    setError(null);
     await load();
   };
 
@@ -201,6 +260,64 @@ function ModelsPanel() {
             </Button>
           </SettingRow>
         ))
+      )}
+
+      {rows.length > 0 && !loading && (
+        <div className="mt-2 flex flex-col">
+          <span className="text-[13px] text-foreground">
+            Per-provider models
+          </span>
+          {rows.map((p) => (
+            <div
+              key={p.id}
+              className="flex flex-col gap-2 border-b border-border/60 py-4 last:border-b-0"
+            >
+              {p.models.map((m) => (
+                <SettingRow
+                  key={m.id}
+                  label={m.displayName ?? m.id}
+                  description={p.displayName}
+                  className="py-2"
+                >
+                  <Button
+                    variant={
+                      defaultModel?.providerSlug === p.slug &&
+                      defaultModel?.modelId === m.id
+                        ? "primary"
+                        : "secondary"
+                    }
+                    size="sm"
+                    onClick={() => void setAsDefault(p.slug, m.id)}
+                  >
+                    {defaultModel?.providerSlug === p.slug &&
+                    defaultModel?.modelId === m.id
+                      ? "Default"
+                      : "Set default"}
+                  </Button>
+                </SettingRow>
+              ))}
+              <div className="flex items-center gap-2 pt-1">
+                <InputGroup className="w-full">
+                  <InputField
+                    index={0}
+                    label=""
+                    value={newModelId}
+                    onChange={setNewModelId}
+                    placeholder="Add a model id (e.g. openai/gpt-oss-120b)"
+                  />
+                </InputGroup>{" "}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!newModelId.trim() || addingModel === p.slug}
+                  onClick={() => void appendModel(p.slug)}
+                >
+                  {addingModel === p.slug ? "Adding…" : "Add model"}
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       <div className="mt-6 flex flex-col gap-3">
@@ -346,6 +463,7 @@ function ByokPanel() {
 
   return (
     <div className="flex flex-col">
+      <MemorySwitch />
       {BYOK_KEYS.map((k) => (
         <div
           key={k.name}
@@ -478,21 +596,148 @@ function NotificationsPanel() {
   );
 }
 
-function WorkspacePanel() {
-  const [name, setName] = useState("");
+// --- Memory (real: /api/settings memoryEnabled) ----------------------------
+
+function MemorySwitch() {
+  const [value, setValue] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch("/api/settings", { cache: "no-store" });
+      const json = (await res.json().catch(() => null)) as {
+        data?: { memoryEnabled?: boolean | null };
+      } | null;
+      if (json?.data) setValue(json.data.memoryEnabled ?? null);
+    })();
+  }, []);
+
+  const toggle = () => {
+    if (value === null) return;
+    const next = !value;
+    setValue(next);
+    void fetch("/api/settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ memoryEnabled: next }),
+    });
+  };
+
+  if (value === null) {
+    return <p className="py-4 text-[13px] text-muted-foreground">Loading…</p>;
+  }
+
+  return (
+    <SettingRow
+      label="Chat memory"
+      description="Remember facts across chats via Mem0. Requires a Mem0 API key."
+    >
+      <Switch
+        className={SWITCH_LABEL_HIDDEN}
+        label="Chat memory"
+        checked={value}
+        onToggle={toggle}
+      />
+    </SettingRow>
+  );
+}
+
+function WorkspacePanel({
+  workspace,
+  onMutated,
+}: {
+  workspace?: { id: string; name: string; isDefault: boolean };
+  onMutated?: () => void;
+}) {
+  const [name, setName] = useState(workspace?.name ?? "");
+  const [savingName, setSavingName] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [defaultThreadBehavior, setDefaultThreadBehavior] = useState("blank");
   const [deleteWorkspaceOpen, setDeleteWorkspaceOpen] = useState(false);
+
+  const saveName = async () => {
+    if (!workspace || !name.trim() || name.trim() === workspace.name) return;
+    setSavingName(true);
+    setError(null);
+    const res = await fetch(
+      `/api/workspaces/${encodeURIComponent(workspace.id)}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      },
+    );
+    setSavingName(false);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(body?.error?.message ?? "Could not rename the workspace.");
+      return;
+    }
+    setNameSaved(true);
+    onMutated?.();
+    window.setTimeout(() => setNameSaved(false), 2000);
+  };
+
+  const deleteWorkspace = async () => {
+    if (!workspace) return;
+    setError(null);
+    const res = await fetch(
+      `/api/workspaces/${encodeURIComponent(workspace.id)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setDeleteWorkspaceOpen(false);
+      setError(body?.error?.message ?? "Could not delete the workspace.");
+      return;
+    }
+    setDeleteWorkspaceOpen(false);
+    onMutated?.();
+    window.location.href = "/chat";
+  };
+
   return (
     <>
-      <InputGroup className="w-full">
-        <InputField
-          index={0}
-          label="Workspace name"
-          value={name}
-          onChange={setName}
-          placeholder="Acme Inc"
-        />
-      </InputGroup>
+      {!workspace && (
+        <p className="py-4 text-[13px] text-muted-foreground">
+          Open a workspace to edit its settings.
+        </p>
+      )}
+      {workspace && (
+        <>
+          <InputGroup className="w-full">
+            <InputField
+              index={0}
+              label="Workspace name"
+              value={name}
+              onChange={(v) => {
+                setName(v);
+                setNameSaved(false);
+              }}
+              placeholder="Acme Inc"
+            />
+          </InputGroup>
+          {error && <p className="text-[12px] text-destructive">{error}</p>}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={
+                savingName ||
+                !name.trim() ||
+                name.trim() === workspace.name
+              }
+              onClick={() => void saveName()}
+            >
+              {savingName ? "Saving…" : nameSaved ? "Saved ✓" : "Save name"}
+            </Button>
+          </div>
+        </>
+      )}
       <SettingRow
         label="New threads"
         description="What a fresh thread looks like before the first message."
@@ -535,22 +780,25 @@ function WorkspacePanel() {
           </SelectContent>
         </Select>
       </SettingRow>
-      <div className="pt-4">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setDeleteWorkspaceOpen(true)}
-        >
-          Delete workspace
-        </Button>
-      </div>
+      {workspace && (
+        <div className="pt-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setDeleteWorkspaceOpen(true)}
+          >
+            Delete workspace
+          </Button>
+        </div>
+      )}
       <ConfirmDeleteDialog
         open={deleteWorkspaceOpen}
         onOpenChange={setDeleteWorkspaceOpen}
         title="Delete workspace"
         description="This deletes the workspace and everything inside it. This action cannot be undone."
         actionLabel="Delete workspace"
-        items={[{ value: name || "This workspace" }]}
+        items={[{ value: workspace?.name || "This workspace" }]}
+        onConfirm={() => void deleteWorkspace()}
       />
     </>
   );
@@ -558,7 +806,7 @@ function WorkspacePanel() {
 
 function AppearancePanel() {
   const icons = useIcons();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { size, setSize } = useSizeContext();
   return (
     <div className="flex flex-col">
@@ -566,9 +814,12 @@ function AppearancePanel() {
         label="Theme"
         description="Light, dark, or follow the system."
       >
-        <Select value={resolvedTheme} onValueChange={setTheme}>
+        <Select value={theme} onValueChange={setTheme}>
           <SelectTrigger placeholder="Theme" />
           <SelectContent>
+            <SelectItem index={0} value="system" icon={icons.monitor}>
+              System
+            </SelectItem>
             <SelectItem index={1} value="light" icon={icons.sun}>
               Light
             </SelectItem>
@@ -646,10 +897,23 @@ export type SettingsSectionId =
   | "notifications"
   | "appearance"
   | "security";
-export function SettingsSectionPanel({ id }: { id: SettingsSectionId }) {
+
+export interface SettingsSectionPanelProps {
+  id: SettingsSectionId;
+  workspace?: { id: string; name: string; isDefault: boolean };
+  onWorkspaceMutated?: () => void;
+}
+
+export function SettingsSectionPanel({
+  id,
+  workspace,
+  onWorkspaceMutated,
+}: SettingsSectionPanelProps) {
   switch (id) {
     case "workspace":
-      return <WorkspacePanel />;
+      return (
+        <WorkspacePanel workspace={workspace} onMutated={onWorkspaceMutated} />
+      );
     case "models":
       return <ModelsPanel />;
     case "byok":

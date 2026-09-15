@@ -188,6 +188,7 @@ export function WorkspaceSidebar() {
 			onCreateThread={createThread}
 			onOpenThread={openThread}
 			onSwitchWorkspace={switchWorkspace}
+			onWorkspaceMutated={refresh}
 			onRenameThread={renameThread}
 			onDeleteThread={deleteThread}
 			onRenameGroup={renameGroup}
