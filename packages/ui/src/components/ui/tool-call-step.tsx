@@ -10,9 +10,19 @@ import {
   ThinkingStepDetails,
   ThinkingStepSources,
   ThinkingStepSource,
+  ThinkingStepImage,
 } from "@aevryn/ui/components/ui/thinking-steps";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@aevryn/ui/components/ui/table";
 import { ThinkingIndicator } from "@aevryn/ui/components/ui/thinking-indicator";
 import type { IconName } from "@aevryn/ui/lib/icon-context";
+import { useIcon } from "@aevryn/ui/lib/icon-context";
 import { cn } from "@aevryn/ui/lib/utils";
 
 // ─── Shared shapes ──────────────────────────────────────────────────────────
@@ -43,7 +53,13 @@ const TOOL_META: Record<string, ToolMeta> = {
   wireDiscover: { label: "Discover actions", icon: "search" },
   wireAction: { label: "Run action", icon: "play" },
   wireBuildRequest: { label: "Request new action", icon: "plus" },
+  wireCatalog: { label: "Wire catalog", icon: "database" },
+  wireBuildRequests: { label: "Build requests", icon: "database" },
+  wireDownload: { label: "Wire file", icon: "folder" },
   aiVisibility: { label: "AI visibility", icon: "star" },
+  aiVisibilitySources: { label: "AI sources", icon: "search" },
+  aiVisibilitySearches: { label: "AI visibility history", icon: "clock" },
+  aiVisibilityRetry: { label: "Retry AI source", icon: "rotate-ccw" },
   browserSessionList: { label: "List sessions", icon: "key" },
   browserSessionCreate: { label: "New session", icon: "key" },
   browserSessionRename: { label: "Rename session", icon: "pencil" },
@@ -167,6 +183,151 @@ function extractSources(output: unknown): string[] | null {
   return urls.length > 0 ? urls.map(stripScheme) : null;
 }
 
+interface SourceLink {
+  href: string;
+  title?: string;
+}
+
+/** Object-shaped { href, text } links from scrape documents. */
+function extractLinks(output: unknown): SourceLink[] | null {
+  if (output == null || typeof output !== "object") return null;
+  const record = output as Record<string, unknown>;
+  const document =
+    record.document != null && typeof record.document === "object"
+      ? (record.document as Record<string, unknown>)
+      : record;
+  if (!Array.isArray(document.links)) return null;
+  const links = (document.links as unknown[])
+    .map((l) => {
+      if (l == null || typeof l !== "object") {
+        if (typeof l === "string") return { href: l };
+        return null;
+      }
+      const obj = l as Record<string, unknown>;
+      if (typeof obj.href !== "string") return null;
+      return {
+        href: obj.href,
+        title: typeof obj.text === "string" && obj.text ? obj.text : undefined,
+      };
+    })
+    .filter((l): l is SourceLink => l != null)
+    .slice(0, 8);
+  return links.length > 0 ? links : null;
+}
+
+interface ScreenshotRef {
+  jobId: string;
+  type: "viewport" | "fullpage";
+}
+
+/**
+ * Key-authed screenshot URLs from scrape documents. The raw URLs are
+ * download endpoints (401 without X-API-Key), so the UI renders them through
+ * the server-side proxy route instead.
+ */
+function extractScreenshots(output: unknown): ScreenshotRef[] | null {
+  if (output == null || typeof output !== "object") return null;
+  const record = output as Record<string, unknown>;
+  const document =
+    record.document != null && typeof record.document === "object"
+      ? (record.document as Record<string, unknown>)
+      : record;
+  const refs: ScreenshotRef[] = [];
+  const documentId = typeof document.id === "string" ? document.id : undefined;
+  if (documentId) {
+    if (typeof document.screenshotUrl === "string") {
+      refs.push({ jobId: documentId, type: "viewport" });
+    }
+    if (typeof document.fullPageScreenshotUrl === "string") {
+      refs.push({ jobId: documentId, type: "fullpage" });
+    }
+  }
+  return refs.length > 0 ? refs : null;
+}
+
+interface WireFileRef {
+  name: string;
+  contentType?: string;
+  sizeBytes?: number;
+}
+
+/** File artifacts from wireAction results — downloadable via the proxy. */
+function extractWireFiles(output: unknown): WireFileRef[] | null {
+  if (output == null || typeof output !== "object") return null;
+  const record = output as Record<string, unknown>;
+  const result =
+    record.result != null && typeof record.result === "object"
+      ? (record.result as Record<string, unknown>)
+      : record;
+  if (!Array.isArray(result.files)) return null;
+  const files = (result.files as unknown[])
+    .map((f) => {
+      if (f == null || typeof f !== "object") return null;
+      const obj = f as Record<string, unknown>;
+      if (typeof obj.name !== "string") return null;
+      return {
+        name: obj.name,
+        contentType: typeof obj.contentType === "string" ? obj.contentType : undefined,
+        sizeBytes: typeof obj.sizeBytes === "number" ? obj.sizeBytes : undefined,
+      } as WireFileRef;
+    })
+    .filter((f): f is WireFileRef => f != null);
+  return files.length > 0 ? files : null;
+}
+
+interface WireJobRef {
+  jobId: string;
+  file?: string;
+}
+
+/** jobId + file name for a wire download proxy URL. */
+function wireJobRefOf(output: unknown, file: string): WireJobRef | null {
+  if (output == null || typeof output !== "object") return null;
+  const record = output as Record<string, unknown>;
+  const result =
+    record.result != null && typeof record.result === "object"
+      ? (record.result as Record<string, unknown>)
+      : record;
+  if (typeof result.jobId === "string") return { jobId: result.jobId, file };
+  return null;
+}
+
+/**
+ * Research structured data that looks like an array of uniform row objects
+ * renders as a table; anything else stays JSON.
+ */
+function extractTable(
+  output: unknown,
+): { columns: string[]; rows: Array<Record<string, unknown>> } | null {
+  if (output == null || typeof output !== "object") return null;
+  const record = output as Record<string, unknown>;
+  const data =
+    record.structuredData != null && typeof record.structuredData === "object"
+      ? (record.structuredData as Record<string, unknown>)
+      : null;
+  if (!data) return null;
+  for (const value of Object.values(data)) {
+    if (!Array.isArray(value) || value.length === 0) continue;
+    const rows = value.filter(
+      (r): r is Record<string, unknown> =>
+        r != null && typeof r === "object" && !Array.isArray(r),
+    );
+    if (rows.length < 2) continue;
+    const columns = [
+      ...new Set(
+        rows.flatMap((r) =>
+          Object.keys(r).filter(
+            (k) => typeof r[k] != null && typeof r[k] !== "object",
+          ),
+        ),
+      ),
+    ].slice(0, 6);
+    if (columns.length === 0) continue;
+    return { columns, rows: rows.slice(0, 12) };
+  }
+  return null;
+}
+
 function outputHasError(output: unknown): boolean {
   if (output == null || typeof output !== "object") return false;
   const record = output as Record<string, unknown>;
@@ -195,17 +356,30 @@ function errorDetail(output: unknown): string | undefined {
 function OutputDetails({ output }: { output: unknown }) {
   const subSteps = extractSubSteps(output);
   const sources = extractSources(output);
+  const links = extractLinks(output);
+  const screenshots = extractScreenshots(output);
+  const wireFiles = extractWireFiles(output);
+  const table = extractTable(output);
   const details: string[] = subSteps?.map((s) => s.label) ?? [];
 
-  if (details.length === 0 && sources == null) {
-    // Generic output: pretty JSON, truncated.
+  if (
+    details.length === 0 &&
+    sources == null &&
+    links == null &&
+    screenshots == null &&
+    wireFiles == null &&
+    table == null
+  ) {
+    // Generic output: pretty JSON, truncated. Table-able or media-bearing
+    // outputs skip the cap — their renderers truncate per cell instead.
     let json: string;
     try {
       json = JSON.stringify(output, null, 2) ?? "null";
     } catch {
       json = String(output);
     }
-    if (json.length > 400) json = `${json.slice(0, 400)}…`;
+    const cap = 400;
+    if (json.length > cap) json = `${json.slice(0, cap)}…`;
     if (json === "null" || json === "undefined") return null;
     return <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">{json}</pre>;
   }
@@ -226,6 +400,20 @@ function OutputDetails({ output }: { output: unknown }) {
             ))}
         </ThinkingStepDetails>
       )}
+      {table && <OutputTable columns={table.columns} rows={table.rows} />}
+      {screenshots && screenshots.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-2">
+          {screenshots.map((shot) => (
+            <ThinkingStepImage
+              key={shot.type}
+              src={`/api/anakin/screenshot/${encodeURIComponent(shot.jobId)}?type=${shot.type}`}
+              alt={`Page screenshot (${shot.type})`}
+              caption={shot.type === "fullpage" ? "Full page" : "Viewport"}
+            />
+          ))}
+        </div>
+      )}
+      {wireFiles && wireFiles.length > 0 && <WireFileChips output={output} files={wireFiles} />}
       {sources && (
         <ThinkingStepSources>
           {sources.map((source, i) => (
@@ -235,7 +423,105 @@ function OutputDetails({ output }: { output: unknown }) {
           ))}
         </ThinkingStepSources>
       )}
+      {links && (
+        <ThinkingStepSources>
+          {links.map((link, i) => (
+            <ThinkingStepSource key={`${link.href}-${i}`} delay={i * 0.05}>
+              <a
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-foreground"
+                title={link.title ?? link.href}
+              >
+                {link.title ?? stripScheme(link.href)}
+              </a>
+            </ThinkingStepSource>
+          ))}
+        </ThinkingStepSources>
+      )}
     </>
+  );
+}
+
+function OutputTable({
+  columns,
+  rows,
+}: {
+  columns: string[];
+  rows: Array<Record<string, unknown>>;
+}) {
+  return (
+    <div className="mt-1.5 max-h-60 overflow-auto">
+      <Table size="compact">
+        <TableHeader>
+          <TableRow>
+            {columns.map((c) => (
+              <TableHead key={c}>{c}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, i) => (
+            <TableRow key={i}>
+              {columns.map((c) => (
+                <TableCell key={c} className="max-w-48 truncate">
+                  {String(row[c] ?? "")}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function WireFileChips({
+  output,
+  files,
+}: {
+  output: unknown;
+  files: WireFileRef[];
+}) {
+  const Download = useIcon("arrowdownfromline");
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
+      {files.map((file) => {
+        const ref = wireJobRefOf(output, file.name);
+        const href = ref
+          ? `/api/anakin/wire-download/${encodeURIComponent(ref.jobId)}?file=${encodeURIComponent(file.name)}`
+          : undefined;
+        const label = [
+          file.name,
+          file.sizeBytes != null
+            ? `${(file.sizeBytes / 1024).toFixed(0)} KB`
+            : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return href ? (
+          <a
+            key={file.name}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
+            title={`Download ${file.name}`}
+          >
+            <Download size={12} strokeWidth={1.75} />
+            {label}
+          </a>
+        ) : (
+          <span
+            key={file.name}
+            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground"
+          >
+            {label}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 

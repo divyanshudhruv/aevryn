@@ -221,6 +221,7 @@ export class AgentService {
             outputTokens,
             totalTokens: inputTokens + outputTokens,
           },
+          createdAt: new Date().toISOString(),
         };
       },
       originalMessages: input.uiMessages,
@@ -440,7 +441,16 @@ export async function loadThreadMessages(
   const uiMessages = messageRows.map((row) => ({
     id: row.id,
     role: row.role,
-    ...(row.usage != null ? { metadata: { usage: row.usage } } : {}),
+    ...(row.usage != null || row.createdAt != null
+      ? {
+          metadata: {
+            ...(row.usage != null ? { usage: row.usage } : {}),
+            ...(row.createdAt != null
+              ? { createdAt: row.createdAt.toISOString() }
+              : {}),
+          },
+        }
+      : {}),
     // Persisted parts restore tool cards, QuestionFlow answers, plan
     // decisions, and approvals exactly; legacy rows fall back to text.
     // Reasoning parts are stripped: providers like Groq reject

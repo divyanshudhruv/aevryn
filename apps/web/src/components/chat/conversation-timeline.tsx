@@ -74,25 +74,18 @@ function questionsFromInput(input: unknown) {
   return input as Array<Record<string, unknown>>;
 }
 
-/**
- * Splits an assistant message's parts at each `step-start` boundary — one
- * segment per model step (agent response). Legacy rows persisted without
- * step-start markers fall back to a single segment, preserving the old
- * one-bubble render.
- */
-function splitByStepStart(
-  parts: UIMessage["parts"],
-): UIMessage["parts"][] {
-  const segments: UIMessage["parts"][] = [[]];
-  let current = segments[0]!;
-  for (const part of parts) {
-    if (part.type === "step-start" && current.length > 0) {
-      current = [];
-      segments.push(current);
-    }
-    current.push(part);
-  }
-  return segments;
+/** Real timestamp from persisted/stream metadata; falls back to now for
+ *  brand-new live messages (their createdAt arrives on the finish event). */
+function messageTimestamp(message: UIMessage): string {
+  const createdAt = (message.metadata as { createdAt?: string } | undefined)
+    ?.createdAt;
+  const date = createdAt ? new Date(createdAt) : new Date();
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 /** Human-facing copy for a completed askUser / presentPlan interaction. */
@@ -378,15 +371,11 @@ export function ConversationTimeline({
           ];
         });
 
-        // One assistant response (a single model step: tools + its answer
-        // text) becomes ONE ChatMessage. A multi-step turn that runs the
-        // agent twice — tools → text, tools → text — splits at each
-        // step-start boundary into separate bubbles so the transcript reads
-        // prompt → response → prompt → response. User messages are a single
-        // bubble. The final live segment carries the running state.
-        const responses: UIMessage["parts"][] = isUser
-          ? [message.parts]
-          : splitByStepStart(message.parts);
+        // One assistant turn = ONE ChatMessage: every sequential tool run of
+        // the same response stays grouped in a single bubble (its step card
+        // already orders them as a pipeline). Separate user prompts produce
+        // separate messages, and therefore separate bubbles.
+        const responses: UIMessage["parts"][] = [message.parts];
 
         // The SDK creates a placeholder assistant message the moment a turn
         // starts (status submitted/streaming). Render nothing for it — no
@@ -410,10 +399,7 @@ export function ConversationTimeline({
           ...systemRows,
           ...responses.map((responseParts, responseIndex) => {
             const isLastResponse = responseIndex === responses.length - 1;
-            const responseKey =
-              responses.length === 1
-                ? message.id
-                : `${message.id}-r${responseIndex}`;
+            const responseKey = message.id;
 
             // Tool calls that are not client/approval cards get grouped into
             // the step card so a run reads like a pipeline: tools → answer.
@@ -548,11 +534,7 @@ export function ConversationTimeline({
               <ChatMessage
                 key={responseKey}
                 from={isUser ? "user" : "assistant"}
-                time={new Date().toLocaleString(undefined, {
-                  weekday: "short",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                time={messageTimestamp(message)}
                 actions={
                   !isUser && responseText.trim().length > 0 ? (
                     <AssistantActions
