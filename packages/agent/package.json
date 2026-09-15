@@ -17,6 +17,7 @@
 		"@aevryn/db": "workspace:*",
 		"@aevryn/env": "workspace:*",
 		"@ai-sdk/openai-compatible": "^1.0.54",
+		"@ai-sdk/provider": "^4.0.10",
 		"@anakin-io/sdk": "^0.1.0",
 		"ai": "^7.0.93",
 		"drizzle-orm": "^0.45.2",

@@ -13,7 +13,7 @@ import {
   type ToolContext,
 } from "@aevryn/agent";
 import type { StepToolCall, Workflow } from "@aevryn/db";
-import { db, decryptSecret, userKeys, userProviders } from "@aevryn/db";
+import { db, decryptSecret, ids, userKeys, userProviders } from "@aevryn/db";
 import { eq } from "drizzle-orm";
 
 import { ChatService } from "./chat-service";
@@ -93,11 +93,29 @@ export class AgentService {
       text: string;
       toolCalls: StepToolCall[];
     }> = [];
+    // Filled by the agent-level onEnd; consumed by the UIMessage-stream
+    // onEnd below (which fires later and owns final persistence).
+    let finalUsage: { inputTokens: number; outputTokens: number; totalTokens: number } = {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    };
 
-    const result = await agent.stream({
+    // The SDK's declared `stream()` type omits `toolsContext`/`streamRetries`
+    // (they exist at runtime); extend it rather than losing callback types.
+    const streamFn = agent.stream.bind(agent) as (
+      options: Parameters<typeof agent.stream>[0] & {
+        toolsContext?: unknown;
+        streamRetries?: number;
+      },
+    ) => ReturnType<typeof agent.stream>;
+    const result = await streamFn({
       messages: await convertToModelMessages(input.uiMessages),
       experimental_transform: [...streamTransform],
-
+      // Per-call context + mid-stream retry (Groq malformed tool-JSON
+      // retries the current step, preserving earlier steps/results).
+      toolsContext: toolsContext,
+      streamRetries: 2,
       onToolExecutionEnd: (event) => {
         const call = event.toolCall as {
           toolCallId?: string;
@@ -152,25 +170,11 @@ export class AgentService {
       onEnd: async (event) => {
         try {
           const usage = event.totalUsage;
-          await this.chat.saveMessage({
-            userId: input.userId,
-            threadId: input.threadId,
-            role: "assistant",
-            content: event.text ?? "",
-            usage: {
-              inputTokens: usage.inputTokens ?? 0,
-              outputTokens: usage.outputTokens ?? 0,
-              totalTokens: usage.totalTokens ?? 0,
-            },
-            steps: stepSnapshots,
-          });
-
-          if (input.mode === "run" && boundWorkflow) {
-            await this.chat.setWorkflowStatus({
-              workflowId: boundWorkflow.id,
-              status: "running",
-            });
-          }
+          finalUsage = {
+            inputTokens: usage.inputTokens ?? 0,
+            outputTokens: usage.outputTokens ?? 0,
+            totalTokens: usage.totalTokens ?? 0,
+          };
 
           if (mem0Key) {
             const lastUser = lastUserText(input.uiMessages);
@@ -184,12 +188,53 @@ export class AgentService {
             }
           }
         } catch (err) {
-          console.error("[agent-service] persist-on-finish failed", err);
+          console.error("[agent-service] on-finish hooks failed", err);
         }
       },
     });
 
-    return result.toUIMessageStreamResponse(init);
+    return result.toUIMessageStreamResponse({
+      ...init,
+      originalMessages: input.uiMessages,
+      generateMessageId: () => ids.message(),
+      // Reasoning parts never reach the client/persistence: replaying them
+      // would serialize to `reasoning_content`, which Groq (and other
+      // OpenAI-compatible providers) reject with a 400.
+      sendReasoning: false,
+      // The UIMessage-stream end event carries the FULL message list —
+      // including every tool part, client-tool answer (askUser answers,
+      // plan decisions), and approval response. Persisting here is what
+      // makes the whole timeline (not just text) survive refresh.
+      onEnd: async ({ responseMessage }) => {
+        try {
+          const text = responseMessage
+            ? responseMessage.parts
+                .filter((p): p is { type: "text"; text: string } => p.type === "text")
+                .map((p) => p.text)
+                .join("\n")
+            : "";
+
+          await this.chat.saveMessage({
+            userId: input.userId,
+            threadId: input.threadId,
+            role: "assistant",
+            content: text,
+            parts: responseMessage?.parts as unknown[] | undefined,
+            usage: finalUsage,
+            steps: stepSnapshots,
+          });
+
+          if (input.mode === "run" && boundWorkflow) {
+            await this.chat.setWorkflowStatus({
+              workflowId: boundWorkflow.id,
+              status: "running",
+            });
+          }
+        } catch (err) {
+          console.error("[agent-service] persist-on-finish failed", err);
+        }
+      },
+    });
   }
 
   // ─── Resolution helpers ────────────────────────────────────────────────────
@@ -283,12 +328,16 @@ async function storeMemoryTurn(
   userText: string,
   assistantText: string,
 ): Promise<void> {
+  // Mem0 rejects messages with empty/blank content (HTTP 400 'code=blank').
+  const user = userText.trim();
+  const assistant = assistantText.trim().slice(0, 2_000);
+  if (!user || !assistant) return;
   try {
     const client = new MemoryClient({ apiKey: mem0Key });
     await client.add(
       [
-        { role: "user", content: userText },
-        { role: "assistant", content: assistantText.slice(0, 2_000) },
+        { role: "user", content: user },
+        { role: "assistant", content: assistant },
       ],
       { userId: threadId },
     );
@@ -343,7 +392,19 @@ export async function loadThreadMessages(
   const uiMessages = messageRows.map((row) => ({
     id: row.id,
     role: row.role,
-    parts: [{ type: "text" as const, text: row.content }],
+    // Persisted parts restore tool cards, QuestionFlow answers, plan
+    // decisions, and approvals exactly; legacy rows fall back to text.
+    // Reasoning parts are stripped: providers like Groq reject
+    // `reasoning_content` on replayed assistant messages.
+    parts: (Array.isArray(row.parts) && row.parts.length > 0
+      ? row.parts
+      : [{ type: "text" as const, text: row.content }]
+    ).filter(
+      (p) =>
+        (p as { type?: string }).type !== "reasoning" &&
+        (p as { type?: string }).type !== "reasoning-file" &&
+        (p as { type?: string }).type !== "step-start",
+    ),
   }));
 
   try {

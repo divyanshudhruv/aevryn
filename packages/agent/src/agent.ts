@@ -14,6 +14,7 @@ import {
   estimateTokens,
   loopGuardrails,
 } from "./loop-control";
+import { repairToolCall } from "./tool-call-repair";
 
 export { costGuardStop };
 
@@ -50,6 +51,9 @@ export function createAevrynAgent(opts: AevrynAgentOptions) {
     stopWhen,
     // HMAC-binds approval responses to the server (AI SDK group B-6).
     experimental_toolApprovalSecret: env.VAULT_KEY,
+    // Lenient repair of malformed tool arguments (trailing commas, wrapped
+    // arrays, cut-off JSON) — gpt-oss-120b emits these occasionally.
+    experimental_repairToolCall: repairToolCall as never,
     // Context compaction (AI SDK group A-5): past ~100k estimated tokens,
     // prune tool outputs before the last 3 messages.
     prepareStep: ({ messages }) => {

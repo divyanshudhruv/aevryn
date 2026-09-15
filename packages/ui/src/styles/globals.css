@@ -267,9 +267,9 @@
 	}
 }
 
-body{
+/* body{
 	overflow-y:hidden;
-}
+} */
 
 @layer base {
 	* {

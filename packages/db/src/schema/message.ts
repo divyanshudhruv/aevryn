@@ -26,6 +26,10 @@ export const messages = pgTable(
 		userId: uuid("user_id").notNull(),
 		role: messageRoleEnum("role").notNull(),
 		content: text("content").notNull().default(""),
+		/** Full UIMessage parts (text + tool calls + client-tool answers +
+		 *  approvals) persisted at stream end so replay restores the exact
+		 *  timeline — QuestionFlow cards, plan accordions, system events. */
+		parts: jsonb("parts").$type<unknown[]>(),
 		usage: jsonb("usage").$type<{
 			inputTokens: number;
 			outputTokens: number;

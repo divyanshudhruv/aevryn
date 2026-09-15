@@ -114,6 +114,9 @@ export class ChatService {
 		threadId: string;
 		role: "user" | "assistant" | "system";
 		content: string;
+		/** Full UIMessage parts — persisted so replay restores tool cards,
+		 *  QuestionFlow answers, plan decisions, and approvals exactly. */
+		parts?: unknown[];
 		usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
 		steps?: Array<{
 			position: number;
@@ -129,6 +132,7 @@ export class ChatService {
 			userId: input.userId,
 			role: input.role,
 			content: input.content,
+			...(input.parts ? { parts: input.parts } : {}),
 			usage: input.usage,
 		});
 

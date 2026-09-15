@@ -42,10 +42,24 @@ export const askUserQuestionSchema = z
 		{ message: "Provide options, or set freeText: true." },
 	);
 
+/**
+ * Accepts a bare array of questions OR `{ questions: [...] }` — weaker
+ * models often wrap the array in an object, and strict validation would
+ * kill the turn. Both normalize to the array the UI expects.
+ */
+const askUserInputSchema = z
+	.union([
+		z.array(askUserQuestionSchema).min(1).max(6),
+		z.object({ questions: z.array(askUserQuestionSchema).min(1).max(6) }),
+	])
+	.transform((value): Array<z.infer<typeof askUserQuestionSchema>> =>
+		Array.isArray(value) ? value : value.questions,
+	);
+
 export const askUserTool = tool({
 	description:
-		"Ask the user one or more clarifying questions with clickable options or a free-text field. Use when a request is ambiguous, a decision is the user's to make, or required parameters are missing. The conversation pauses until they answer.",
-	inputSchema: z.array(askUserQuestionSchema).min(1).max(6),
+		"Ask the user one or more clarifying questions with clickable options or a free-text field. Use when a request is ambiguous, a decision is the user's to make, or required parameters are missing. The conversation pauses until they answer. Pass the questions as a top-level ARRAY, e.g. [{ title: '...', options: [{ title: '...' }] }].",
+	inputSchema: askUserInputSchema,
 	// No contextSchema needed: the tool carries no per-request state.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- client tool has no execute
 } as any);

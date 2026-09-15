@@ -1,3 +1,4 @@
+import type { UIMessage } from "ai";
 import { requireUser } from "@aevryn/auth";
 import { AgentService, ChatService, loadThreadMessages } from "@aevryn/workflow";
 import { z } from "zod";
@@ -75,39 +76,45 @@ export async function POST(request: Request): Promise<Response> {
 		return jsonError(400, "BAD_REQUEST", `Invalid request body: ${err instanceof Error ? err.message : String(err)}`);
 	}
 
-	// Build the UIMessage list for this turn.
-	const uiMessages = await loadThreadMessages(body.threadId, user.id);
+	// Determine whether this is a RESUME (client tool answer / approval):
+	// useChat sends the full messages array with the tool output merged in.
+	const clientMessages = body.messages ?? [];
+	const lastClientPart = clientMessages.at(-1)?.parts.at(-1) as
+		| { type?: string; state?: string }
+		| undefined;
+	const isResume =
+		body.toolAnswer != null ||
+		body.approval != null ||
+		(lastClientPart?.type?.startsWith("tool-") === true &&
+			lastClientPart.state === "output-available");
+
+	// Build the UIMessage list for this turn. On resume, trust the client's
+	// messages — the DB still has the tool call PENDING, so rebuilding from
+	// it would drop the answer and the provider would reject the request.
+	// On a fresh send, rebuild from the DB (source of truth).
+	const uiMessages = isResume
+		? await syncThreadMessages(body.threadId, user.id, clientMessages)
+		: await loadThreadMessages(body.threadId, user.id);
 
 	// Extract the new user text from the transport payload (useChat sends the
 	// full UIMessage list; the last user message is the new one).
-	const message =
-		body.message ??
-		(() => {
-			const lastUser = [...(body.messages ?? [])]
-				.reverse()
-				.find((m) => m.role === "user");
-			if (!lastUser) return undefined;
-			const text = lastUser.parts
-				.map((p) => (p as { type?: string; text?: string }))
-				.filter((p) => p.type === "text")
-				.map((p) => p.text ?? "")
-				.join("\n");
-			return text.trim().length > 0 ? text : undefined;
-		})();
+	const message = body.message ?? (isResume ? undefined : extractNewUserText(clientMessages));
 
 	if (message != null && message.trim().length > 0) {
-		// New user message: persist it and append to the conversation.
+		// New user message: persist it (parts included) and append.
+		const userParts = [{ type: "text", text: message }];
 		await chatService.saveMessage({
 			userId: user.id,
 			threadId: body.threadId,
 			role: "user",
 			content: message,
+			parts: userParts,
 		});
 		uiMessages.push({
 			id: `local_${Date.now()}`,
 			role: "user",
-			parts: [{ type: "text", text: message }],
-		});
+			parts: userParts,
+		} as never);
 	}
 
 	if (body.toolAnswer) {
@@ -255,4 +262,65 @@ export async function GET(request: Request): Promise<Response> {
 		console.error("[api/chat] GET failed", err);
 		return jsonError(500, "LOAD_FAILED", "Could not load thread.");
 	}
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Text of the newest user message in the transport payload. */
+function extractNewUserText(
+	messages: Array<{ role: string; parts: unknown[] }>,
+): string | undefined {
+	const lastUser = [...messages].reverse().find((m) => m.role === "user");
+	if (!lastUser) return undefined;
+	const text = lastUser.parts
+		.map((p) => p as { type?: string; text?: string })
+		.filter((p) => p.type === "text")
+		.map((p) => p.text ?? "")
+		.join("\n");
+	return text.trim().length > 0 ? text : undefined;
+}
+
+/**
+ * On resume (tool answer / approval), the client sends the authoritative
+ * message list with the tool output merged in. Persist each changed tool
+ * part back onto its message row so replay keeps the answers, and return
+ * the client list (sanitized) for the model loop.
+ */
+async function syncThreadMessages(
+	threadId: string,
+	userId: string,
+	clientMessages: Array<{ id?: string; role: string; parts: unknown[] }>,
+): Promise<UIMessage[]> {
+	const { db, messages: messagesTable } = await import("@aevryn/db");
+	const { and, eq } = await import("drizzle-orm");
+
+	const sanitized = clientMessages.map(
+		(m): UIMessage => ({
+			id: m.id ?? `local_${Date.now()}`,
+			role: m.role as UIMessage["role"],
+			parts: (m.parts as unknown[]).filter((p) => {
+				const type = (p as { type?: string }).type;
+				return type !== "reasoning" && type !== "reasoning-file";
+			}) as UIMessage["parts"],
+		}),
+	);
+
+	// Write each message's parts back (only rows that exist for this user).
+	await Promise.all(
+		sanitized.map((m) => {
+			if (m.id.startsWith("local_")) return Promise.resolve();
+			return db
+				.update(messagesTable)
+				.set({ parts: m.parts as unknown[] })
+				.where(
+					and(
+						eq(messagesTable.id, m.id),
+						eq(messagesTable.userId, userId),
+						eq(messagesTable.threadId, threadId),
+					),
+				);
+		}),
+	);
+
+	return sanitized;
 }

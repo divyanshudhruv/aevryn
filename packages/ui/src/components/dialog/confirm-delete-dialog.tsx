@@ -49,9 +49,9 @@ export function ConfirmDeleteDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-0">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <InputCopy
-              key={item.value}
+              key={`${index}-${item.value}`}
               value={item.value}
               className="truncate"
               disabled

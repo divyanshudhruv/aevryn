@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function Home() {
 	return (
-		<main className="container mx-auto flex h-full max-w-md items-center justify-center px-4">
+		<main className="container mx-auto flex h-full max-w-md items-center justify-center px-4 bg-red-300">
 			<Suspense>
 				<LoginScreen />
 			</Suspense>

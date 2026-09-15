@@ -1,7 +1,12 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import {
+	DefaultChatTransport,
+	lastAssistantMessageIsCompleteWithApprovalResponses,
+	lastAssistantMessageIsCompleteWithToolCalls,
+	type UIMessage,
+} from "ai";
 import { useCallback, useEffect, useMemo } from "react";
 
 export type AgentMode = "chat" | "run";
@@ -12,7 +17,7 @@ export interface UseAgentChatOptions {
 	initialMessages?: UIMessage[];
 	mode?: AgentMode;
 	model?: { providerSlug?: string; modelId?: string };
-		enabled?: boolean;
+	enabled?: boolean;
 }
 
 export function useAgentChat({
@@ -35,9 +40,29 @@ export function useAgentChat({
 	const chat = useChat({
 		transport,
 		messages: initialMessages,
+		// Resume the loop automatically whenever a client tool gets its
+		// answer (askUser / presentPlan) or a native approval is decided —
+		// the AI SDK resubmits the conversation with the tool outputs.
+		sendAutomaticallyWhen: ({ messages: current }) =>
+			lastAssistantMessageIsCompleteWithToolCalls({ messages: current }) ||
+			lastAssistantMessageIsCompleteWithApprovalResponses({
+				messages: current,
+			}),
+		onError: (err) => {
+			console.error("[use-agent-chat] stream error", err);
+		},
 	});
 
-	const { sendMessage, addToolResult, addToolApprovalResponse, messages, status, error, stop, setMessages } = chat;
+	const {
+		sendMessage,
+		addToolOutput,
+		addToolApprovalResponse,
+		messages,
+		status,
+		error,
+		stop,
+		setMessages,
+	} = chat;
 
 	// Replay: when thread history arrives after mount (async GET), hydrate once.
 	useEffect(() => {
@@ -46,25 +71,26 @@ export function useAgentChat({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [enabled, initialMessages]);
 
-		const sendText = useCallback(
+	const sendText = useCallback(
 		(text: string) => {
 			sendMessage({ text });
 		},
 		[sendMessage],
 	);
 
-		const sendToolAnswer = useCallback(
+	const sendToolAnswer = useCallback(
 		(toolCallId: string, toolName: string, answer: unknown) => {
-			addToolResult({
-				tool: toolName,
+			addToolOutput({
+				tool: toolName as never,
 				toolCallId,
+				state: "output-available",
 				output: answer,
 			});
 		},
-		[addToolResult],
+		[addToolOutput],
 	);
 
-		const sendApproval = useCallback(
+	const sendApproval = useCallback(
 		(toolCallId: string, approved: boolean, reason?: string) => {
 			addToolApprovalResponse({
 				id: toolCallId,
