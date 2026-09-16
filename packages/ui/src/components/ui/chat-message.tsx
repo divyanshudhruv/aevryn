@@ -68,8 +68,8 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
         transition={spring.moderate}
         style={{ transformOrigin: isUser ? "bottom right" : "bottom left" }}
         className={cn(
-          "group flex max-w-[80%] flex-col gap-1.5  ",
-          isUser ? "items-end self-end" : "items-start self-start",
+          "group flex flex-col gap-1.5",
+          isUser ? "max-w-[80%] items-end self-end" : "max-w-full items-start self-start",
           className,
         )}
         {...props}
@@ -96,6 +96,8 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
               // Assistant replies run full message width (so wide widgets like
               // the plan/ask-user cards span it); user bubbles stay fit-width.
               !isUser && "w-full",
+              "flex flex-col",
+              isUser ? "gap-1.5" : "gap-5",
               "whitespace-pre-wrap break-words",
               compact ? "py-1.5 text-[13px]" : "py-2 text-[14px]",
               // User keeps the bubble chrome (rounded fill + horizontal padding);

@@ -8,6 +8,7 @@ import {
   AccordionContent,
 } from "@aevryn/ui/components/ui/accordion";
 import type { AskUserAnswer } from "@aevryn/ui/components/ui/ask-user-questions";
+import { cn } from "@aevryn/ui/lib/utils";
 import { useEffect, useState } from "react";
 
 export interface PlanInput {
@@ -32,6 +33,10 @@ export interface PlanApprovalCardProps {
   plan: PlanInput;
   onDecision: (result: PlanDecisionResult) => void;
   className?: string;
+  /** Read-only: show an already-made decision instead of collecting one. */
+  completed?: boolean;
+  decision?: PlanDecision;
+  feedback?: string;
 }
 
 const DECISION_OPTIONS = [
@@ -57,10 +62,28 @@ const DECISION_OPTIONS = [
   },
 ] as const;
 
+function decisionBannerLabel(decision: PlanDecision | undefined): string {
+  switch (decision) {
+    case "approved":
+      return "Plan approved \u2014 executing now";
+    case "bound":
+      return "Plan approved and bound to this thread";
+    case "changes_requested":
+      return "Changes requested";
+    case "declined":
+      return "Plan declined \u2014 staying in chat";
+    default:
+      return "Decision recorded";
+  }
+}
+
 export function PlanApprovalCard({
   plan,
   onDecision,
   className,
+  completed = false,
+  decision,
+  feedback,
 }: PlanApprovalCardProps) {
   const [decided, setDecided] = useState(false);
 
@@ -70,7 +93,7 @@ export function PlanApprovalCard({
 
   const handleComplete = (answers: Record<string, AskUserAnswer>) => {
     if (decided) return;
-    const answer = answers["decision"];
+    const answer = answers.decision;
     const selected = answer?.selectedIds?.[0];
     if (!selected) return;
     const feedback = answers["changes-feedback"]?.otherText?.trim();
@@ -93,7 +116,18 @@ export function PlanApprovalCard({
   };
 
   return (
-    <div className={className + " min-w-full"}>
+    <div className={cn(className, "min-w-full")}>
+      {completed && (
+        <div
+          role="status"
+          className="mb-3 flex flex-col gap-1 rounded-md bg-muted/50 px-3 py-2 text-[13px] text-foreground"
+        >
+          <span className="font-medium">{decisionBannerLabel(decision)}</span>
+          {decision === "changes_requested" && feedback && (
+            <span className="text-muted-foreground">{`“${feedback}”`}</span>
+          )}
+        </div>
+      )}
       <div className="mb-3 flex flex-col gap-1">
         <span className="text-[16px] font-medium text-foreground ">
           {plan.title}
@@ -135,6 +169,7 @@ export function PlanApprovalCard({
         ]}
         className="w-full"
         onComplete={handleComplete}
+        disabled={completed}
       />
     </div>
   );

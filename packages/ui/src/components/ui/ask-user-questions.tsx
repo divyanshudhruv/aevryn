@@ -105,6 +105,10 @@ export interface AskUserQuestionsProps
    *  28px — see /docs/sizes). Omitted, it follows the surrounding
    *  SizeProvider. */
   size?: SizeVariant;
+  /** Read-only review mode: options are pinned, answering is blocked, but
+   *  Back/Skip navigation still works. Pairs with `defaultAnswers`/`answers`
+   *  to show a previously submitted response. */
+  disabled?: boolean;
 }
 
 function questionKey(q: AskUserQuestion, i: number) {
@@ -143,6 +147,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
       onSkip,
       skipLabel = "Skip",
       size,
+      disabled = false,
       className,
       ...rest
     },
@@ -415,18 +420,19 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
     const goNext = useCallback(
       (snapshot: Record<string, AskUserAnswer>) => {
         if (safeIndex >= total - 1) {
-          onComplete?.(snapshot);
+          // Review mode must never submit: the flow is read-only.
+          if (!disabled) onComplete?.(snapshot);
         } else {
           markFocusRestore();
           setIndex(safeIndex + 1);
         }
       },
-      [safeIndex, total, onComplete, setIndex, markFocusRestore]
+      [safeIndex, total, onComplete, setIndex, markFocusRestore, disabled]
     );
 
     const handleSingleSelect = useCallback(
       (optId: string) => {
-        if (!question) return;
+        if (!question || disabled) return;
         // Read through answersRef — the same source writeAnswers mutates — so
         // a write earlier in the same tick is never missed the way a stale
         // render-scope `answers` capture could be.
@@ -442,12 +448,12 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
         }));
         goNext(snapshot);
       },
-      [question, qId, writeAnswers, goNext]
+      [question, qId, writeAnswers, goNext, disabled]
     );
 
     const handleMultiToggle = useCallback(
       (optId: string) => {
-        if (!question) return;
+        if (!question || disabled) return;
         writeAnswers((prev) => {
           const existing = prev[qId];
           const set = new Set(existing?.selectedIds ?? []);
@@ -464,7 +470,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
           };
         });
       },
-      [question, qId, writeAnswers]
+      [question, qId, writeAnswers, disabled]
     );
 
     // Base UI Checkbox.Group reports value changes coming from its (hidden)
@@ -473,7 +479,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
     // by other means — mirror it into the answer so the two never disagree.
     const handleGroupValueChange = useCallback(
       (vals: string[]) => {
-        if (!question) return;
+        if (!question || disabled) return;
         writeAnswers((prev) => ({
           ...prev,
           [qId]: {
@@ -484,12 +490,12 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
           },
         }));
       },
-      [question, qId, writeAnswers]
+      [question, qId, writeAnswers, disabled]
     );
 
     const handleOtherChange = useCallback(
       (text: string) => {
-        if (!question) return;
+        if (!question || disabled) return;
         // Editing clears a standing validation error — the user is fixing it.
         setFreeTextError(null);
         writeAnswers((prev) => ({
@@ -502,11 +508,11 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
           },
         }));
       },
-      [question, qId, writeAnswers]
+      [question, qId, writeAnswers, disabled]
     );
 
     const handleOtherSubmit = useCallback(() => {
-      if (!question) return;
+      if (!question || disabled) return;
       // answersRef (not render-scope `answers`) keeps this read consistent
       // with writeAnswers below — see handleSingleSelect.
       const text = (answersRef.current[qId]?.otherText ?? "").trim();
@@ -531,10 +537,16 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
         },
       }));
       goNext(snapshot);
-    }, [question, qId, writeAnswers, goNext]);
+    }, [question, qId, writeAnswers, goNext, disabled]);
 
     const handleSkip = useCallback(() => {
       if (!question) return;
+      if (disabled) {
+        if (safeIndex >= total - 1) return;
+        markFocusRestore();
+        setIndex(safeIndex + 1);
+        return;
+      }
       const snapshot = writeAnswers((prev) => ({
         ...prev,
         [qId]: {
@@ -546,7 +558,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
       }));
       onSkip?.(qId, safeIndex);
       goNext(snapshot);
-    }, [question, qId, writeAnswers, onSkip, safeIndex, goNext]);
+    }, [question, qId, writeAnswers, onSkip, safeIndex, goNext, disabled, total, markFocusRestore]);
 
     const handleMultiNext = useCallback(() => {
       goNext(answers);
@@ -563,6 +575,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
     useEffect(() => {
       if (!question) return;
       const handler = (e: KeyboardEvent) => {
+        if (disabled) return;
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         const target = e.target as HTMLElement | null;
         if (!target) return;
@@ -604,6 +617,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
       options,
       isMulti,
       allowOther,
+      disabled,
       handleSingleSelect,
       handleMultiToggle,
     ]);
@@ -817,7 +831,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
     const showBack = total > 1 && safeIndex > 0;
     const showSkip = total > 1 && isSkippable;
     // freeText commits through the same bottom submit button as multi-select.
-    const showSubmit = isMulti || isFreeText;
+    const showSubmit = !disabled && (isMulti || isFreeText);
     const showFooter = showBack || showSkip || showSubmit;
 
     // ── Roving tabindex ──────────────────────────────────────────
@@ -1017,7 +1031,8 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
               chipContent={i + 1}
               chipFilled={isSelected}
               isMulti={isMulti}
-              showArrow={showArrow}
+              disabled={disabled}
+              showArrow={!disabled && showArrow}
               bodyLayout={question.layout === "stacked" ? "stacked" : "inline"}
               // Anchor the chip to the first text line whenever the
               // body can wrap to multiple lines (stacked layouts
@@ -1128,11 +1143,14 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
             role={null}
             isSelected={otherText.length > 0}
             tabIndex={-1}
-            onClick={() => otherInputRef.current?.focus()}
+            onClick={
+              disabled ? undefined : () => otherInputRef.current?.focus()
+            }
             shape={shape}
             chipContent={otherIndex + 1}
             chipFilled={otherText.length > 0}
             isMulti={isMulti}
+            disabled={disabled}
             // Other body is a textarea that may grow past one line;
             // only switch to top-aligned when it actually wraps, so
             // the 1-line empty / single-line state stays visually
@@ -1143,6 +1161,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
               question.otherPlaceholder ?? "Describe in your own words"
             }
             showArrow={
+              !disabled &&
               !isMulti &&
               (focusedIndex === otherIndex ||
                 activeIndex === otherIndex) &&
@@ -1156,7 +1175,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
               />
             }
             onArrowClick={
-              !isMulti && otherText.trim().length > 0
+              !disabled && !isMulti && otherText.trim().length > 0
                 ? handleOtherSubmit
                 : undefined
             }
@@ -1166,6 +1185,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
                 ref={otherInputRef}
                 rows={1}
                 value={otherText}
+                readOnly={disabled}
                 placeholder={
                   question.otherPlaceholder ??
                   "Describe in your own words…"
@@ -1353,6 +1373,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
                       <textarea
                         ref={otherInputRef}
                         rows={1}
+                        readOnly={disabled}
                         placeholder={
                           question.freeTextPlaceholder ?? "Type your answer…"
                         }
@@ -1623,7 +1644,7 @@ interface RowProps {
   role: "radio" | "checkbox" | null;
   isSelected: boolean;
   tabIndex: number;
-  onClick: () => void;
+  onClick?: () => void;
   onKeyDown?: (e: ReactKeyboardEvent<HTMLDivElement>) => void;
   shape: ReturnType<typeof useShape>;
   chipContent: React.ReactNode;
@@ -1647,6 +1668,9 @@ interface RowProps {
    *  the leading edge of the row; the trailing arrow slot still sits on
    *  the right. Defaults to "right". */
   chipPosition?: "left" | "right";
+  /** Read-only review mode: row is not focusable, not clickable and shows
+   *  no submit affordances. */
+  disabled?: boolean;
   /** Hidden sr-only Base UI Radio/Checkbox primitive that binds the row to
    *  its Radio.Group / Checkbox.Group parent. Kept out of the a11y tree
    *  (aria-hidden) and the tab order (tabIndex -1) — the visible wrapper is
@@ -1674,6 +1698,7 @@ function Row({
   bodyLayout = "inline",
   topAlign = false,
   chipPosition = "right",
+  disabled = false,
   hiddenControl,
   children,
   ...aria
@@ -1800,8 +1825,9 @@ function Row({
       role={role ?? undefined}
       aria-checked={role === "radio" || role === "checkbox" ? !!aria["aria-checked"] : undefined}
       aria-label={ariaLabel}
-      tabIndex={tabIndex}
-      onMouseDown={(e) => {
+      aria-disabled={disabled || undefined}
+      tabIndex={disabled ? -1 : tabIndex}
+      onMouseDown={disabled ? undefined : (e) => {
         // A click landing on the hidden sr-only primitive would natively
         // focus it (nearest focusable ancestor of the click target), after
         // which keyboard nav dead-zones on an invisible control. Prevent the
@@ -1823,10 +1849,11 @@ function Row({
           pointerFocusRedirect = false;
         }
       }}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       onKeyDown={onKeyDown}
       className={cn(
-        "relative z-10 flex cursor-pointer select-none outline-none",
+        "relative z-10 flex select-none outline-none",
+        disabled ? "cursor-default opacity-60" : "cursor-pointer",
         // Tighter gap when the chip sits on the left — it reads as a
         // leading list marker, so coupling it close to the title looks
         // more intentional than the larger right-side gap (where the
