@@ -135,12 +135,20 @@ export default function Home() {
             <br />
             <TabPanel value="night">
               <div>
-                <img src="/aevryn.png" className="w-full rounded-lg" />
+                <img
+                  src="/aevryn.png"
+                  alt="Aevryn app interface in dark mode"
+                  className="w-full rounded-lg"
+                />
               </div>
             </TabPanel>
             <TabPanel value="day">
               <div>
-                <img src="/aevryn.png" className="w-full rounded-lg" />
+                <img
+                  src="/aevryn.png"
+                  alt="Aevryn app interface in light mode"
+                  className="w-full rounded-lg"
+                />
               </div>
             </TabPanel>
           </Tabs>
@@ -176,10 +184,10 @@ export default function Home() {
           <Logo size="sm" />
         </div>{" "}
         <div className=" text-[15px] gap-4 flex flex-row">
-          <a href="#" className="text-muted-foreground underline">
+          <a href="/privacy" className="text-muted-foreground underline">
             Privacy
           </a>
-          <a href="#" className="text-muted-foreground underline">
+          <a href="/terms" className="text-muted-foreground underline">
             Terms
           </a>
         </div>{" "}
@@ -192,10 +200,14 @@ export default function Home() {
       <section className=" flex w-full flex-row py-2 items-center justify-center gap-4 px-4 sm:px-8 lg:px-12">
         <img
           src="/aevryn-white.svg"
+          alt=""
+          aria-hidden
           className="hidden w-full opacity-10 dark:block"
         />
         <img
           src="/aevryn-black.svg"
+          alt=""
+          aria-hidden
           className="w-full opacity-10 dark:hidden"
         />
       </section>

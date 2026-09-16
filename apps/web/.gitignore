@@ -58,3 +58,5 @@ dev-dist
 .dev.vars*
 
 .open-next
+/apps/web/.env.example
+apps/web/.env.example

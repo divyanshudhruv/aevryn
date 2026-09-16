@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { checkExternalUrl } from "../ssrf-guard";
 import { toolContextSchema, type ToolContext } from "./context";
 import {
 	anakinClient,
@@ -74,6 +75,17 @@ export const mapSiteTool = tool({
 			};
 		}
 		try {
+			const urlVerdict = checkExternalUrl(input.url);
+			if (urlVerdict.blocked) {
+				return {
+					ok: false,
+					error: {
+						code: "URL_BLOCKED",
+						message: `Cannot map '${input.url}': ${urlVerdict.reason}`,
+					},
+				};
+			}
+
 			const client = anakinClient(context.anakinKey);
 			const result = await client.map(input.url, {
 				limit: input.limit ?? 100,

@@ -43,9 +43,10 @@ export function SignUpCard() {
       <Button
         className="w-full gap-2"
         onClick={handleSignIn}
-        disabled={loading}
+        // disabled={loading}
+        loading={loading}
       >
-        {loading ? "Redirecting…" : "Continue with Google"}
+        Continue with Google
       </Button>
       {error && (
         <p className="text-sm text-red-500" role="alert">

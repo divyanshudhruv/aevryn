@@ -27,7 +27,7 @@ const REPAIRS: Array<(text: string) => string> = [
 			.replace(/'([^'\\]*)'/g, '"$1"')
 			.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)/g, '$1"$2"$3')
 			.replace(/,\s*([}\]])/g, "$1"),
-	// 6. Cut-off generation: drop the incomplete tail, then re-balance any
+	// 7. Cut-off generation: drop the incomplete tail, then re-balance any
 	//    unclosed [ { by appending the missing brackets.
 	function cutOff(text) {
 		for (let end = text.length; end > 1; end--) {

@@ -9,7 +9,9 @@
 			"default": "./src/*.ts"
 		}
 	},
-	"scripts": {},
+	"scripts": {
+		"test": "vitest run"
+	},
 	"dependencies": {
 		"@aevryn/env": "workspace:*",
 		"@supabase/supabase-js": "catalog:",
@@ -17,6 +19,7 @@
 	},
 	"devDependencies": {
 		"@aevryn/config": "workspace:*",
-		"typescript": "catalog:"
+		"typescript": "catalog:",
+		"vitest": "^5.0.0"
 	}
 }

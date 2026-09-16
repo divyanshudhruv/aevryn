@@ -2,17 +2,11 @@ import { requireUser } from "@aevryn/auth";
 import { workflowService } from "@aevryn/workflow";
 import { z } from "zod";
 
+import { jsonError } from "@/lib/api";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function jsonError(status: number, code: string, message: string): Response {
-	return Response.json(
-		{ data: null, error: { code, message, details: null }, meta: {} },
-		{ status, headers: { "cache-control": "no-store" } },
-	);
-}
 
 const patchSchema = z.object({
 	title: z.string().min(1).max(200).optional(),

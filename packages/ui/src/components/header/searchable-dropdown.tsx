@@ -13,7 +13,6 @@ import { useState } from "react";
 import { Button } from "@aevryn/ui/components/ui/button";
 import MenuItem from "@aevryn/ui/components/ui/menu-item";
 
-// NEWTODO change it with real workflows and group from database
 const WORKFLOW_GROUPS = [
   {
     title: "Personal",
@@ -37,8 +36,6 @@ const WORKFLOW_GROUPS = [
     ],
   },
 ];
-
-// NEWTODO: bring the inputbar from header here too, so that both can have same place and no changing of state in both
 
 export function SearchableDropdown() {
   const [workflow, setWorkflow] = useState("Monitor product price drop");

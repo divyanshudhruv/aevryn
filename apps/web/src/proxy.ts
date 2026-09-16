@@ -1,25 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export default async function proxy(req: NextRequest) {
 	let res = NextResponse.next({ request: { headers: req.headers } });
 
 	const supabase = createServerClient(
-		process.env.NEXT_PUBLIC_SUPABASE_URL!,
-		process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+		// Validated at boot by @aevryn/env/server (proxy runs on the Node.js
+		// runtime in this Next version) — fall back to "" rather than assert.
+		process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+		process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
 		{
 			cookies: {
 				getAll() {
 					return req.cookies.getAll();
 				},
 				setAll(cookiesToSet) {
-					cookiesToSet.forEach(({ name, value }) =>
-						req.cookies.set(name, value),
-					);
+					for (const { name, value } of cookiesToSet) {
+						req.cookies.set(name, value);
+					}
 					res = NextResponse.next({ request: { headers: req.headers } });
-					cookiesToSet.forEach(({ name, value, options }) =>
-						res.cookies.set(name, value, options),
-					);
+					for (const { name, value, options } of cookiesToSet) {
+						res.cookies.set(name, value, options);
+					}
 				},
 			},
 		},

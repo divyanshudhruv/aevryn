@@ -1,28 +1,26 @@
 import { requireUser } from "@aevryn/auth";
-import { db, messages, threads } from "@aevryn/db";
 import {
 	AgentService,
 	ChatService,
 	loadThreadMessages,
+	MODEL_HISTORY_WINDOW,
 } from "@aevryn/workflow";
 import type { UIMessage } from "ai";
-import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { jsonError } from "@/lib/api";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Streaming turns with interleaved tool loops can run past the 10s default
+// (5-turn agent runs hang on the model between steps). Vercel hard-caps at
+// the plan's maxHandlerDuration, but declaring it prevents the default 10s.
+export const maxDuration = 300;
 
 const agentService = new AgentService();
 const chatService = new ChatService();
-
-function jsonError(status: number, code: string, message: string): Response {
-	return Response.json(
-		{ data: null, error: { code, message, details: null }, meta: {} },
-		{ status, headers: { "cache-control": "no-store" } },
-	);
-}
 
 // ─── POST: stream a turn ─────────────────────────────────────────────────────
 
@@ -60,9 +58,9 @@ const chatBodySchema = z.object({
 	threadId: z.string().min(1).max(128),
 	workspaceId: z.string().min(1).max(128),
 	mode: z.enum(["chat", "run"]).default("chat"),
-	message: z.string().max(100_000).optional(),
 	// DefaultChatTransport sends the conversation as UIMessages; the last
-	// user message carries the new text.
+	// user message carries the new text (single extraction path — there is
+	// deliberately no separate `message` string field).
 	messages: z.array(clientMessageSchema).max(200).optional(),
 	// Resume from an askUser/presentPlan client-tool answer.
 	toolAnswer: z
@@ -114,6 +112,13 @@ export async function POST(request: Request): Promise<Response> {
 		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
 	}
 
+	const rateLimited = enforceRateLimit({
+		key: `chat:${user.id}`,
+		windowMs: 60_000,
+		limit: 60,
+	});
+	if (rateLimited) return rateLimited;
+
 	let body: z.infer<typeof chatBodySchema>;
 	try {
 		body = chatBodySchema.parse(await request.json());
@@ -143,36 +148,48 @@ export async function POST(request: Request): Promise<Response> {
 	// On a fresh send, rebuild from the DB (source of truth).
 	const uiMessages = isResume
 		? await syncThreadMessages(body.threadId, user.id, clientMessages)
-		: await loadThreadMessages(body.threadId, user.id);
+		: // Fresh send: replay only the recent history window (the model prompt
+			// is pruned to MODEL_HISTORY_WINDOW anyway) so long threads don't
+			// ship hundreds of replay parts on every turn.
+			await loadThreadMessages(body.threadId, user.id, MODEL_HISTORY_WINDOW);
 
-	// Extract the new user text from the transport payload (useChat sends the
-	// full UIMessage list; the last user message is the new one).
-	const message =
-		body.message ?? (isResume ? undefined : extractNewUserText(clientMessages));
+	// Single extraction path: the last user message in the transport payload
+	// IS the new turn on a fresh send (useChat appends it before submit). Its
+	// client draft id rides along as the idempotency key — if this turn dies
+	// before the server echo, the retry re-sends the same draft id and
+	// saveMessage's (threadId, userId, clientMessageId) unique index dedups
+	// it. On a RESUME the last user message is the ORIGINAL prompt (already
+	// persisted and already present in the synced list) — which is why the
+	// append below is fresh-send-only.
+	const newTurn = extractNewUserMessage(clientMessages);
+	const message = newTurn?.text;
 
-	if (message != null && message.trim().length > 0) {
+	// Fresh sends only. Re-extracting + appending on a resume sent the model
+	// the same user request TWICE at the tail of every card answer, which
+	// read as "the user asked again" and made it re-answer the original
+	// request instead of continuing from the answered card (the "I don't
+	// have the tool call results" loop). syncClientMessages already put the
+	// persisted copy in place, so a resume must not append anything.
+	if (!isResume && message != null && message.trim().length > 0) {
 		// New user message: persist it (parts included) and append.
-		const userParts = [{ type: "text", text: message }];
+		const userParts = [{ type: "text" as const, text: message }];
 		await chatService.saveMessage({
 			userId: user.id,
 			threadId: body.threadId,
 			role: "user",
 			content: message,
 			parts: userParts,
+			clientMessageId: newTurn?.id,
 		});
-		// ChatGPT-style auto title: if the thread still has its default name,
-		// generate a short summary title from this (first) user message.
-		// Fire-and-forget — must never delay or fail the chat turn.
-		void agentService.autoTitle({
-			threadId: body.threadId,
-			userId: user.id,
-			message,
-		});
+		// ChatGPT-style auto title is NOT fired here — it moved into
+		// AgentService.finishTurn so it fires exactly once per completed turn
+		// (guarded by turnPersisted) even on the client-abort path. The new
+		// user text rides along as autoTitleMessage.
 		uiMessages.push({
 			id: `local_${Date.now()}`,
 			role: "user",
 			parts: userParts,
-		} as never);
+		} as UIMessage);
 	}
 
 	if (body.toolAnswer) {
@@ -188,7 +205,7 @@ export async function POST(request: Request): Promise<Response> {
 		});
 		const last = uiMessages.at(-1);
 		if (last) {
-			(last as never as { parts: unknown[] }).parts.push({
+			(last as unknown as { parts: unknown[] }).parts.push({
 				type: `tool-${body.toolAnswer.toolName}`,
 				toolCallId: body.toolAnswer.toolCallId,
 				state: "output-available",
@@ -201,97 +218,52 @@ export async function POST(request: Request): Promise<Response> {
 	// Plan decision approve/bind: persist the workflow + plan steps and bind
 	// it to the thread BEFORE the resumed loop runs. The decision arrives two
 	// ways — as an explicit body.toolAnswer, or merged into the client's
-	// messages array by useChat's auto-resume (the normal path). Handle both:
-	// find the answered presentPlan part anywhere in the synced message list
-	// that has not been bound yet.
-	const presentPlanAnswers = uiMessages
-		.flatMap((m) => m.parts as unknown as Array<Record<string, unknown>>)
-		.filter(
-			(p) =>
-				p.type === "tool-presentPlan" &&
-				p.state === "output-available" &&
-				p.output != null &&
-				typeof p.output === "object",
-		)
-		.map((p) => ({
-			toolCallId: p.toolCallId as string | undefined,
-			output: p.output as Record<string, unknown>,
-			input: p.input as Record<string, unknown> | undefined,
-		}));
-	const unboundDecision = presentPlanAnswers.find(
-		(a) =>
-			(a.output.decision === "approved" || a.output.decision === "bound") &&
-			a.output.workflowId == null,
-	);
-	if (unboundDecision) {
-		// Authoritative idempotency: if this thread already has a bound
-		// workflow, the decision was processed on an earlier resume — skip.
-		const [threadRow] = await db
-			.select({ boundWorkflowId: threads.boundWorkflowId })
-			.from(threads)
-			.where(and(eq(threads.id, body.threadId), eq(threads.userId, user.id)));
-		if (threadRow?.boundWorkflowId) {
-			unboundDecision.output.workflowId = threadRow.boundWorkflowId;
+	// messages array by useChat's auto-resume (the normal path). The service
+	// finds the answered presentPlan part anywhere in the synced message list
+	// and binds it idempotently (a thread with a bound workflow yields
+	// `already-bound`; ownership is verified inside).
+	try {
+		const bindResult = await chatService.bindPlanDecision({
+			userId: user.id,
+			threadId: body.threadId,
+			uiMessages,
+		});
+		if (bindResult.status !== "no-decision") {
+			// Server-authoritative run mode: an "Approve" (run now) decision
+			// executes THIS turn in run mode even if the client's transport
+			// still says chat — the auto-resume races the client's realtime-
+			// driven mode flip, and the chat-mode prompt forbids executing a
+			// bound plan. "bound" (run later) resumes in the client's mode.
+			const resumeMode =
+				bindResult.status === "bound-approved" ? "run" : body.mode;
+			// Authoritative idempotency: the decision was processed on an
+			// earlier resume — the reflected workflowId is already on the
+			// parts. Resume the loop immediately.
 			return await agentService.respond({
 				userId: user.id,
 				workspaceId: body.workspaceId,
 				threadId: body.threadId,
 				uiMessages,
-				mode: body.mode,
+				mode: resumeMode,
 				modelOverride: body.model,
+				autoTitleMessage: !isResume ? message : undefined,
 			});
 		}
-		const rawPlan = unboundDecision.input;
-		if (
-			rawPlan &&
-			typeof rawPlan.title === "string" &&
-			typeof rawPlan.objective === "string" &&
-			Array.isArray(rawPlan.steps)
-		) {
-			// Idempotency guard: a previous approved/bound answer may already
-			// have created a workflow for this thread + plan title.
-			try {
-				const workflow = await chatService.createWorkflowFromPlan({
-					userId: user.id,
-					threadId: body.threadId,
-					title: rawPlan.title,
-					objective: rawPlan.objective,
-					...(typeof rawPlan.summary === "string"
-						? { summary: rawPlan.summary }
-						: {}),
-					steps: rawPlan.steps as Array<{
-						title: string;
-						description?: string;
-					}>,
-				});
-				// Reflect the binding on the decision so the agent knows the
-				// workflow id (run mode uses it for updateStepStatus), and on the
-				// client message parts so syncThreadMessages persists it — no
-				// double-bind on the next resume.
-				unboundDecision.output.workflowId = workflow.id;
-				for (const m of uiMessages) {
-					for (const p of m.parts as unknown as Array<
-						Record<string, unknown>
-					>) {
-						if (
-							p.type === "tool-presentPlan" &&
-							p.toolCallId === unboundDecision.toolCallId &&
-							p.output != null &&
-							typeof p.output === "object"
-						) {
-							(p.output as Record<string, unknown>).workflowId = workflow.id;
-						}
-					}
-				}
-			} catch (err) {
-				console.error("[api/chat] createWorkflowFromPlan failed", err);
-				return jsonError(
-					500,
-					"WORKFLOW_BIND_FAILED",
-					"Could not bind the approved plan to this thread. Please try again.",
-				);
-			}
+	} catch (err) {
+		const code = (err as { code?: string }).code;
+		if (code === "THREAD_NOT_FOUND") {
+			return jsonError(
+				404,
+				"THREAD_NOT_FOUND",
+				"A plan decision for a thread you don't own must never bind a workflow. Thread not found.",
+			);
 		}
+		console.error("[api/chat] createWorkflowFromPlan failed", err);
+		return jsonError(
+			500,
+			"WORKFLOW_BIND_FAILED",
+			"Could not bind the approved plan to this thread. Please try again.",
+		);
 	}
 
 	if (body.approval) {
@@ -308,8 +280,8 @@ export async function POST(request: Request): Promise<Response> {
 		});
 		const last = uiMessages.at(-1);
 		if (last) {
-			(last as never as { parts: unknown[] }).parts.push({
-				type: "tool-approval-response" as never,
+			(last as unknown as { parts: unknown[] }).parts.push({
+				type: "tool-approval-response",
 				toolCallId: body.approval.toolCallId,
 				approved: body.approval.approved,
 				...(body.approval.reason ? { reason: body.approval.reason } : {}),
@@ -329,6 +301,7 @@ export async function POST(request: Request): Promise<Response> {
 				thinkingEffort: body.thinkingEffort
 					? (THINKING_EFFORT_MAP[body.thinkingEffort] ?? undefined)
 					: undefined,
+				autoTitleMessage: !isResume ? message : undefined,
 			},
 			// Forwarding request.signal: a client Stop / tab close aborts the
 			// stream server-side (model call + tools cancel; thread resets).
@@ -400,27 +373,13 @@ async function persistFailedTurn(opts: {
 	userId: string;
 	text: string;
 }): Promise<void> {
-	try {
-		await chatService.saveMessage({
-			userId: opts.userId,
-			threadId: opts.threadId,
-			role: "system",
-			content: opts.text,
-			parts: [{ type: "system-message", variant: "error", text: opts.text }],
-		});
-		await chatService.setThreadStatus({
-			threadId: opts.threadId,
-			status: "failed",
-		});
-	} catch (persistErr) {
-		console.error("[api/chat] failed-turn persistence error", persistErr);
-	}
+	await chatService.persistFailedTurn(opts);
 }
 
-/** Text of the newest user message in the transport payload. */
-function extractNewUserText(
-	messages: Array<{ role: string; parts: unknown[] }>,
-): string | undefined {
+/** Text + client draft id of the newest user message in the transport payload. */
+function extractNewUserMessage(
+	messages: Array<{ id?: string; role: string; parts: unknown[] }>,
+): { id?: string; text: string } | undefined {
 	const lastUser = [...messages].reverse().find((m) => m.role === "user");
 	if (!lastUser) return undefined;
 	const text = lastUser.parts
@@ -428,69 +387,27 @@ function extractNewUserText(
 		.filter((p) => p.type === "text")
 		.map((p) => p.text ?? "")
 		.join("\n");
-	return text.trim().length > 0 ? text : undefined;
+	return text.trim().length > 0
+		? { id: lastUser.id, text: text.trim() }
+		: undefined;
 }
 
 /**
  * On resume (tool answer / approval), the client sends the authoritative
  * message list with the tool output merged in. We return that list (sanitized)
- * for the model loop, but we only persist it selectively: assistant rows are
- * owned by the stream (saveMessage persists them server-side at stream end),
- * and persisting transport snapshots back would overwrite the merged tool
- * parts with stale client copies. The only rows we write here are genuinely
- * new user text messages that were never persisted (defensive — normally the
- * POST handler persists the new user turn itself).
+ * for the model loop. Persistence is selective (see ChatService.syncClientMessages):
+ * only genuinely new user text turns that were never persisted get written — the
+ * assistant rows belong to the stream, and transport snapshots would overwrite
+ * merged tool parts with stale client copies.
  */
 async function syncThreadMessages(
 	threadId: string,
 	userId: string,
 	clientMessages: Array<{ id?: string; role: string; parts: unknown[] }>,
 ): Promise<UIMessage[]> {
-	const sanitized = clientMessages.map(
-		(m): UIMessage => ({
-			id: m.id ?? `local_${Date.now()}`,
-			role: m.role as UIMessage["role"],
-			parts: (m.parts as unknown[]).filter((p) => {
-				const type = (p as { type?: string }).type;
-				return type !== "reasoning" && type !== "reasoning-file";
-			}) as UIMessage["parts"],
-		}),
-	);
-
-	// Persist only a never-before-seen user text turn. Skip messages we can
-	// identify as already-persisted (real message ids) and id-less local rows
-	// that only carry tool answers.
-	for (const m of sanitized) {
-		if (m.role !== "user") continue;
-		if (m.id.startsWith("msg_") || m.id.startsWith("local_")) continue;
-		const text = (m.parts as Array<{ type?: string; text?: string }>)
-			.filter((p) => p.type === "text" && typeof p.text === "string")
-			.map((p) => p.text as string)
-			.join("\n")
-			.trim();
-		if (!text) continue;
-
-		const [existing] = await db
-			.select({ id: messages.id })
-			.from(messages)
-			.where(
-				and(
-					eq(messages.threadId, threadId),
-					eq(messages.userId, userId),
-					eq(messages.id, m.id),
-				),
-			)
-			.limit(1);
-		if (existing) continue;
-
-		await chatService.saveMessage({
-			userId,
-			threadId,
-			role: "user",
-			content: text,
-			parts: m.parts as unknown[],
-		});
-	}
-
-	return sanitized;
+	return chatService.syncClientMessages({
+		threadId,
+		userId,
+		clientMessages,
+	});
 }

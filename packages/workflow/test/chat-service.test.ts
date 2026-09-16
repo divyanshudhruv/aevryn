@@ -6,7 +6,7 @@ import { eq, asc } from "drizzle-orm";
 import { ChatService } from "../src/services/chat-service";
 
 // Unique ids per run so repeated test executions don't collide.
-const stamp = Date.now().toString(36);
+const stamp = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
 const userId = "00000000-0000-0000-0000-000000000001";
 const workspaceId = `wsp_test_${stamp}`;
 const threadId = `thd_test_${stamp}`;
@@ -14,18 +14,11 @@ const threadId = `thd_test_${stamp}`;
 async function seedThread() {
 	const { workspaces, threads } = await import("@aevryn/db");
 
-	// Ensure the FK target user exists in auth.users (idempotent).
-	await db.execute(
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw SQL for supabase auth schema
-		`insert into auth.users (id, email, encrypted_password, aud, role, email_confirmed_at, instance_id, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, email_change_token_current, reauthentication_token, phone_change_token)
-		 values ('${userId}', 'chat-service-test-${userId}@test.local', '', 'authenticated', 'authenticated', now(), '00000000-0000-0000-0000-000000000000', '{}', '{}', now(), now(), '', '', '', '', '', '', '')
-		 on conflict (id) do nothing` as any,
-	);
-	await db.execute(
-		`insert into auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at)
-		 select '${userId}', '${userId}', 'email', 'email', jsonb_build_object('email', 'chat-service-test-${userId}@test.local'), now(), now(), now()
-		 where not exists (select 1 from auth.identities where user_id = '${userId}')` as any,
-	);
+	// userId 0000..0001 is a stable test user that already exists in the
+	// shared Supabase cloud DB (created by prior seed runs). The FKs on
+	// threads.user_id and messages.user_id are NOT DEFERRABLE, so per-run
+	// raw-SQL auth seeding was removed; relying on the pre-existing row
+	// keeps the suite from touching auth.users / auth.identities.
 
 	const existing = await db
 		.select({ id: workspaces.id })
@@ -75,7 +68,7 @@ describe("ChatService.createWorkflowFromPlan", () => {
 			.from(planSteps)
 			.where(eq(planSteps.workflowId, workflow.id))
 			.orderBy(asc(planSteps.position));
-		expect(stepRows.map((s) => s.title)).toEqual([
+		expect(stepRows.map((s: { title: string }) => s.title)).toEqual([
 			"Scrape retailers",
 			"Compare prices",
 		]);
@@ -101,11 +94,13 @@ describe("ChatService.updatePlanStepStatus", () => {
 		});
 
 		await service.updatePlanStepStatus({
+			userId,
 			workflowId: workflow.id,
 			position: 1,
 			status: "completed",
 		});
 		await service.updatePlanStepStatus({
+			userId,
 			workflowId: workflow.id,
 			position: 2,
 			status: "completed",
@@ -119,6 +114,7 @@ describe("ChatService.updatePlanStepStatus", () => {
 
 		await service.setWorkflowStatus({
 			workflowId: workflow.id,
+			userId,
 			status: "running",
 		});
 		const [running] = await db
@@ -172,7 +168,7 @@ describe("ChatService message persistence helpers", () => {
 			.from(messages)
 			.where(eq(messages.threadId, threadId));
 		expect(msgRows).toHaveLength(2);
-		const savedAssistant = msgRows.find((m) => m.id === assistant.id);
+		const savedAssistant = msgRows.find((m: { id: string }) => m.id === assistant.id);
 		expect(savedAssistant?.usage).toEqual({
 			inputTokens: 100,
 			outputTokens: 50,

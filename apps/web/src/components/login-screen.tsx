@@ -14,7 +14,7 @@ export function LoginScreen() {
   async function handleSignIn() {
     setLoading(true);
     setError(null);
-    const { error } = await supabaseClient.auth.signInWithOAuth({
+    const { error: signInError } = await supabaseClient.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -23,7 +23,7 @@ export function LoginScreen() {
         queryParams: { prompt: "select_account" },
       },
     });
-    if (error) {
+    if (signInError) {
       setLoading(false);
       setError("Couldn't start sign-in. Try again.");
     }

@@ -9,6 +9,7 @@ import {
 	type ToolResult,
 } from "./anakin-client";
 import type { DiscoveredAction } from "./wire-discover";
+import { wrapUntrustedJson } from "../untrusted";
 
 const inputSchema = z.object({
 	actionId: z.string().min(1).describe("action_id from wireDiscover."),
@@ -74,7 +75,7 @@ function mapJobBody(body: WireJobBody, jobId: string): WireRunResult {
 		status: body.status ?? "failed",
 		data:
 			body.data != null && typeof body.data === "object" && !Array.isArray(body.data)
-				? (body.data as Record<string, unknown>)
+				? { _untrusted: wrapUntrustedJson(body.data) }
 				: null,
 		files: mapFiles(body.files),
 		creditsUsed: typeof body.credits_used === "number" ? body.credits_used : undefined,
@@ -123,7 +124,7 @@ export const wireActionTool = tool({
 								inline.data != null &&
 								typeof inline.data === "object" &&
 								!Array.isArray(inline.data)
-									? (inline.data as Record<string, unknown>)
+									? { _untrusted: wrapUntrustedJson(inline.data) }
 									: null,
 							files: mapFiles(inline.files),
 							creditsUsed: inline.creditsUsed,

@@ -1,4 +1,4 @@
-import type { RunStatus } from "@aevryn/db";
+import type { RunStatus } from "@aevryn/config";
 
 export interface NavItem {
   label: string;

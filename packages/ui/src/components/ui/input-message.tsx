@@ -29,7 +29,7 @@ import { useFluidHover, useRegisterFluidHoverItem } from "@aevryn/ui/hooks/use-f
 import { FileThumbnail } from "@aevryn/ui/components/ui/file-thumbnail";
 import { Button } from "@aevryn/ui/components/ui/button";
 import { Tooltip } from "@aevryn/ui/components/ui/tooltip";
-import { FluidHoverHighlight } from "@aevryn/ui/components/ui/fluid-hover-highlight";
+import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
 
 const useIsoLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;

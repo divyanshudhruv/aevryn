@@ -1,19 +1,18 @@
 import { requireUser } from "@aevryn/auth";
-import { db, userProviders } from "@aevryn/db";
-import { eq, and } from "drizzle-orm";
+import { UserDataService } from "@aevryn/workflow";
 import { generateText } from "ai";
 
+import { jsonError } from "@/lib/api";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Test message streams the configured provider; a cold model hop can exceed
+// the default 10s cap.
+export const maxDuration = 120;
 
-function jsonError(status: number, code: string, message: string): Response {
-	return Response.json(
-		{ data: null, error: { code, message, details: null }, meta: {} },
-		{ status, headers: { "cache-control": "no-store" } },
-	);
-}
+const userDataService = new UserDataService();
 
 export async function POST(request: Request): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();
@@ -23,6 +22,13 @@ export async function POST(request: Request): Promise<Response> {
 	} catch {
 		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
 	}
+
+	const rateLimited = enforceRateLimit({
+		key: `provider-test:${user.id}`,
+		windowMs: 60_000,
+		limit: 10,
+	});
+	if (rateLimited) return rateLimited;
 
 	let body: { slug?: string; modelId?: string };
 	try {
@@ -36,22 +42,7 @@ export async function POST(request: Request): Promise<Response> {
 		return jsonError(400, "BAD_REQUEST", "slug is required.");
 	}
 
-	const [row] = await db
-		.select({
-			id: userProviders.id,
-			slug: userProviders.slug,
-			displayName: userProviders.displayName,
-			baseUrl: userProviders.baseUrl,
-			apiKeyEncrypted: userProviders.apiKeyEncrypted,
-			models: userProviders.models,
-		})
-		.from(userProviders)
-		.where(
-			and(
-				eq(userProviders.userId, user.id),
-				eq(userProviders.slug, slug),
-			),
-		);
+	const row = await userDataService.getProvider(user.id, slug);
 
 	if (!row) {
 		return jsonError(404, "NOT_FOUND", "Provider not found.");

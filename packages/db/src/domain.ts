@@ -2,16 +2,9 @@ export const PLAN_LEVELS = ["free", "pro"] as const;
 export type PlanLevel = (typeof PLAN_LEVELS)[number];
 
 // Confirmed run/thread status vocabulary — unchanged by the rewrite.
-export const RUN_STATUSES = [
-	"running",
-	"retrying",
-	"awaiting_approval",
-	"completed",
-	"failed",
-	"sleeping",
-	"idle",
-] as const;
-export type RunStatus = (typeof RUN_STATUSES)[number];
+// Single source lives in @aevryn/config (shared by db + ui without
+// ui depending on the db package).
+export { RUN_STATUSES, type RunStatus } from "@aevryn/config";
 
 // Chat message roles.
 export const MESSAGE_ROLES = ["user", "assistant", "system"] as const;

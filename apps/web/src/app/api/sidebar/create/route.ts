@@ -1,19 +1,13 @@
 import { requireUser } from "@aevryn/auth";
 import { WorkspaceService } from "@aevryn/workflow";
 
+import { jsonError } from "@/lib/api";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const workspaceService = new WorkspaceService();
-
-function jsonError(status: number, code: string, message: string): Response {
-	return Response.json(
-		{ data: null, error: { code, message, details: null }, meta: {} },
-		{ status, headers: { "cache-control": "no-store" } },
-	);
-}
 
 export async function POST(request: Request): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();

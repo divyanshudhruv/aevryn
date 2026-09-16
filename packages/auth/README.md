@@ -7,7 +7,7 @@ Framework-agnostic Supabase auth helpers (replaces the legacy better-auth setup)
 | Subpath | Contents |
 |---|---|
 | `.` | re-exports everything below |
-| `./server` | `createServerSupabase(cookies)` SSR client, `createAdminClient()` service-role client, `CookieMethodsServer` type |
+| `./server` | `createServerSupabase(cookies)` SSR client, `CookieMethodsServer` type |
 | `./client` | `getBrowserSupabase()` browser singleton |
 | `./user` | `getCurrentUser(supabase)`, `requireUser(supabase)` |
 
@@ -32,6 +32,5 @@ const { data } = await supabaseClient.auth.getUser();
 
 ## Rules
 
-- `createAdminClient()` bypasses RLS — server-only (Storage uploads, triggers).
 - Always create a fresh server client per request — never share across requests.
 - Token refresh writes land in the proxy (`src/proxy.ts`).

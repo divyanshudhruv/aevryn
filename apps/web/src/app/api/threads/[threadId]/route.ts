@@ -1,19 +1,12 @@
 import { requireUser } from "@aevryn/auth";
-import { db, threads } from "@aevryn/db";
-import { and, eq } from "drizzle-orm";
+import { ChatService } from "@aevryn/workflow";
 import { z } from "zod";
 
+import { jsonError } from "@/lib/api";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function jsonError(status: number, code: string, message: string): Response {
-	return Response.json(
-		{ data: null, error: { code, message, details: null }, meta: {} },
-		{ status, headers: { "cache-control": "no-store" } },
-	);
-}
 
 const patchSchema = z.object({
 	title: z.string().min(1).max(200).optional(),
@@ -50,11 +43,12 @@ export async function PATCH(
 		);
 	}
 
-	const [row] = await db
-		.update(threads)
-		.set(parsed.data)
-		.where(and(eq(threads.id, threadId), eq(threads.userId, user.id)))
-		.returning({ id: threads.id, title: threads.title });
+	const chatService = new ChatService();
+	const row = await chatService.updateThread({
+		threadId,
+		userId: user.id,
+		patch: parsed.data,
+	});
 	if (!row) {
 		return jsonError(404, "NOT_FOUND", "Thread not found.");
 	}

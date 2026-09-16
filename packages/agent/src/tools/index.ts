@@ -1,55 +1,34 @@
-export { toolContextSchema, type ToolContext } from "./context";
-
-export { beginTaskTool } from "./begin-task";
-
-export { scrapeUrlTool } from "./scrape-url";
-export { scrapeBatchTool } from "./scrape-batch";
-export { searchWebTool } from "./search-web";
-export { crawlSiteTool } from "./crawl-site";
-export { mapSiteTool } from "./map-site";
-export { researchTopicTool } from "./research-topic";
-export { wireDiscoverTool } from "./wire-discover";
-export { wireActionTool } from "./wire-action";
-export { wireBuildRequestTool } from "./wire-build-request";
-export { aiVisibilityTool } from "./ai-visibility";
-export { aiVisibilitySourcesTool } from "./ai-visibility-sources";
-export { aiVisibilitySearchesTool } from "./ai-visibility-searches";
-export { aiVisibilityRetryTool } from "./ai-visibility-retry";
-export { wireCatalogTool } from "./wire-catalog";
-export { wireBuildRequestsTool } from "./wire-build-requests";
-export { wireDownloadTool } from "./wire-download";
-export {
-	browserSessionCreate,
-	browserSessionDelete,
-	browserSessionList,
-	browserSessionRename,
-} from "./browser-sessions";
-export { searchMemoryTool, storeMemoryTool } from "./memory";
-export { makeRetryAgentTool } from "./retry-agent";
-export { updateStepStatusTool } from "./workflow-progress";
-export {
-	askUserTool,
-	askUserQuestionSchema,
-	presentPlanTool,
-} from "./client";
-
 import type { ToolSet } from "ai";
 
+import {
+	ANAKIN_BASE_URL,
+	anakinClient,
+	requireKey,
+	resolveAnakinKey,
+	type ToolError,
+	type ToolResult,
+} from "./anakin-client";
 import { aiVisibilityTool } from "./ai-visibility";
 import { aiVisibilitySearchesTool } from "./ai-visibility-searches";
 import { aiVisibilityRetryTool } from "./ai-visibility-retry";
 import { aiVisibilitySourcesTool } from "./ai-visibility-sources";
+import { beginTaskTool } from "./begin-task";
 import {
 	browserSessionCreate,
 	browserSessionDelete,
 	browserSessionList,
 	browserSessionRename,
 } from "./browser-sessions";
-import { askUserTool, presentPlanTool } from "./client";
+import {
+	askUserQuestionSchema,
+	askUserTool,
+	presentPlanTool,
+} from "./client";
 import { crawlSiteTool } from "./crawl-site";
 import { mapSiteTool } from "./map-site";
 import { searchMemoryTool, storeMemoryTool } from "./memory";
 import { researchTopicTool } from "./research-topic";
+import { makeRetryAgentTool } from "./retry-agent";
 import { scrapeBatchTool } from "./scrape-batch";
 import { scrapeUrlTool } from "./scrape-url";
 import { searchWebTool } from "./search-web";
@@ -61,10 +40,41 @@ import { wireDiscoverTool } from "./wire-discover";
 import { wireDownloadTool } from "./wire-download";
 import { updateStepStatusTool } from "./workflow-progress";
 
-void updateStepStatusTool; // registered conditionally (run mode) by AgentService
-void askUserTool; // client tools are included per-mode by AgentService
-void presentPlanTool;
+export { toolContextSchema, type ToolContext } from "./context";
+export {
+	ANAKIN_BASE_URL,
+	anakinClient,
+	requireKey,
+	resolveAnakinKey,
+	type ToolError,
+	type ToolResult,
+};
+export { beginTaskTool };
+export { browserSessionCreate, browserSessionDelete, browserSessionList, browserSessionRename };
+export { askUserQuestionSchema, askUserTool, presentPlanTool };
+export { crawlSiteTool };
+export { mapSiteTool };
+export { searchMemoryTool, storeMemoryTool };
+export { researchTopicTool };
+export { makeRetryAgentTool };
+export { scrapeBatchTool };
+export { scrapeUrlTool };
+export { searchWebTool };
+export { wireActionTool };
+export { wireBuildRequestTool };
+export { wireBuildRequestsTool };
+export { wireCatalogTool };
+export { wireDiscoverTool };
+export { wireDownloadTool };
+export { updateStepStatusTool };
+export { aiVisibilityTool };
+export { aiVisibilitySourcesTool };
+export { aiVisibilitySearchesTool };
+export { aiVisibilityRetryTool };
 
+// Client tools (askUserTool, presentPlanTool) and updateStepStatusTool are
+// intentionally NOT in the default set — AgentService registers them
+// conditionally per mode (run vs chat).
 export const anakinToolSet = {
 	searchWeb: searchWebTool,
 	scrapeUrl: scrapeUrlTool,
@@ -82,12 +92,12 @@ export const anakinToolSet = {
 	wireCatalog: wireCatalogTool,
 	wireBuildRequests: wireBuildRequestsTool,
 	wireDownload: wireDownloadTool,
-browserSessionList,
-  browserSessionCreate,
-  browserSessionRename,
-  browserSessionDelete,
-  storeMemory: storeMemoryTool,
-  searchMemory: searchMemoryTool,
+	browserSessionList,
+	browserSessionCreate,
+	browserSessionRename,
+	browserSessionDelete,
+	storeMemory: storeMemoryTool,
+	searchMemory: searchMemoryTool,
 } satisfies ToolSet;
 
 export type AnakinToolSet = typeof anakinToolSet;

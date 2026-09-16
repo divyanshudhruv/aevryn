@@ -1,6 +1,7 @@
 import { isStepCount, tool, ToolLoopAgent, type LanguageModel } from "ai";
 import { z } from "zod";
 
+import { costGuardStop } from "../loop-control";
 import { toolContextSchema, type ToolContext } from "./context";
 import { mapSiteTool } from "./map-site";
 import { scrapeUrlTool } from "./scrape-url";
@@ -11,6 +12,13 @@ const SUB_AGENT_TOOLS = {
   scrapeUrl: scrapeUrlTool,
   mapSite: mapSiteTool,
 } as const;
+
+// Wall-clock cap on a repair run: the parent loop already owns the concurrency
+// budget, so a wedged sub-agent (hanging network call the abortSignal doesn't
+// cover) must not hold a step hostage forever.
+const SUB_AGENT_WALL_CLOCK_MS = 90_000;
+const SUB_AGENT_MAX_STEPS = 8;
+const SUB_AGENT_BUDGET_USD = 0.1;
 
 const SUB_AGENT_INSTRUCTIONS = `You are a focused repair sub-agent. Your job is to fix ONE failed step of a larger run and return only the missing result.
 
@@ -80,21 +88,45 @@ export function makeRetryAgentTool(opts: { model: LanguageModel }) {
         };
       }
 
+      // Scope the sub-agent's tool context down to what its tools actually
+      // consume (search/scrape/map only ever touch `anakinKey`). Never hand
+      // the sub-agent secrets it doesn't need — mem0Key in particular is
+      // dead weight here and must not leave the parent context.
+      const subContext: ToolContext = {
+        ...context,
+        mem0Key: null,
+      };
       const subAgent = new ToolLoopAgent({
         id: "aevryn-retry-agent",
         model: opts.model,
         instructions: SUB_AGENT_INSTRUCTIONS,
         tools: SUB_AGENT_TOOLS,
         toolsContext: Object.fromEntries(
-          Object.keys(SUB_AGENT_TOOLS).map((name) => [name, context]),
+          Object.keys(SUB_AGENT_TOOLS).map((name) => [name, subContext]),
         ) as never,
-        stopWhen: isStepCount(8),
+        stopWhen: [
+          isStepCount(SUB_AGENT_MAX_STEPS),
+          costGuardStop(SUB_AGENT_BUDGET_USD),
+        ],
       });
+
+      // Chain the parent abort (client stop / turn abort) with a wall-clock
+      // cap so a hung sub-agent can't wedge the step. The child signal is what
+      // the model + tools actually race on.
+      const childController = new AbortController();
+      const wallClock = setTimeout(() => childController.abort(), SUB_AGENT_WALL_CLOCK_MS);
+      if (abortSignal?.aborted) {
+        childController.abort();
+      } else {
+        abortSignal?.addEventListener("abort", () => childController.abort(), {
+          once: true,
+        });
+      }
 
       try {
         const result = await subAgent.generate({
           prompt: buildRetryPrompt(input),
-          abortSignal,
+          abortSignal: childController.signal,
         });
         return {
           ok: true,
@@ -113,6 +145,8 @@ export function makeRetryAgentTool(opts: { model: LanguageModel }) {
             message: err instanceof Error ? err.message : String(err),
           },
         };
+      } finally {
+        clearTimeout(wallClock);
       }
     },
   });

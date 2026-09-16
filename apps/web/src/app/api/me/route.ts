@@ -2,6 +2,7 @@ import { requireUser } from "@aevryn/auth";
 import { WorkspaceService } from "@aevryn/workflow";
 
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
+import { jsonError } from "@/lib/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,10 +15,7 @@ export async function GET(): Promise<Response> {
 	try {
 		user = await requireUser(supabase);
 	} catch {
-		return Response.json(
-			{ data: null, error: { code: "UNAUTHENTICATED", message: "Sign in first.", details: null }, meta: {} },
-			{ status: 401, headers: { "cache-control": "no-store" } },
-		);
+		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
 	}
 
 	const data = await workspaceService.getProfile(user.id);

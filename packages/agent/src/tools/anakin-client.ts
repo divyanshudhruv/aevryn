@@ -5,6 +5,8 @@ import {
 	RateLimitError,
 	WireAuthRequiredError,
 } from "@anakin-io/sdk";
+import { db, decryptSecret, userKeys } from "@aevryn/db";
+import { and, eq } from "drizzle-orm";
 
 export interface ToolError {
 	ok: false;
@@ -25,6 +27,20 @@ export type ToolResult<T> =
 	| ToolError;
 
 export const ANAKIN_BASE_URL = "https://api.anakin.io/v1";
+
+export async function resolveAnakinKey(userId: string): Promise<string | null> {
+	const rows = await db
+		.select({ encryptedValue: userKeys.encryptedValue })
+		.from(userKeys)
+		.where(and(eq(userKeys.userId, userId), eq(userKeys.name, "anakin")));
+	const row = rows[0];
+	if (!row) return null;
+	try {
+		return decryptSecret(row.encryptedValue);
+	} catch {
+		return null;
+	}
+}
 
 export function anakinClient(apiKey: string): Anakin {
 	return new Anakin({
@@ -339,6 +355,7 @@ export async function anakinGet<T>(
 	path: string,
 	params: Record<string, string> | undefined,
 	apiKey: string | null,
+	timeoutMs = 30_000,
 ): Promise<{ status: number; body: T }> {
 	const url = new URL(`${ANAKIN_BASE_URL}${path}`);
 	if (params) {
@@ -347,6 +364,7 @@ export async function anakinGet<T>(
 	const response = await fetchWithRetry(url.toString(), {
 		method: "GET",
 		headers: rawHeaders(apiKey),
+		signal: AbortSignal.timeout(timeoutMs),
 	});
 	return { status: response.status, body: (await response.json()) as T };
 }
@@ -385,8 +403,7 @@ export async function listCountries(apiKey: string | null): Promise<string[]> {
 	return countriesCache;
 }
 
-export async function isValidCountry(code: string): Promise<boolean> {
-	const list = await listCountries(null);
-	if (list.length === 0) return true; // fail-open
-	return list.includes(code.toLowerCase());
+export async function isValidCountry(code: string, apiKey: string | null = null): Promise<boolean> {
+	const list = await listCountries(apiKey);
+	return list.includes(code.toLowerCase()); // fail-closed: unknown list blocks the gate
 }

@@ -40,7 +40,7 @@ import {
   slotElement,
 } from "@aevryn/ui/components/ui/sidebar-core";
 import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
-import type { RunStatus } from "@aevryn/db";
+import type { RunStatus } from "@aevryn/config";
 import { DotmCircular4 } from "../dotm-circular-4";
 import { DotmCircular7 } from "../dotm-circular-7";
 import { DotmCircular3 } from "../dotm-circular-3";

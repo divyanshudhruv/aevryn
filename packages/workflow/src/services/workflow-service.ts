@@ -70,23 +70,26 @@ export class WorkflowService {
 			);
 		if (!row) return false;
 
-		await this.client
-			.update(threads)
-			.set({ boundWorkflowId: null })
-			.where(eq(threads.boundWorkflowId, input.workflowId));
-		await this.client
-			.delete(planSteps)
-			.where(eq(planSteps.workflowId, input.workflowId));
-		await this.client
-			.delete(workflows)
-			.where(eq(workflows.id, input.workflowId));
+		await this.client.transaction(async (tx) => {
+			await tx
+				.update(threads)
+				.set({ boundWorkflowId: null })
+				.where(eq(threads.boundWorkflowId, input.workflowId));
+			await tx
+				.delete(planSteps)
+				.where(eq(planSteps.workflowId, input.workflowId));
+			await tx
+				.delete(workflows)
+				.where(eq(workflows.id, input.workflowId));
+		});
 		return true;
 	}
 
 	/**
 	 * Replaces the full plan-step list (reorder / add / remove / edit).
 	 * Statuses are preserved for steps whose id survives the edit; new steps
-	 * start idle.
+	 * start idle. Ownership is enforced here (workflow must belong to the
+	 * caller) so this is a security boundary on its own, not just at the route.
 	 */
 	async replaceSteps(input: {
 		workflowId: string;
@@ -97,28 +100,43 @@ export class WorkflowService {
 			description?: string | null;
 		}>;
 	}): Promise<PlanStep[]> {
-		const existing = await this.client
-			.select()
-			.from(planSteps)
-			.where(eq(planSteps.workflowId, input.workflowId));
-		const statusById = new Map(existing.map((s) => [s.id, s.status]));
+		return this.client.transaction(async (tx) => {
+			const [owned] = await tx
+				.select({ id: workflows.id })
+				.from(workflows)
+				.where(
+					and(
+						eq(workflows.id, input.workflowId),
+						eq(workflows.userId, input.userId),
+					),
+				);
+			if (!owned) {
+				throw new Error(`Workflow ${input.workflowId} not found or not owned by user`);
+			}
 
-		await this.client
-			.delete(planSteps)
-			.where(eq(planSteps.workflowId, input.workflowId));
+			const existing = await tx
+				.select()
+				.from(planSteps)
+				.where(eq(planSteps.workflowId, input.workflowId));
+			const statusById = new Map(existing.map((s) => [s.id, s.status]));
 
-		if (input.steps.length === 0) return [];
+			await tx
+				.delete(planSteps)
+				.where(eq(planSteps.workflowId, input.workflowId));
 
-		const rows = input.steps.map((step, index) => ({
-			id: step.id ?? ids.planStep(),
-			workflowId: input.workflowId,
-			userId: input.userId,
-			position: index + 1,
-			title: step.title,
-			description: step.description ?? null,
-			status: (step.id ? statusById.get(step.id) : undefined) ?? "idle",
-		}));
-		return this.client.insert(planSteps).values(rows).returning();
+			if (input.steps.length === 0) return [];
+
+			const rows = input.steps.map((step, index) => ({
+				id: step.id ?? ids.planStep(),
+				workflowId: input.workflowId,
+				userId: input.userId,
+				position: index + 1,
+				title: step.title,
+				description: step.description ?? null,
+				status: (step.id ? statusById.get(step.id) : undefined) ?? "idle",
+			}));
+			return tx.insert(planSteps).values(rows).returning();
+		});
 	}
 }
 

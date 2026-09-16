@@ -1,24 +1,12 @@
 import { requireUser } from "@aevryn/auth";
-import {
-	db,
-	DEFAULT_USER_SETTINGS,
-	userSettings,
-	type UserSettingsData,
-} from "@aevryn/db";
-import { eq } from "drizzle-orm";
+import { UserDataService } from "@aevryn/workflow";
 import { z } from "zod";
 
+import { jsonError } from "@/lib/api";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function jsonError(status: number, code: string, message: string): Response {
-	return Response.json(
-		{ data: null, error: { code, message, details: null }, meta: {} },
-		{ status, headers: { "cache-control": "no-store" } },
-	);
-}
 
 const settingsInputSchema = z.object({
 	notifications: z
@@ -41,24 +29,27 @@ const settingsInputSchema = z.object({
 	defaultQuality: z.enum(["auto", "high", "medium", "low"]).optional(),
 });
 
-async function loadSettings(userId: string): Promise<UserSettingsData> {
-	const [row] = await db
-		.select({ settings: userSettings.settings })
-		.from(userSettings)
-		.where(eq(userSettings.userId, userId));
-	return row?.settings ?? DEFAULT_USER_SETTINGS;
+async function requireUserOr401(): Promise<{ id: string }> {
+	const supabase = await createServerSupabaseForNext();
+	try {
+		return await requireUser(supabase);
+	} catch {
+		throw jsonErrorResponse(401, "UNAUTHENTICATED", "Sign in first.");
+	}
+}
+
+function jsonErrorResponse(
+	status: number,
+	code: string,
+	message: string,
+): Response {
+	return jsonError(status, code, message);
 }
 
 export async function GET(): Promise<Response> {
-	const supabase = await createServerSupabaseForNext();
-	let user: { id: string };
-	try {
-		user = await requireUser(supabase);
-	} catch {
-		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
-	}
-
-	const data = await loadSettings(user.id);
+	const user = await requireUserOr401();
+	const userDataService = new UserDataService();
+	const data = await userDataService.getSettings(user.id);
 	return Response.json(
 		{ data, error: null, meta: {} },
 		{ headers: { "cache-control": "no-store" } },
@@ -66,13 +57,7 @@ export async function GET(): Promise<Response> {
 }
 
 export async function PUT(request: Request): Promise<Response> {
-	const supabase = await createServerSupabaseForNext();
-	let user: { id: string };
-	try {
-		user = await requireUser(supabase);
-	} catch {
-		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
-	}
+	const user = await requireUserOr401();
 
 	let body: z.infer<typeof settingsInputSchema>;
 	try {
@@ -81,27 +66,8 @@ export async function PUT(request: Request): Promise<Response> {
 		return jsonError(400, "BAD_REQUEST", `Invalid settings: ${err instanceof Error ? err.message : String(err)}`);
 	}
 
-	const current = await loadSettings(user.id);
-	const merged: UserSettingsData = {
-		notifications: { ...current.notifications, ...(body.notifications ?? {}) },
-		defaultModel:
-			body.defaultModel !== undefined
-				? body.defaultModel
-				: current.defaultModel,
-		memoryEnabled:
-			body.memoryEnabled !== undefined
-				? body.memoryEnabled
-				: (current.memoryEnabled ?? null),
-		defaultQuality: body.defaultQuality ?? current.defaultQuality,
-	};
-
-	await db
-		.insert(userSettings)
-		.values({ userId: user.id, settings: merged })
-		.onConflictDoUpdate({
-			target: userSettings.userId,
-			set: { settings: merged, updatedAt: new Date() },
-		});
+	const userDataService = new UserDataService();
+	const merged = await userDataService.updateSettings(user.id, body);
 
 	return Response.json(
 		{ data: merged, error: null, meta: {} },

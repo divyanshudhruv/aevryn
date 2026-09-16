@@ -14,9 +14,11 @@ local.db
 local.db-*
 .codegraph/
 
-# Environment variables
+# Environment variables — ignore every .env variant, keep only examples.
 .env
-.env*.local
+.env.*
+!.env.example
+.env.example.*
 
 # IDEs and editors
 .vscode/*
@@ -72,3 +74,9 @@ REWRITE-PLAN.md
 /ANAKIN CAPABILITIES
 /review
 REVIEW_OF_CODEBASE.md
+DEBUG-AND-FIX-PLAN.md
+FINAL-FIX-PLAN.md
+/.github
+/.github/workflows
+/.github/workflows/ci.yml
+

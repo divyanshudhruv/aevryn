@@ -4,7 +4,6 @@ import { useChat } from "@ai-sdk/react";
 import {
 	DefaultChatTransport,
 	lastAssistantMessageIsCompleteWithApprovalResponses,
-	lastAssistantMessageIsCompleteWithToolCalls,
 	type UIMessage,
 } from "ai";
 import { useCallback, useEffect, useMemo } from "react";
@@ -44,14 +43,38 @@ export function useAgentChat({
 	const chat = useChat({
 		transport,
 		messages: initialMessages,
-		// Resume the loop automatically whenever a client tool gets its
-		// answer (askUser / presentPlan) or a native approval is decided —
-		// the AI SDK resubmits the conversation with the tool outputs.
-		sendAutomaticallyWhen: ({ messages: current }) =>
-			lastAssistantMessageIsCompleteWithToolCalls({ messages: current }) ||
-			lastAssistantMessageIsCompleteWithApprovalResponses({
-				messages: current,
-			}),
+		// Resume the loop ONLY when a client tool got its answer
+		// (askUser / presentPlan) or a native approval was decided.
+		// Deliberately NOT lastAssistantMessageIsCompleteWithToolCalls: that
+		// helper treats ANY completed tool part in the last model step —
+		// including server tools like searchWeb — as resumable, so every turn
+		// that ended after server tool calls re-submitted itself and the
+		// whole turn (text, step cards, answered cards) rendered twice.
+		sendAutomaticallyWhen: ({ messages: current }) => {
+			// Native tool approvals (wireAction etc.) keep the SDK helper.
+			if (
+				lastAssistantMessageIsCompleteWithApprovalResponses({
+					messages: current,
+				})
+			) {
+				return true;
+			}
+			const last = current[current.length - 1];
+			if (!last || last.role !== "assistant") return false;
+			// Only the model's FINAL step matters: if the model already
+			// produced a later step, the answered card was consumed.
+			const lastStepStart = last.parts.reduce(
+				(idx, p, i) => (p.type === "step-start" ? i : idx),
+				-1,
+			);
+			return last.parts
+				.slice(lastStepStart + 1)
+				.some(
+					(p) =>
+						(p.type === "tool-askUser" || p.type === "tool-presentPlan") &&
+						(p as { state?: string }).state === "output-available",
+				);
+		},
 		onError: (err) => {
 			console.error("[use-agent-chat] stream error", err);
 		},

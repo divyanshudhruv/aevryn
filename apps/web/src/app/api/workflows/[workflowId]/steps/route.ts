@@ -2,17 +2,14 @@ import { requireUser } from "@aevryn/auth";
 import { workflowService } from "@aevryn/workflow";
 import { z } from "zod";
 
+import { jsonError } from "@/lib/api";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function jsonError(status: number, code: string, message: string): Response {
-	return Response.json(
-		{ data: null, error: { code, message, details: null }, meta: {} },
-		{ status, headers: { "cache-control": "no-store" } },
-	);
-}
+// Runs workflow steps through the agent; a multi-step execution can blow past
+// the default 10s cap.
+export const maxDuration = 300;
 
 const stepsSchema = z.object({
 	steps: z

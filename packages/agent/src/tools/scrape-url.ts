@@ -1,6 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { checkExternalUrl } from "../ssrf-guard";
+import { wrapUntrustedJson, wrapUntrustedMaybe } from "../untrusted";
 import { toolContextSchema } from "./context";
 import {
 	anakinGet,
@@ -98,6 +100,27 @@ const inputSchema = z.object({
 		.describe("Browser session id for authenticated pages."),
 });
 
+function untrustedDocument(document: InlineDocument): InlineDocument {
+	return {
+		...document,
+		markdown: wrapUntrustedMaybe(document.markdown),
+		html: wrapUntrustedMaybe(document.html),
+		cleanedHtml: wrapUntrustedMaybe(document.cleanedHtml),
+		summary: wrapUntrustedMaybe(document.summary),
+		generatedJson: document.generatedJson
+			? { _untrusted: wrapUntrustedJson(document.generatedJson) }
+			: undefined,
+		links: document.links?.map((l) => ({
+			href: l.href,
+			text: wrapUntrustedMaybe(l.text),
+		})),
+		images: document.images?.map((i) => ({
+			src: i.src,
+			alt: wrapUntrustedMaybe(i.alt),
+		})),
+	};
+}
+
 export const scrapeUrlTool = tool({
 	description:
 		"Scrape one page inline. Returns markdown + html + cleanedHtml by default. Keyless. 1 credit (2 with JSON extraction). Free if cached <24h unless forceFresh. 2–10 pages: scrapeBatch. Whole site: crawlSite. URLs only: mapSite.",
@@ -106,7 +129,18 @@ export const scrapeUrlTool = tool({
 	contextSchema: toolContextSchema,
 	execute: async (input, { context }): Promise<ToolResult<{ document: InlineDocument }>> => {
 		try {
-			if (input.country && !(await isValidCountry(input.country))) {
+			const urlVerdict = checkExternalUrl(input.url);
+			if (urlVerdict.blocked) {
+				return {
+					ok: false,
+					error: {
+						code: "URL_BLOCKED",
+						message: `Cannot scrape '${input.url}': ${urlVerdict.reason}`,
+					},
+				};
+			}
+
+			if (input.country && !(await isValidCountry(input.country, context.anakinKey))) {
 				return {
 					ok: false,
 					error: {
@@ -139,10 +173,10 @@ export const scrapeUrlTool = tool({
 			if (status === 202 || !isTerminal(document.status)) {
 				// Non-terminal: poll the same job id until terminal.
 				const polled = await pollScrapeJob(document.id, context.anakinKey);
-				return { ok: true, document: polled };
+				return { ok: true, document: untrustedDocument(polled) };
 			}
 
-			return { ok: true, document };
+			return { ok: true, document: untrustedDocument(document) };
 		} catch (err) {
 			return {
 				ok: false,
@@ -169,6 +203,9 @@ async function pollScrapeJob(
 			`/url-scraper/${jobId}`,
 			undefined,
 			apiKey,
+			// Per-attempt cap: the hop between 2s polls stays short, so a
+			// single hung request must not hold the whole scavenge open.
+			15_000,
 		);
 		if (isTerminal(body.status)) return body;
 		await new Promise((resolve) => setTimeout(resolve, 2_000));

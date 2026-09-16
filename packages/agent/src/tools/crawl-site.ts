@@ -1,6 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { checkExternalUrl } from "../ssrf-guard";
+import { wrapUntrustedMaybe } from "../untrusted";
 import { toolContextSchema, type ToolContext } from "./context";
 import {
 	anakinClient,
@@ -77,7 +79,18 @@ export const crawlSiteTool = tool({
 			};
 		}
 		try {
-			if (input.country && !(await isValidCountry(input.country))) {
+			const urlVerdict = checkExternalUrl(input.url);
+			if (urlVerdict.blocked) {
+				return {
+					ok: false,
+					error: {
+						code: "URL_BLOCKED",
+						message: `Cannot crawl '${input.url}': ${urlVerdict.reason}`,
+					},
+				};
+			}
+
+			if (input.country && !(await isValidCountry(input.country, context.anakinKey))) {
 				return {
 					ok: false,
 					error: {
@@ -104,8 +117,8 @@ export const crawlSiteTool = tool({
 				pages: result.pages.map((page) => ({
 					url: page.url,
 					status: page.status,
-					markdown: page.markdown,
-					html: page.html,
+					markdown: wrapUntrustedMaybe(page.markdown),
+					html: wrapUntrustedMaybe(page.html),
 					durationMs: page.durationMs,
 					error: page.error,
 				})),

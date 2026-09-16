@@ -1,34 +1,13 @@
+import { ANAKIN_BASE_URL, resolveAnakinKey } from "@aevryn/agent";
 import { requireUser } from "@aevryn/auth";
-import { db, decryptSecret, userKeys } from "@aevryn/db";
-import { and, eq } from "drizzle-orm";
 
+import { jsonError } from "@/lib/api";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const ANAKIN_BASE_URL = "https://api.anakin.io/v1";
-
-async function resolveAnakinKey(userId: string): Promise<string | null> {
-	const rows = await db
-		.select({ encryptedValue: userKeys.encryptedValue })
-		.from(userKeys)
-		.where(and(eq(userKeys.userId, userId), eq(userKeys.name, "anakin")));
-	const row = rows[0];
-	if (!row) return null;
-	try {
-		return decryptSecret(row.encryptedValue);
-	} catch {
-		return null;
-	}
-}
-
-function errorResponse(status: number, code: string, message: string): Response {
-	return Response.json(
-		{ data: null, error: { code, message, details: null }, meta: {} },
-		{ status, headers: { "cache-control": "no-store" } },
-	);
-}
+// Polls a remote Anakin job that can take well over the default 10s cap.
+export const maxDuration = 300;
 
 export async function GET(
 	request: Request,
@@ -39,19 +18,19 @@ export async function GET(
 	try {
 		user = await requireUser(supabase);
 	} catch {
-		return errorResponse(401, "UNAUTHENTICATED", "Sign in first.");
+		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
 	}
 
 	const { jobId } = await params;
 	if (!jobId) {
-		return errorResponse(400, "BAD_REQUEST", "A Wire job id is required.");
+		return jsonError(400, "BAD_REQUEST", "A Wire job id is required.");
 	}
 
 	const file = new URL(request.url).searchParams.get("file");
 
 	const apiKey = await resolveAnakinKey(user.id);
 	if (!apiKey) {
-		return errorResponse(401, "ANAKIN_KEY_REQUIRED", "Add your Anakin key in Settings → BYOK.");
+		return jsonError(401, "ANAKIN_KEY_REQUIRED", "Add your Anakin key in Settings → BYOK.");
 	}
 
 	const upstream = await fetch(
@@ -60,16 +39,16 @@ export async function GET(
 	);
 
 	if (upstream.status === 400) {
-		return errorResponse(400, "NO_DOWNLOAD", "This job has no downloadable result for that file name.");
+		return jsonError(400, "NO_DOWNLOAD", "This job has no downloadable result for that file name.");
 	}
 	if (upstream.status === 401 || upstream.status === 403) {
-		return errorResponse(upstream.status, "ANAKIN_FORBIDDEN", "Anakin rejected the key for this job.");
+		return jsonError(upstream.status, "ANAKIN_FORBIDDEN", "Anakin rejected the key for this job.");
 	}
 	if (upstream.status === 404) {
-		return errorResponse(404, "NOT_FOUND", "No such Wire job.");
+		return jsonError(404, "NOT_FOUND", "No such Wire job.");
 	}
 	if (!upstream.ok) {
-		return errorResponse(502, "ANAKIN_UPSTREAM_ERROR", `Anakin returned ${upstream.status}.`);
+		return jsonError(502, "ANAKIN_UPSTREAM_ERROR", `Anakin returned ${upstream.status}.`);
 	}
 
 	const bytes = await upstream.arrayBuffer();

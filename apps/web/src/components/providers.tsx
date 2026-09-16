@@ -8,9 +8,6 @@ import { ThemeProvider } from "./theme-provider";
 
 const SCRIPT_TAG_WARNING =
   "Encountered a script tag while rendering React component";
-const isScriptTagWarning = (error: unknown): error is string => {
-  return typeof error === "string" && error.includes(SCRIPT_TAG_WARNING);
-};
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {

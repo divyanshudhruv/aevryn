@@ -26,7 +26,7 @@ import { fontWeights } from "@aevryn/ui/lib/font-weight";
 import { useFluidHover, useRegisterFluidHoverItem } from "@aevryn/ui/hooks/use-fluid-hover";
 import { useShape } from "@aevryn/ui/lib/shape-context";
 import { SizeProvider, useSize, type SizeVariant } from "@aevryn/ui/lib/size-context";
-import { FluidHoverHighlight } from "@aevryn/ui/components/ui/fluid-hover-highlight";
+import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
 
 // ─── Contexts ────────────────────────────────────────────────────────────────
 

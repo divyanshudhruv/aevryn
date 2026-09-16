@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { toolContextSchema, type ToolContext } from "./context";
+import { wrapUntrustedMaybe } from "../untrusted";
 import {
 	anakinClient,
 	mapAnakinError,
@@ -51,8 +52,8 @@ export const searchWebTool = tool({
 				ok: true,
 				results: result.results.map((item) => ({
 					url: item.url,
-					title: item.title,
-					snippet: item.snippet,
+					title: wrapUntrustedMaybe(item.title),
+					snippet: wrapUntrustedMaybe(item.snippet),
 					date: item.date,
 					lastUpdated: item.lastUpdated,
 				})),

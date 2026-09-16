@@ -1,125 +1,54 @@
-# aevryn
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Self, TRPC, and more.
+<img src="public/aevryn.png" alt="Dawnfall Banner" width="100%">
 
-## Features
+<p align="center">
+An agentic AI workspace that doesn't just chat - it executes. Give Aevryn a goal and it clarifies the details with you, proposes a step-by-step plan, then runs it: searching the live web, scraping pages, automating websites via Wire actions, and reporting progress step-by-step in real time.
+</p>
 
-- **TypeScript** - For type safety and improved developer experience
-- **Next.js** - Full-stack React framework
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **tRPC** - End-to-end type-safe APIs
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Biome** - Linting and formatting
-- **Turborepo** - Optimized monorepo build system
+> [!WARNING]
+> **Aevryn is under active development.** Flags, output and code may change. 
 
-## Getting Started
+> Talk to it. Answer its question cards. Approve its plan. Watch the work happen.
 
-First, install the dependencies:
+## Highlights
 
-```bash
-bun install
-```
+- **Clarify → Plan → Execute loop** - the agent asks structured follow-up questions (interactive question cards, never plain text), presents a plan for approval, then executes the bound workflow step-by-step
+- **Interactive tool cards** - `askUser`, `presentPlan`, `wireAction` approvals, and step-progress sliders render as first-class UI in the chat timeline, persisted and replay-safe
+- **Live web capabilities** - search with citations, scraping, batch scraping, crawling, site mapping, multi-source research, and Wire (pre-built website actions like flight/hotel search) powered by [Anakin](ANAKIN.md)
+- **Realtime everything** - thread status, plan-step progress, and messages broadcast over Supabase Realtime; open the same thread in two tabs and watch the run together
+- **Hardened agent loop** - deterministic anti-loop guards (no repeated tool calls, no verbatim step replays), SSRF-guarded fetches, prompt-injection-resistant untrusted-content wrapping, per-user ownership checks on every read/write
+- **Durable threads** - full UIMessage persistence (tool cards, answers, approvals survive refresh), failure digests so the model never "forgets" completed work, and idempotent message writes keyed by client draft ids
 
-## Database Setup
+## Tech Stack
 
-This project uses PostgreSQL with Drizzle ORM.
-
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/web/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
-
-```bash
-bun run db:push
-```
-
-Then, run the development server:
-
-```bash
-bun run dev
-```
-
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
-
-## UI Customization
-
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@aevryn/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Deployment
-
-### Vercel Services
-
-- Target: web + server
-- Config: `vercel.json`
-- Link the project first: bun run deploy:setup
-- Local Vercel dev: bun run dev:vercel
-- Sync preview env: bun run env:preview
-- Sync production env: bun run env:production
-- Dry-run check (no upload): bun run deploy:check
-- Preview deploy: bun run deploy
-- Production deploy: bun run deploy:prod
-  Vercel Services share project environment variables, but deploys do not upload local `.env` files automatically. Link the project with `vercel link`, then run the env sync command before your first deploy (otherwise the deployment starts with no env vars), or pass one-off envs with `vercel deploy -e KEY=value`.
-  Pass Vercel CLI flags to the env sync command directly, for example: `bun run env:production --scope your-team`.
-
-For more details, see the guide on [Deploying to Vercel](https://www.better-t-stack.dev/docs/guides/vercel).
-
-## Git Hooks and Formatting
-
-- Run checks: `bun run check`
+| Layer      | Tech                                         |
+| ---------- | -------------------------------------------- |
+| Framework  | Next.js (App Router) + React 19              |
+| Monorepo   | Turborepo + Bun workspaces                   |
+| Agent loop | AI SDK v7 (`ToolLoopAgent`)                  |
+| Database   | PostgreSQL (Supabase) + Drizzle ORM          |
+| Realtime   | Supabase Realtime (postgres_changes)         |
+| Auth       | Supabase Auth (SSR + browser clients)        |
+| Styling    | TailwindCSS v4 + shadcn/ui primitives        |
+| Quality    | Biome, Vitest (113 tests), TypeScript strict |
 
 ## Project Structure
 
-```
-aevryn/
-├── apps/
-│   └── web/         # Fullstack application (Next.js)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
-```
+### Your first workflow
 
-## Available Scripts
+1. Sign up / sign in (Google OAuth)
+2. Add a model provider key in **Settings → BYOK** (any OpenAI-compatible provider works - Groq, OpenAI, OpenRouter…)
+3. Ask for something multi-step: _"Plan a 2-week trip to Japan - flights, hotels, rail pass, itinerary, budget"_
+4. The agent asks clarifying questions → presents a plan card → hit **Approve** and watch it execute step-by-step
+5. Bound plans can be re-run anytime with the sidebar Run button or "run this" in chat
 
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
-- `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
-- `bun run check`: Run Biome formatting and linting
-- `bun run deploy:setup`: Link this repo to a Vercel project (first-time setup)
-- `bun run dev:vercel`: Run the Vercel Services dev environment locally
-- `bun run env:preview`: Sync local env files to the Vercel preview environment
-- `bun run env:production`: Sync local env files to the Vercel production environment
-- `bun run deploy`: Create a Vercel preview deployment
-- `bun run deploy:prod`: Deploy to Vercel production
-- `bun run deploy:check`: Dry-run a deploy to preview framework detection and included files without uploading
+## Architecture Notes
+
+- **Chat vs Run mode** - chat is cheap and conversational; approving a plan binds a workflow to the thread and flips the turn to run mode, where the full tool set (including Wire site automation) unlocks
+- **Single persistence point** - every turn lands in the DB exactly once (messages, parts, step snapshots, tool-call audit log, usage), deduped by client-message id
+- **Failure recovery** - a failed turn persists an error tile naming the last completed step; re-running triggers the `retryAgent` repair path instead of restarting from scratch
+- **Ownership everywhere** - every thread/workflow read and write is user-scoped; cross-user access yields 404, verified by dedicated ownership tests
+
+## License
+
+Private project - all rights reserved.

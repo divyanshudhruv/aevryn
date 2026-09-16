@@ -15,14 +15,14 @@ export default function SignUpPage() {
       </div>
       <footer className="flex items-center justify-center gap-1 py-4 text-xs">
         <a
-          href="#"
+          href="/terms"
           className="text-xs text-muted-foreground underline-offset-4 underline"
         >
           Terms of Service{" "}
         </a>{" "}
         and{" "}
         <a
-          href="#"
+          href="/privacy"
           className="text-xs text-muted-foreground underline-offset-4 underline"
         >
           Privacy Policy

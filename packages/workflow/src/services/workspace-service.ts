@@ -1,4 +1,5 @@
 import { db, groups, ids, threads, userProfiles, workspaces } from "@aevryn/db";
+import type { Db } from "@aevryn/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 
 import { sidebarService } from "./sidebar-service";
@@ -25,8 +26,10 @@ export interface ThreadSummary {
 }
 
 export class WorkspaceService {
+	constructor(private readonly client: Db = db) {}
+
 	async listForUser(userId: string): Promise<WorkspaceSummary[]> {
-		return db
+		return this.client
 			.select({
 				id: workspaces.id,
 				name: workspaces.name,
@@ -38,7 +41,7 @@ export class WorkspaceService {
 	}
 
 	async listGroups(workspaceId: string): Promise<GroupSummary[]> {
-		return db
+		return this.client
 			.select({
 				id: groups.id,
 				name: groups.name,
@@ -50,7 +53,7 @@ export class WorkspaceService {
 	}
 
 	async listThreads(workspaceId: string): Promise<ThreadSummary[]> {
-		return db
+		return this.client
 			.select({
 				id: threads.id,
 				groupId: threads.groupId,
@@ -75,7 +78,7 @@ export class WorkspaceService {
 	}
 
 	async ensureDefaultWorkspace(userId: string): Promise<string> {
-		const [existing] = await db
+		const [existing] = await this.client
 			.select({ id: workspaces.id })
 			.from(workspaces)
 			.where(eq(workspaces.createdBy, userId))
@@ -84,7 +87,7 @@ export class WorkspaceService {
 
 		if (existing) return existing.id;
 
-		const [created] = await db
+		const [created] = await this.client
 			.insert(workspaces)
 			.values({
 				id: ids.workspace(),
@@ -92,9 +95,21 @@ export class WorkspaceService {
 				name: "PERSONAL",
 				isDefault: true,
 			})
+			.onConflictDoNothing({
+				target: [workspaces.createdBy, workspaces.name],
+			})
 			.returning({ id: workspaces.id });
 
-		return created!.id;
+		if (created?.id) return created.id;
+
+		// Lost a concurrent insert race: the winner exists now.
+		const [winner] = await this.client
+			.select({ id: workspaces.id })
+			.from(workspaces)
+			.where(eq(workspaces.createdBy, userId))
+			.orderBy(desc(workspaces.isDefault), asc(workspaces.createdAt))
+			.limit(1);
+		return winner!.id;
 	}
 
 	
@@ -105,7 +120,18 @@ export class WorkspaceService {
 		name: string,
 	): Promise<{ id: string; name: string }> {
 		const normalizedName = name.toUpperCase();
-		const lastPos = await db
+
+		// Ensure the workspace belongs to the requesting user (IDOR guard).
+		const [ownedWs] = await this.client
+			.select({ id: workspaces.id })
+			.from(workspaces)
+			.where(and(eq(workspaces.id, workspaceId), eq(workspaces.createdBy, userId)))
+			.limit(1);
+		if (!ownedWs) {
+			throw new Error("WORKSPACE_NOT_FOUND");
+		}
+
+		const lastPos = await this.client
 			.select({ position: groups.position })
 			.from(groups)
 			.where(eq(groups.workspaceId, workspaceId))
@@ -114,7 +140,7 @@ export class WorkspaceService {
 
 		const position = (lastPos[0]?.position ?? -1) + 1;
 
-		const [group] = await db
+		const [group] = await this.client
 			.insert(groups)
 			.values({
 				id: ids.group(),
@@ -133,14 +159,14 @@ export class WorkspaceService {
 		userId: string,
 		name: string,
 	): Promise<void> {
-		await db
+		await this.client
 			.update(groups)
 			.set({ name: name.toUpperCase() })
 			.where(and(eq(groups.id, groupId), eq(groups.userId, userId)));
 	}
 
 	async deleteGroup(groupId: string, userId: string): Promise<void> {
-		await db
+		await this.client
 			.delete(groups)
 			.where(and(eq(groups.id, groupId), eq(groups.userId, userId)));
 	}
@@ -150,7 +176,7 @@ export class WorkspaceService {
 		userId: string,
 		title: string,
 	): Promise<void> {
-		await db
+		await this.client
 			.update(threads)
 			.set({ title: title.trim() })
 			.where(and(eq(threads.id, threadId), eq(threads.userId, userId)));
@@ -159,7 +185,7 @@ export class WorkspaceService {
 	async deleteThread(threadId: string, userId: string): Promise<void> {
 		// Permanent delete — the thread row and everything under it (messages,
 		// steps, bound workflows → plan steps, tool-call logs) cascade via FK.
-		await db
+		await this.client
 			.delete(threads)
 			.where(and(eq(threads.id, threadId), eq(threads.userId, userId)));
 	}
@@ -170,7 +196,17 @@ export class WorkspaceService {
 		groupId: string | null,
 		title: string,
 	): Promise<{ id: string; title: string; groupId: string | null }> {
-		const [thread] = await db
+		// Ensure the workspace belongs to the requesting user (IDOR guard).
+		const [ownedWs] = await this.client
+			.select({ id: workspaces.id })
+			.from(workspaces)
+			.where(and(eq(workspaces.id, workspaceId), eq(workspaces.createdBy, userId)))
+			.limit(1);
+		if (!ownedWs) {
+			throw new Error("WORKSPACE_NOT_FOUND");
+		}
+
+		const [thread] = await this.client
 			.insert(threads)
 			.values({
 				id: ids.thread(),
@@ -189,7 +225,7 @@ export class WorkspaceService {
 	}
 
 	async getProfile(userId: string) {
-		const [row] = await db
+		const [row] = await this.client
 			.select({ name: userProfiles.name, avatarUrl: userProfiles.avatarUrl })
 			.from(userProfiles)
 			.where(eq(userProfiles.userId, userId))
@@ -202,33 +238,35 @@ export class WorkspaceService {
 		userId: string;
 		patch: { name?: string; isDefault?: boolean };
 	}): Promise<WorkspaceSummary | null> {
-		if (input.patch.isDefault === true) {
-			// Only one default: clear the flag on the current default first.
-			await db
+		return this.client.transaction(async (tx) => {
+			if (input.patch.isDefault === true) {
+				// Only one default: clear the flag on the current default first.
+				await tx
+					.update(workspaces)
+					.set({ isDefault: false })
+					.where(
+						and(
+							eq(workspaces.createdBy, input.userId),
+							eq(workspaces.isDefault, true),
+						),
+					);
+			}
+			const [row] = await tx
 				.update(workspaces)
-				.set({ isDefault: false })
+				.set(input.patch)
 				.where(
 					and(
+						eq(workspaces.id, input.workspaceId),
 						eq(workspaces.createdBy, input.userId),
-						eq(workspaces.isDefault, true),
 					),
-				);
-		}
-		const [row] = await db
-			.update(workspaces)
-			.set(input.patch)
-			.where(
-				and(
-					eq(workspaces.id, input.workspaceId),
-					eq(workspaces.createdBy, input.userId),
-				),
-			)
-			.returning({
-				id: workspaces.id,
-				name: workspaces.name,
-				isDefault: workspaces.isDefault,
-			});
-		return row ?? null;
+				)
+				.returning({
+					id: workspaces.id,
+					name: workspaces.name,
+					isDefault: workspaces.isDefault,
+				});
+			return row ?? null;
+		});
 	}
 
 	/** Deletes a workspace (its threads/groups cascade). The last workspace
@@ -243,7 +281,7 @@ export class WorkspaceService {
 		if (owned.length <= 1) {
 			return { deleted: false, reason: "LAST_WORKSPACE" };
 		}
-		await db
+		await this.client
 			.delete(workspaces)
 			.where(
 				and(
@@ -271,7 +309,7 @@ export class WorkspaceService {
 		const [groups, threads, profile, promoCards] = await Promise.all([
 			this.listGroups(workspace.id),
 			this.listThreads(workspace.id),
-			db.select({ name: userProfiles.name, avatarUrl: userProfiles.avatarUrl })
+			this.client.select({ name: userProfiles.name, avatarUrl: userProfiles.avatarUrl })
 				.from(userProfiles)
 				.where(eq(userProfiles.userId, userId))
 				.limit(1),

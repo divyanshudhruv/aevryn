@@ -52,13 +52,14 @@ const askUserInputSchema = z
 		z.array(askUserQuestionSchema).min(1).max(6),
 		z.object({ questions: z.array(askUserQuestionSchema).min(1).max(6) }),
 	])
-	.transform((value): Array<z.infer<typeof askUserQuestionSchema>> =>
-		Array.isArray(value) ? value : value.questions,
+	.transform(
+		(value): Array<z.infer<typeof askUserQuestionSchema>> =>
+			Array.isArray(value) ? value : value.questions,
 	);
 
 export const askUserTool = tool({
 	description:
-		"Ask user clarifying questions. Clickable options or free-text field. Use when: request ambiguous, user decision, missing params. Pauses conversation until answered. Pass questions as top-level ARRAY: [{ title: '...', options: [{ title: '...' }] }].",
+		"Ask clarifying questions via an interactive card. ALWAYS use this tool instead of typing questions as markdown text — plain-text question lists are a bug, not a style. Use BEFORE presentPlan whenever the request is vague or missing params (dates, cities, budget, preferences, user decisions). Pauses conversation until answered. Write 1–2 sentences of text BEFORE this call explaining why you're asking — never emit the card alone. Pass questions as top-level ARRAY: [{ title: '...', options: [{ title: '...' }] }].",
 	inputSchema: askUserInputSchema,
 	// No contextSchema needed: the tool carries no per-request state.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- client tool has no execute
@@ -71,10 +72,16 @@ export const askUserTool = tool({
 
 export const presentPlanTool = tool({
 	description:
-		"Present multi-step plan as approve/decline card. Use before burning significant credits, long-running, or write work. On approval: plan bound to thread as workflow, execute step by step.",
+		"Present multi-step plan as approve/decline card. Use before burning significant credits, long-running, or write work. Prerequisite: if the request is still vague (missing key params), call askUser FIRST and presentPlan on the next turn — never in the same turn. Write 1–2 sentences of text BEFORE this call summarizing the approach — never emit the card alone. On approval: plan bound to thread as workflow, execute step by step.",
 	inputSchema: z.object({
-		title: z.string().min(1).describe("Short plan name, e.g. 'Track GPU prices daily'."),
-		objective: z.string().min(1).describe("What this plan accomplishes for the user."),
+		title: z
+			.string()
+			.min(1)
+			.describe("Short plan name, e.g. 'Track GPU prices daily'."),
+		objective: z
+			.string()
+			.min(1)
+			.describe("What this plan accomplishes for the user."),
 		summary: z.string().optional().describe("One-line strategy summary."),
 		steps: z
 			.array(

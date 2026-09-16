@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import type { Route } from "next";
 import {
 	AppSidebar,
 	type SidebarData,
 } from "@aevryn/ui/components/sidebar-preset/app-sidebar";
-import { supabaseClient } from "@/lib/supabase-client";
+import type { Route } from "next";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { pendingRunFlag } from "@/lib/pending-run";
 import { subscribeToRealtime } from "@/lib/realtime-channel";
+import { supabaseClient } from "@/lib/supabase-client";
 
 export function WorkspaceSidebar() {
 	const params = useParams<{ workspaceId?: string; threadId?: string }>();
@@ -46,9 +47,7 @@ export function WorkspaceSidebar() {
 				event: "*",
 				schema: "public",
 				table: "threads",
-				...(workspaceId
-					? { filter: `workspace_id=eq.${workspaceId}` }
-					: {}),
+				...(workspaceId ? { filter: `workspace_id=eq.${workspaceId}` } : {}),
 			},
 			onStatus: (status) => {
 				if (status === "CHANNEL_ERROR" || status === "SUBSCRIBE_ERROR") {
@@ -84,7 +83,8 @@ export function WorkspaceSidebar() {
 					const nextThreads = [...prev.threads];
 					const idx = nextThreads.findIndex((t) => t.id === id);
 					if (idx === -1) return prev;
-					const current = nextThreads[idx]!;
+					const current = nextThreads[idx];
+					if (!current) return prev;
 					nextThreads[idx] = {
 						...current,
 						title:
@@ -92,9 +92,7 @@ export function WorkspaceSidebar() {
 								? attrs.title
 								: current.title,
 						status:
-							typeof attrs.status === "string"
-								? attrs.status
-								: current.status,
+							typeof attrs.status === "string" ? attrs.status : current.status,
 						boundWorkflowId:
 							typeof attrs.bound_workflow_id === "string"
 								? attrs.bound_workflow_id
@@ -207,33 +205,45 @@ export function WorkspaceSidebar() {
 		router.push("/signup");
 	}, [router]);
 
-	/** Run trigger: opens the thread, which starts in run mode and shows the
-	 *  Run button; the actual run request goes through /api/threads/[id]/run
-	 *  then the thread page sends the run-trigger message. */
+	/** Run trigger: POST /run validates the thread is bound, then dispatch a
+	 *  window event the open thread page listens for to send the run-trigger
+	 *  message (the POST alone never starts a run). When the thread is NOT the
+	 *  one already open, the event can fire before the navigating page mounts
+	 *  its listener — so the intent also lands in a sessionStorage flag that
+	 *  the thread page consumes on mount. */
 	const runThread = useCallback(
 		async (threadId: string) => {
-			await fetch(`/api/threads/${encodeURIComponent(threadId)}/run`, {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ action: "run" }),
-			}).catch(() => undefined);
+			const res = await fetch(
+				`/api/threads/${encodeURIComponent(threadId)}/run`,
+				{
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ action: "run" }),
+				},
+			).catch(() => undefined);
+			if (!res || !res.ok) return;
+			window.dispatchEvent(
+				new CustomEvent("aevryn:run-thread", { detail: { threadId } }),
+			);
 			if (data?.workspace && params?.threadId !== threadId) {
-				router.push(
-					`/workspace/${data.workspace.id}/${threadId}` as Route,
-				);
+				pendingRunFlag.write(threadId);
+				router.push(`/workspace/${data.workspace.id}/${threadId}` as Route);
 			}
 		},
 		[data?.workspace, params?.threadId, router],
 	);
 
-	const stopThread = useCallback(async (threadId: string) => {
-		await fetch(`/api/threads/${encodeURIComponent(threadId)}/run`, {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ action: "stop" }),
-		}).catch(() => undefined);
-		void refresh();
-	}, [refresh]);
+	const stopThread = useCallback(
+		async (threadId: string) => {
+			await fetch(`/api/threads/${encodeURIComponent(threadId)}/run`, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ action: "stop" }),
+			}).catch(() => undefined);
+			void refresh();
+		},
+		[refresh],
+	);
 
 	const runAll = useCallback(
 		(threadIds: string[]) => {

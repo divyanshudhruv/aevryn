@@ -51,7 +51,7 @@ import { useSurface } from "@aevryn/ui/lib/surface-context";
 import { AnimatePresence, motion as m } from "framer-motion";
 import { spring } from "@aevryn/ui/lib/springs";
 import { CommandMenuDemo } from "../command-menu-demo";
-import type { RunStatus } from "@aevryn/db";
+import type { RunStatus } from "@aevryn/config";
 import { SettingsDialog } from "../dialog/settings-dialog";
 import { NewGroupDialog } from "../dialog/new-group-dialog";
 import { ConfirmDeleteDialog } from "../dialog/confirm-delete-dialog";

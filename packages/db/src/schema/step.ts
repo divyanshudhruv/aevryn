@@ -15,6 +15,7 @@ import { authenticatedRole, authUsers } from "drizzle-orm/supabase";
 
 import type { StepToolStatus } from "../domain";
 import { messages } from "./message";
+import { threads } from "./thread";
 
 const uuidText = sql`(concat('stp_', gen_random_uuid()::text))`;
 
@@ -38,7 +39,9 @@ export const steps = pgTable(
 		messageId: text("message_id")
 			.notNull()
 			.references(() => messages.id, { onDelete: "cascade" }),
-				threadId: text("thread_id").notNull(),
+				threadId: text("thread_id")
+			.notNull()
+			.references(() => threads.id, { onDelete: "cascade" }),
 		userId: uuid("user_id").notNull(),
 		position: integer("position").notNull(),
 		text: text("text"),

@@ -23,7 +23,7 @@ import {
   useRegisterFluidHoverItem,
   type ItemRectMeasure,
 } from "@aevryn/ui/hooks/use-fluid-hover";
-import { FluidHoverHighlight } from "@aevryn/ui/components/ui/fluid-hover-highlight";
+import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
 
 // Table rows live in the table's own layout space — offsetParent math can't
 // map a `<tr>` into the container frame, so measure via getBoundingClientRect

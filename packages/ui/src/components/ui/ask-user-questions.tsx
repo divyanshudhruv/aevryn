@@ -26,7 +26,7 @@ import { useIcon } from "@aevryn/ui/lib/icon-context";
 import { useFluidHover, useRegisterFluidHoverItem } from "@aevryn/ui/hooks/use-fluid-hover";
 import { useMergeSplitBlocks, SelectionBackgrounds } from "@aevryn/ui/hooks/use-merge-split";
 import { Button } from "@aevryn/ui/components/ui/button";
-import { FluidHoverHighlight } from "@aevryn/ui/components/ui/fluid-hover-highlight";
+import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight";
 
 export interface AskUserOption {
   id?: string;
@@ -34,7 +34,6 @@ export interface AskUserOption {
   description?: string;
 }
 
-// NEWTODO this will be the schema sent to LLM toolcall via vercel ai sdk (llm can use this schema to create as many clarifying or final questions he wants)
 export interface AskUserQuestion {
   id?: string;
   title: string;

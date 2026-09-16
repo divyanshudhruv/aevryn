@@ -10,10 +10,11 @@ export class SidebarService {
 	constructor(private readonly client: Db = db) {}
 
 	async listPromoCards(): Promise<Callout[]> {
-		return this.client.query.callouts.findMany({
-			where: eq(callouts.visible, true),
-			orderBy: [asc(callouts.order)],
-		});
+		return this.client
+			.select()
+			.from(callouts)
+			.where(eq(callouts.visible, true))
+			.orderBy(asc(callouts.order));
 	}
 }
 

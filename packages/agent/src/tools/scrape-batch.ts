@@ -1,6 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { checkExternalUrl } from "../ssrf-guard";
+import { wrapUntrustedJson, wrapUntrustedMaybe } from "../untrusted";
 import { toolContextSchema, type ToolContext } from "./context";
 import {
 	anakinGet,
@@ -43,7 +45,20 @@ export const scrapeBatchTool = tool({
 			};
 		}
 		try {
-			if (input.country && !(await isValidCountry(input.country))) {
+			for (const url of input.urls) {
+				const urlVerdict = checkExternalUrl(url);
+				if (urlVerdict.blocked) {
+					return {
+						ok: false,
+						error: {
+							code: "URL_BLOCKED",
+							message: `Cannot scrape '${url}': ${urlVerdict.reason}`,
+						},
+					};
+				}
+			}
+
+			if (input.country && !(await isValidCountry(input.country, context.anakinKey))) {
 				return {
 					ok: false,
 					error: {
@@ -93,7 +108,19 @@ export const scrapeBatchTool = tool({
 			);
 
 			const documents = result.results ?? [{ ...result, index: 0 }];
-			return { ok: true, documents };
+			return {
+				ok: true,
+				documents: documents.map((doc) => ({
+					...doc,
+					markdown: wrapUntrustedMaybe(doc.markdown),
+					html: wrapUntrustedMaybe(doc.html),
+					cleanedHtml: wrapUntrustedMaybe(doc.cleanedHtml),
+					summary: wrapUntrustedMaybe(doc.summary),
+					generatedJson: doc.generatedJson
+						? { _untrusted: wrapUntrustedJson(doc.generatedJson) }
+						: undefined,
+				})),
+			};
 		} catch (err) {
 			return mapAnakinError(err) as ToolResult<{ documents: BatchDocument[] }>;
 		}

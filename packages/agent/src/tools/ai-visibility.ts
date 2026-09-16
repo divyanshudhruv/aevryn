@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { toolContextSchema, type ToolContext } from "./context";
+import { wrapUntrustedMaybe } from "../untrusted";
 import {
 	requireKey,
 	anakinPost,
@@ -56,11 +57,17 @@ function mapSourceResult(item: ApiSourceResult): VisibilitySourceResult {
 	return {
 		source: typeof item.source === "string" ? item.source : "unknown",
 		status: typeof item.status === "string" ? item.status : "failed",
-		summary: typeof item.summary === "string" ? item.summary : undefined,
-		fullContent: typeof item.full_content === "string" ? item.full_content : undefined,
+		summary: wrapUntrustedMaybe(
+			typeof item.summary === "string" ? item.summary : undefined,
+		),
+		fullContent: wrapUntrustedMaybe(
+			typeof item.full_content === "string" ? item.full_content : undefined,
+		),
 		latencyMs: typeof item.latency_ms === "number" ? item.latency_ms : undefined,
 		creditsUsed: typeof item.credits_used === "number" ? item.credits_used : undefined,
-		verdict: typeof item.verdict === "string" ? item.verdict : undefined,
+		verdict: wrapUntrustedMaybe(
+			typeof item.verdict === "string" ? item.verdict : undefined,
+		),
 		error: typeof item.error === "string" ? item.error : undefined,
 	};
 }
@@ -160,7 +167,7 @@ export const aiVisibilityTool = tool({
 							},
 						}
 					: {
-							synthesis: final.synthesis,
+							synthesis: wrapUntrustedMaybe(final.synthesis),
 							results: (final.results ?? []).map(mapSourceResult),
 						}),
 			} as ToolResult<{ synthesis?: string; results: VisibilitySourceResult[] }>;

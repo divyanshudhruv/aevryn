@@ -1,18 +1,14 @@
 import { requireUser } from "@aevryn/auth";
-import { db, planSteps, threads } from "@aevryn/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { ChatService } from "@aevryn/workflow";
 
+import { jsonError } from "@/lib/api";
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function jsonError(status: number, code: string, message: string): Response {
-	return Response.json(
-		{ data: null, error: { code, message, details: null }, meta: {} },
-		{ status, headers: { "cache-control": "no-store" } },
-	);
-}
+// Workflow runs can dispatch many steps; keep the request alive past the
+// default 10s cap while the run-progress stream is open.
+export const maxDuration = 300;
 
 type RouteContext = { params: Promise<{ threadId: string }> };
 
@@ -37,44 +33,22 @@ export async function POST(
 		// Empty body defaults to "run".
 	}
 
-	const [thread] = await db
-		.select({ id: threads.id, boundWorkflowId: threads.boundWorkflowId })
-		.from(threads)
-		.where(and(eq(threads.id, threadId), eq(threads.userId, user.id)));
-	if (!thread) {
-		return jsonError(404, "NOT_FOUND", "Thread not found.");
-	}
-
-	if (body.action === "stop") {
-		await db
-			.update(threads)
-			.set({ status: "idle" })
-			.where(eq(threads.id, threadId));
-		// Unwind the bound workflow's in-flight steps too — otherwise the
-		// footer PlanStepsCard and the agent's step slider stay stuck on a
-		// mid-run state after the stop.
-		if (thread.boundWorkflowId) {
-			await db
-				.update(planSteps)
-				.set({ status: "idle" })
-				.where(
-					and(
-						eq(planSteps.workflowId, thread.boundWorkflowId),
-						inArray(planSteps.status, [
-							"running",
-							"retrying",
-							"awaiting_approval",
-						]),
-					),
-				);
+	const chatService = new ChatService();
+	let result: Awaited<ReturnType<typeof chatService.runControl>>;
+	try {
+		result = await chatService.runControl({
+			threadId,
+			userId: user.id,
+			action: body.action === "stop" ? "stop" : "run",
+		});
+	} catch (err) {
+		if (err instanceof Error && (err as { code?: string }).code === "THREAD_NOT_FOUND") {
+			return jsonError(404, "NOT_FOUND", "Thread not found.");
 		}
-		return Response.json(
-			{ data: { status: "idle" }, error: null, meta: {} },
-			{ headers: { "cache-control": "no-store" } },
-		);
+		throw err;
 	}
 
-	if (!thread.boundWorkflowId) {
+	if (result.status === "no-bound-workflow") {
 		return jsonError(
 			409,
 			"NO_BOUND_WORKFLOW",
@@ -82,8 +56,16 @@ export async function POST(
 		);
 	}
 
+	if (result.status === "already-running") {
+		return jsonError(409, "ALREADY_RUNNING", "Thread is already running.");
+	}
+
 	return Response.json(
-		{ data: { ok: true }, error: null, meta: {} },
+		{
+			data: result.status === "stopped" ? { status: "idle" } : { ok: true },
+			error: null,
+			meta: {},
+		},
 		{ headers: { "cache-control": "no-store" } },
 	);
 }
