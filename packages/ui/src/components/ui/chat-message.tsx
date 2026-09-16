@@ -69,7 +69,7 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
         style={{ transformOrigin: isUser ? "bottom right" : "bottom left" }}
         className={cn(
           "group flex flex-col gap-1.5",
-          isUser ? "max-w-[80%] items-end self-end" : "max-w-full items-start self-start",
+          isUser ? "max-w-[80%] items-end self-end" : "max-w-[80%] items-start self-start",
           className,
         )}
         {...props}

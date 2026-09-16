@@ -20,7 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@aevryn/ui/components/ui/table";
-import { ThinkingIndicator } from "@aevryn/ui/components/ui/thinking-indicator";
 import type { IconName } from "@aevryn/ui/lib/icon-context";
 import { useIcon } from "@aevryn/ui/lib/icon-context";
 import { cn } from "@aevryn/ui/lib/utils";
@@ -127,6 +126,27 @@ function stripScheme(url: string): string {
 function truncate(text: string | undefined, max: number): string | undefined {
   if (!text) return undefined;
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+// Inline-output budget. Rendered text longer than this collapses into a
+// "View output" dropdown instead of stretching the step row.
+const OUTPUT_COLLAPSE_THRESHOLD = 250;
+
+// Renders an output as a plain string. Returns the string when it is too
+// large to inline (drives the collapsed dropdown); undefined when it fits.
+function summarizeOutput(output: unknown): string | undefined {
+  if (output == null) return undefined;
+  let text: string;
+  if (typeof output === "string") {
+    text = output;
+  } else {
+    try {
+      text = JSON.stringify(output, null, 2) ?? "null";
+    } catch {
+      text = String(output);
+    }
+  }
+  return text.length > OUTPUT_COLLAPSE_THRESHOLD ? text : undefined;
 }
 
 function extractSubSteps(
@@ -370,18 +390,27 @@ function OutputDetails({ output }: { output: unknown }) {
     wireFiles == null &&
     table == null
   ) {
-    // Generic output: pretty JSON, truncated. Table-able or media-bearing
-    // outputs skip the cap — their renderers truncate per cell instead.
+    // Generic output: inline when it fits, collapsible "View output" when big.
+    // Table-able or media-bearing outputs skip this path — their renderers
+    // truncate per cell instead.
     let json: string;
     try {
-      json = JSON.stringify(output, null, 2) ?? "null";
+      json = typeof output === "string" ? output : JSON.stringify(output, null, 2) ?? "null";
     } catch {
       json = String(output);
     }
-    const cap = 400;
-    if (json.length > cap) json = `${json.slice(0, cap)}…`;
     if (json === "null" || json === "undefined") return null;
-    return <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">{json}</pre>;
+    const pre = (
+      <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">
+        {json}
+      </pre>
+    );
+    if (summarizeOutput(output) == null) return pre;
+    return (
+      <ThinkingStepDetails summary="View output">
+        {pre}
+      </ThinkingStepDetails>
+    );
   }
 
   return (
@@ -540,18 +569,12 @@ export function ToolCallStep({ call, className }: ToolCallStepProps) {
 
   if (call.isRunning) {
     return (
-      <div className={className}>
-        <ThinkingIndicator
-          words={[
-            meta.label,
-            "Working",
-            "Fetching",
-            "Analyzing",
-          ]}
-          showIcon
-          size="compact"
-        />
-      </div>
+      <ThinkingSteps open={open} onOpenChange={setOpen} className={cn("w-full", className)}>
+        <ThinkingStepsHeader>{label}</ThinkingStepsHeader>
+        <ThinkingStepsContent>
+          <ToolStepLine call={call} isLast />
+        </ThinkingStepsContent>
+      </ThinkingSteps>
     );
   }
 
