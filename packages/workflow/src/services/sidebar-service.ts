@@ -1,5 +1,5 @@
 import type { Callout, Db } from "@aevryn/db";
-import { callouts, db, ids } from "@aevryn/db";
+import { callouts, db } from "@aevryn/db";
 import { asc, eq } from "drizzle-orm";
 
 /**
@@ -14,46 +14,6 @@ export class SidebarService {
 			where: eq(callouts.visible, true),
 			orderBy: [asc(callouts.order)],
 		});
-	}
-
-	async upsertPromoCard(input: {
-		id?: string;
-		title: string;
-		description?: string;
-		imageUrl?: string | null;
-		order?: number;
-		visible?: boolean;
-	}): Promise<Callout> {
-		const values = {
-			id: input.id ?? ids.callout(),
-			title: input.title,
-			description: input.description ?? "",
-			imageUrl: input.imageUrl ?? null,
-			order: input.order ?? 0,
-			visible: input.visible ?? true,
-		};
-
-		const [row] = await this.client
-			.insert(callouts)
-			.values(values)
-			.onConflictDoUpdate({
-				target: callouts.id,
-				set: {
-					title: values.title,
-					description: values.description,
-					imageUrl: values.imageUrl,
-					order: values.order,
-					visible: values.visible,
-					updatedAt: new Date(),
-				},
-			})
-			.returning();
-
-		return row!;
-	}
-
-	async deletePromoCard(id: string): Promise<void> {
-		await this.client.delete(callouts).where(eq(callouts.id, id));
 	}
 }
 

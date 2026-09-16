@@ -10,7 +10,6 @@
 	},
 	"dependencies": {
 		"@aevryn/agent": "workspace:*",
-		"@aevryn/api": "workspace:*",
 		"@aevryn/auth": "workspace:*",
 		"@aevryn/db": "workspace:*",
 		"@aevryn/env": "workspace:*",

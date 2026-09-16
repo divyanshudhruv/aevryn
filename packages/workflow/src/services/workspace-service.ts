@@ -99,15 +99,7 @@ export class WorkspaceService {
 		return created!.id;
 	}
 
-	async getDefaultWorkspaceId(userId: string): Promise<string | null> {
-		const [row] = await db
-			.select({ id: workspaces.id })
-			.from(workspaces)
-			.where(eq(workspaces.createdBy, userId))
-			.orderBy(desc(workspaces.isDefault), asc(workspaces.createdAt))
-			.limit(1);
-		return row?.id ?? null;
-	}
+	
 
 	async createGroup(
 		workspaceId: string,
