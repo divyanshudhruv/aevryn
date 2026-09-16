@@ -32,9 +32,77 @@ export function WorkspaceSidebar() {
 
 	useEffect(() => {
 		void refresh();
-		const id = window.setInterval(() => void refresh(), 15_000);
-		return () => window.clearInterval(id);
-	}, [refresh]);
+
+		// Realtime replaces the 15s polling: thread status/title/binding changes
+		// for this workspace patch the local rows in place. No reordering — the
+		// initial listThreads fetch stays the source of order; NEW threads are
+		// ignored until a later refresh (they arrive with their first UPDATE).
+		const channel = supabaseClient
+			.channel(`sidebar-threads:${workspaceId ?? "all"}`)
+			.on(
+				"postgres_changes",
+				{
+					event: "UPDATE",
+					schema: "public",
+					table: "threads",
+					...(workspaceId ? { filter: `workspace_id=eq.${workspaceId}` } : {}),
+				},
+				(payload: {
+					eventType?: string;
+					new?: Record<string, unknown>;
+				}) => {
+					const row = payload.new;
+					const id = row?.id;
+					if (typeof id !== "string" || row == null) return;
+					if (row.deleted_at != null) {
+						setData((prev) => {
+							if (!prev) return prev;
+							const nextThreads = prev.threads.filter((t) => t.id !== id);
+							return nextThreads.length === prev.threads.length
+								? prev
+								: { ...prev, threads: nextThreads };
+						});
+						return;
+					}
+					setData((prev) => {
+						if (!prev) return prev;
+						const nextThreads = [...prev.threads];
+						const idx = nextThreads.findIndex((t) => t.id === id);
+						if (idx === -1) return prev;
+						const current = nextThreads[idx]!;
+						nextThreads[idx] = {
+							...current,
+							title:
+								typeof row.title === "string" && row.title
+									? row.title
+									: current.title,
+							status:
+								typeof row.status === "string"
+									? row.status
+									: current.status,
+							boundWorkflowId:
+								typeof row.bound_workflow_id === "string"
+									? row.bound_workflow_id
+									: current.boundWorkflowId,
+							updatedAt:
+								typeof row.updated_at === "string"
+									? row.updated_at
+									: current.updatedAt,
+						};
+						return { ...prev, threads: nextThreads };
+					});
+				},
+			)
+			.subscribe((status: string) => {
+				if (status === "SUBSCRIBE_ERROR" || status === "CHANNEL_ERROR") {
+					console.error("[workspace-sidebar] threads channel failed", status);
+				}
+			});
+
+		return () => {
+			void supabaseClient.removeChannel(channel);
+		};
+	}, [workspaceId, refresh]);
 
 	const mutate = useCallback(
 		async (body: Record<string, unknown>) => {
