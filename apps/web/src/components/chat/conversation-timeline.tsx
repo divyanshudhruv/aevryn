@@ -359,6 +359,30 @@ export function ConversationTimeline({
 			{messages.flatMap((message) => {
 				const isUser = message.role === "user";
 
+				// Thread-internal system tiles (stream failures, retry notices)
+				// render as SystemMessage, never as a chat bubble.
+				if (message.role === "system") {
+					const tiles: ReactNode[] = [];
+					for (const [i, part] of message.parts.entries()) {
+						const sm = part as {
+							type?: string;
+							variant?: string;
+							text?: string;
+						};
+						if (sm.type !== "system-message") continue;
+						tiles.push(
+							<SystemMessage
+								key={`sys-${message.id}-${i}`}
+								fill
+								variant={sm.variant === "warning" ? "warning" : "error"}
+							>
+								<p>{sm.text ?? ""}</p>
+							</SystemMessage>,
+						);
+					}
+					return tiles;
+				}
+
 				// One assistant turn = ONE ChatMessage: split the loop into turns at
 				// each completed client-tool boundary (answered askUser/presentPlan,
 				// decided wire action) so the answer closes its bubble and whatever

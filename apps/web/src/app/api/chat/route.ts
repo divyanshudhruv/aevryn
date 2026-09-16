@@ -309,26 +309,27 @@ export async function POST(request: Request): Promise<Response> {
 		);
 	} catch (err) {
 		const code = (err as { code?: string }).code;
+		const failureText =
+			code === "NO_PROVIDER" || code === "NO_MODEL"
+				? err instanceof Error
+					? err.message
+					: "No model provider configured."
+				: FAILED_TURN_GENERIC;
+		// Mark the thread failed and persist an in-thread error tile so the
+		// failure survives refresh (re-run triggers the retryAgent repair).
+		await persistFailedTurn({
+			threadId: body.threadId,
+			userId: user.id,
+			text: failureText,
+		});
 		if (code === "NO_PROVIDER") {
-			return jsonError(
-				409,
-				"NO_PROVIDER",
-				err instanceof Error ? err.message : "No model provider configured.",
-			);
+			return jsonError(409, "NO_PROVIDER", failureText);
 		}
 		if (code === "NO_MODEL") {
-			return jsonError(
-				409,
-				"NO_MODEL",
-				err instanceof Error ? err.message : "Provider has no models.",
-			);
+			return jsonError(409, "NO_MODEL", failureText);
 		}
 		console.error("[api/chat] streaming failed", err);
-		return jsonError(
-			500,
-			"AGENT_ERROR",
-			"Something went wrong while streaming your turn.",
-		);
+		return jsonError(500, "AGENT_ERROR", FAILED_TURN_GENERIC);
 	}
 }
 
@@ -363,6 +364,31 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const FAILED_TURN_GENERIC =
+	'Something went wrong while streaming this turn. Re-run or reply "continue" to pick back up.';
+
+async function persistFailedTurn(opts: {
+	threadId: string;
+	userId: string;
+	text: string;
+}): Promise<void> {
+	try {
+		await chatService.saveMessage({
+			userId: opts.userId,
+			threadId: opts.threadId,
+			role: "system",
+			content: opts.text,
+			parts: [{ type: "system-message", variant: "error", text: opts.text }],
+		});
+		await chatService.setThreadStatus({
+			threadId: opts.threadId,
+			status: "failed",
+		});
+	} catch (persistErr) {
+		console.error("[api/chat] failed-turn persistence error", persistErr);
+	}
+}
 
 /** Text of the newest user message in the transport payload. */
 function extractNewUserText(
