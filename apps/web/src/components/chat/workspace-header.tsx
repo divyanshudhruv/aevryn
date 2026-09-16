@@ -57,6 +57,7 @@ interface WorkspaceHeaderProps {
   onSelectModel: (model: ProviderModelOption) => void;
   onRun?: () => void;
   isRunning?: boolean;
+  runError?: string | null;
   onOpenSettings?: () => void;
 }
 
@@ -68,6 +69,7 @@ export function WorkspaceHeader({
   onSelectModel,
   onRun,
   isRunning = false,
+  runError,
   onOpenSettings,
 }: WorkspaceHeaderProps) {
   const router = useRouter();
@@ -285,16 +287,21 @@ export function WorkspaceHeader({
           </DropdownMenu>
         </div>
         <div className="flex shrink-0 flex-row items-center gap-2">
-          {onRun && (
-            <Button
-              variant="ghost"
-              leadingIcon={isRunning ? Stop : Play}
-              onClick={onRun}
-              disabled={isRunning}
-            >
-              {isRunning ? "Running…" : "Run"}
-            </Button>
-          )}
+          <div className="flex flex-col items-end gap-1">
+            {runError && (
+              <span className="text-xs text-destructive">{runError}</span>
+            )}
+            {onRun && (
+              <Button
+                variant="ghost"
+                leadingIcon={isRunning ? Stop : Play}
+                onClick={onRun}
+                disabled={isRunning}
+              >
+                {isRunning ? "Running…" : "Run"}
+              </Button>
+            )}
+          </div>
           {/* Model picker */}
           <DropdownMenu>
             <DropdownTrigger

@@ -33,6 +33,7 @@ export default function ThreadPage() {
   const [hasBoundWorkflow, setHasBoundWorkflow] = useState(false);
   const [boundWorkflowId, setBoundWorkflowId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
 
   const { steps: planSteps } = usePlanSteps(boundWorkflowId);
 
@@ -178,8 +179,35 @@ export default function ThreadPage() {
   );
 
   const handleRun = useCallback(() => {
-    void runWorkflow();
-  }, [runWorkflow]);
+    setRunError(null);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/threads/${encodeURIComponent(threadId)}/run`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "run" }),
+          },
+        );
+        const json = (await res.json().catch(() => null)) as {
+          error?: { code?: string; message?: string } | null;
+        } | null;
+        if (!res.ok) {
+          const code = json?.error?.code ?? String(res.status);
+          if (code === "NO_BOUND_WORKFLOW") {
+            setSettingsOpen(true);
+            return;
+          }
+          setRunError(json?.error?.message ?? "Could not start run.");
+          return;
+        }
+        void runWorkflow();
+      } catch {
+        setRunError("Could not reach the server.");
+      }
+    })();
+  }, [threadId, runWorkflow]);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsOpen(true);
@@ -241,6 +269,7 @@ export default function ThreadPage() {
         onSelectModel={setSelectedModel}
         onRun={hasBoundWorkflow ? handleRun : undefined}
         isRunning={isStreaming}
+        runError={runError}
         onOpenSettings={handleOpenSettings}
       />
       <section
