@@ -89,7 +89,21 @@ const chatBodySchema = z.object({
 			modelId: z.string().min(1).max(128).optional(),
 		})
 		.optional(),
+	// Composer thinking-effort level (session-only, not persisted). Mapped to
+	// providerOptions.reasoningEffort; models without reasoning ignore it.
+	thinkingEffort: z.enum(["low", "medium", "high", "ultra", "god"]).optional(),
 });
+
+// Slider label → reasoning-effort string sent as providerOptions. God/ultra
+// map to "max"/"high"; models that only accept low/medium/high ignore
+// unsupported values (most providers fall back to their default).
+const THINKING_EFFORT_MAP: Record<string, string> = {
+	low: "low",
+	medium: "medium",
+	high: "high",
+	ultra: "high",
+	god: "max",
+};
 
 export async function POST(request: Request): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();
@@ -145,6 +159,14 @@ export async function POST(request: Request): Promise<Response> {
 			role: "user",
 			content: message,
 			parts: userParts,
+		});
+		// ChatGPT-style auto title: if the thread still has its default name,
+		// generate a short summary title from this (first) user message.
+		// Fire-and-forget — must never delay or fail the chat turn.
+		void agentService.autoTitle({
+			threadId: body.threadId,
+			userId: user.id,
+			message,
 		});
 		uiMessages.push({
 			id: `local_${Date.now()}`,
@@ -304,8 +326,13 @@ export async function POST(request: Request): Promise<Response> {
 				uiMessages,
 				mode: body.mode,
 				modelOverride: body.model,
+				thinkingEffort: body.thinkingEffort
+					? (THINKING_EFFORT_MAP[body.thinkingEffort] ?? undefined)
+					: undefined,
 			},
-			{ headers: { "cache-control": "no-store" } },
+			// Forwarding request.signal: a client Stop / tab close aborts the
+			// stream server-side (model call + tools cancel; thread resets).
+			{ headers: { "cache-control": "no-store" }, signal: request.signal },
 		);
 	} catch (err) {
 		const code = (err as { code?: string }).code;

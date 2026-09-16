@@ -9,13 +9,16 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { ToolCallLogDirection, ToolCallLogStatus } from "../domain";
+import { threads } from "./thread";
 
 export const toolCallLogs = pgTable(
 	"tool_call_logs",
 	{
 		id: text("id").primaryKey().notNull(),
 		messageId: text("message_id").notNull(),
-		threadId: text("thread_id").notNull(),
+		threadId: text("thread_id")
+			.notNull()
+			.references(() => threads.id, { onDelete: "cascade" }),
 		stepId: text("step_id"),
 		userId: text("user_id").notNull(),
 		toolName: text("tool_name").notNull(),

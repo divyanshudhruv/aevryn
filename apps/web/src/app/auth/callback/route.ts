@@ -47,5 +47,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=unable-to-sign-in`);
+  return NextResponse.redirect(`${origin}/signup?error=unable-to-sign-in`);
 }

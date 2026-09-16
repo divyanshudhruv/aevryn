@@ -13,7 +13,7 @@ import type { BrowserSession } from "@anakin-io/sdk";
 
 export const browserSessionList = tool({
 	description:
-		"List your saved Anakin browser sessions (logged-in profiles usable for authenticated scraping). Requires an API key. Free.",
+		"List saved Anakin browser sessions. Logged-in profiles for authenticated scraping. Needs API key. Free.",
 	inputSchema: z.object({
 		domain: z.string().optional().describe("Filter by website domain."),
 	}),
@@ -57,9 +57,9 @@ export const browserSessionList = tool({
 
 export const browserSessionCreate = tool({
 	description:
-		"Start a new browser session for a website. The user completes the login in Anakin's dashboard (noVNC window); the session can then be reused via its sessionId in scrapeUrl/scrapeBatch/crawlSite. Requires an API key.",
+		"Start browser session for a site. User logs in via Anakin dashboard (noVNC). Reuse sessionId in scrapeUrl/scrapeBatch/crawlSite. Needs API key.",
 	inputSchema: z.object({
-		websiteUrl: z.string().url().describe("The site to log into."),
+		websiteUrl: z.string().url(),
 		name: z.string().min(1).describe("A recognizable name, e.g. 'My LinkedIn'."),
 	}),
 	contextSchema: toolContextSchema,
@@ -95,10 +95,10 @@ export const browserSessionCreate = tool({
 
 export const browserSessionRename = tool({
 	description:
-		"Rename a saved browser session. Requires an API key. Free.",
+		"Rename a saved browser session. Needs API key. Free.",
 	inputSchema: z.object({
-		id: z.string().min(1).describe("Session id."),
-		name: z.string().min(1).describe("New name."),
+		id: z.string().min(1),
+		name: z.string().min(1),
 	}),
 	contextSchema: toolContextSchema,
 	execute: async (
@@ -119,9 +119,9 @@ export const browserSessionRename = tool({
 
 export const browserSessionDelete = tool({
 	description:
-		"Delete a saved browser session (its stored login is destroyed). Requires an API key. Free.",
+		"Delete a saved browser session. Stored login destroyed. Needs API key. Free.",
 	inputSchema: z.object({
-		id: z.string().min(1).describe("Session id."),
+		id: z.string().min(1),
 	}),
 	contextSchema: toolContextSchema,
 	execute: async (

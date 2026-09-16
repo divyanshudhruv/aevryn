@@ -24,13 +24,12 @@ export const threads = pgTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     groupId: text("group_id").references(() => groups.id, {
-      onDelete: "set null",
+      onDelete: "cascade",
     }),
     userId: uuid("user_id").notNull(),
     title: text("title").notNull().default("New thread"),
     boundWorkflowId: text("bound_workflow_id"),
     status: runStatusEnum("status").notNull().default("idle"),
-    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -67,7 +67,7 @@ function mapSourceResult(item: ApiSourceResult): VisibilitySourceResult {
 
 export const aiVisibilityTool = tool({
 	description:
-		"Ask multiple AI engines (ChatGPT, Gemini, Google AI Overview, …) the same question and compare their answers, with per-engine latency and an automatic consensus summary. Requires an API key. Takes ~10–60s; results arrive per engine. Never cached — every run queries fresh.",
+		"Ask multiple AI engines (ChatGPT, Gemini, Google AI Overview, …) same question, compare answers. Per-engine latency, consensus synthesis. Needs API key. ~10–60s. Per-engine results. Never cached.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

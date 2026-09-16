@@ -196,9 +196,13 @@ const CardGroup = forwardRef<HTMLDivElement, CardGroupProps>(
             separated ? "gap-2" : "gap-0",
             className
           )}
-          style={{
-            gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`,
-          }}
+          style={
+            columns !== 1
+              ? {
+                  gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`,
+                }
+              : undefined
+          }
           onMouseEnter={fluidHover ? handlers.onMouseEnter : undefined}
           onMouseMove={fluidHover ? handlers.onMouseMove : undefined}
           onMouseLeave={fluidHover ? handlers.onMouseLeave : undefined}

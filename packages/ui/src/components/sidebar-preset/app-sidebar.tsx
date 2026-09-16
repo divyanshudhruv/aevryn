@@ -25,6 +25,8 @@ import {
   DropdownTrigger,
   DropdownContent,
   DropdownSeparator,
+  DropdownSearch,
+  DropdownEmpty,
 } from "@aevryn/ui/components/ui/dropdown";
 import { MenuItem } from "@aevryn/ui/components/ui/menu-item";
 import { useIcon } from "@aevryn/ui/lib/icon-context";
@@ -56,6 +58,9 @@ import { ConfirmDeleteDialog } from "../dialog/confirm-delete-dialog";
 import { RenameThreadDialog } from "../dialog/rename-thread-dialog";
 import { RenameGroupDialog } from "../dialog/rename-group-dialog";
 import { Badge } from "../ui/badge";
+
+const GROUP_OPEN_KEY = "aevryn:sidebar:groups:open";
+
 export interface PromoCard {
   id: string;
   title: string;
@@ -168,7 +173,8 @@ export function AppSidebar({
   const promoKey = promoSource.map((c) => c.id).join("|");
   useEffect(() => {
     setCallouts((prev) =>
-      prev.length === promoSource.length && promoSource.every((c, i) => c.id === prev[i]?.id)
+      prev.length === promoSource.length &&
+      promoSource.every((c, i) => c.id === prev[i]?.id)
         ? prev
         : promoSource,
     );
@@ -178,7 +184,38 @@ export function AppSidebar({
     const timer = setTimeout(() => setDebouncedSearch(search), 0);
     return () => clearTimeout(timer);
   }, [search]);
-  const dismiss = (id: string) => setCallouts((c) => c.filter((x) => x.id !== id));
+
+  // Per-group open/closed toggle persisted across sessions. Restored on first
+  // client mount (SSR pre-renders the all-open state, so hydration never
+  // differs); nothing is written until the user actually toggles a group.
+  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(GROUP_OPEN_KEY);
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          setGroupOpen(parsed as Record<string, boolean>);
+        }
+      }
+    } catch {
+      // storage unavailable — open/close still works for the session
+    }
+  }, []);
+  const handleGroupOpenChange = useCallback((key: string, next: boolean) => {
+    setGroupOpen((prev) => {
+      const updated = { ...prev, [key]: next };
+      try {
+        window.localStorage.setItem(GROUP_OPEN_KEY, JSON.stringify(updated));
+      } catch {
+        // storage unavailable — keep the session-level toggle
+      }
+      return updated;
+    });
+  }, []);
+
+  const dismiss = (id: string) =>
+    setCallouts((c) => c.filter((x) => x.id !== id));
   // The callout rests one surface step above the rail.
   const level = Math.min(useSurface() + 1, 8);
   // Front card's measured height — never an animated "auto".
@@ -194,6 +231,7 @@ export function AppSidebar({
   const FooterSettingsIcon = useIcon("settings");
   const MoonIcon = useIcon("moon");
   const BellIcon = useIcon("bell");
+  const ChevronsUpDown = useIcon("chevrons-up-down");
   const CommandIcon = useIcon("command");
   const PlayIcon = useIcon("play");
   const StopIcon = useIcon("stop");
@@ -260,18 +298,62 @@ export function AppSidebar({
         item.title.toLowerCase().includes(query),
       ),
     }));
-  }, [sections, query]);
+  }, [sections, query]); // Derived attention feed (no new table): threads that need eyes on them.
+  // Which statuses surface here follows the user's notification settings
+  // (failed / completed / retrying / approval), kept fresh whenever the
+  // settings dialog closes (it dispatches `aevryn:settings-changed`).
+  const [notify, setNotify] = useState({
+    runFailed: true,
+    runCompleted: true,
+    runApproval: true,
+    runRetrying: true,
+  });
+  useEffect(() => {
+    const load = () => {
+      void (async () => {
+        const res = await fetch("/api/settings", { cache: "no-store" });
+        const json = (await res.json().catch(() => null)) as {
+          data?: {
+            notifications?: {
+              runFailed?: boolean;
+              runCompleted?: boolean;
+              runApproval?: boolean;
+              runRetrying?: boolean;
+            };
+          };
+        } | null;
+        const n = json?.data?.notifications;
+        if (n)
+          setNotify((prev) => ({
+            runFailed: n.runFailed ?? prev.runFailed,
+            runCompleted: n.runCompleted ?? prev.runCompleted,
+            runApproval: n.runApproval ?? prev.runApproval,
+            runRetrying: n.runRetrying ?? prev.runRetrying,
+          }));
+      })();
+    };
+    load();
+    window.addEventListener("aevryn:settings-changed", load);
+    return () => window.removeEventListener("aevryn:settings-changed", load);
+  }, []);
 
-  // Derived attention feed (no new table): failed threads + bound threads
-  // paused on an approval. Recomputes off the same realtime-patched state.
   const attentionThreads = useMemo(() => {
     if (!data) return [];
-    return data.threads.filter(
-      (t) =>
-        t.status === "failed" ||
-        (t.status === "awaiting_approval" && t.boundWorkflowId != null),
-    );
-  }, [data]);
+    const wanted: string[] = [];
+    if (notify.runFailed) wanted.push("failed");
+    if (notify.runCompleted) wanted.push("completed");
+    if (notify.runRetrying) wanted.push("retrying");
+    if (notify.runApproval) wanted.push("awaiting_approval");
+    return data.threads.filter((t) => wanted.includes(t.status));
+  }, [data, notify]);
+
+  const [notificationQuery, setNotificationQuery] = useState("");
+
+  const filteredNotifications = useMemo(() => {
+    const q = notificationQuery.trim().toLowerCase();
+    if (!q) return attentionThreads;
+    return attentionThreads.filter((t) => t.title.toLowerCase().includes(q));
+  }, [attentionThreads, notificationQuery]);
 
   const deleteItems = useMemo(() => {
     if (!deleteTarget) return [];
@@ -299,7 +381,12 @@ export function AppSidebar({
     <>
       <SettingsDialog
         open={settingsOpen}
-        onOpenChange={setSettingsOpen}
+        onOpenChange={(open) => {
+          setSettingsOpen(open);
+          if (!open) {
+            window.dispatchEvent(new CustomEvent("aevryn:settings-changed"));
+          }
+        }}
         workspace={currentWorkspace}
         onWorkspaceMutated={onWorkspaceMutated}
       />
@@ -330,6 +417,20 @@ export function AppSidebar({
           if (!deleteTarget) return;
           if (deleteTarget.kind === "group") {
             onDeleteGroup?.(deleteTarget.id);
+            setGroupOpen((prev) => {
+              if (!(deleteTarget.id in prev)) return prev;
+              const updated = { ...prev };
+              delete updated[deleteTarget.id];
+              try {
+                window.localStorage.setItem(
+                  GROUP_OPEN_KEY,
+                  JSON.stringify(updated),
+                );
+              } catch {
+                // storage unavailable — session-level state is enough
+              }
+              return updated;
+            });
           } else {
             onDeleteThread?.(deleteTarget.id);
           }
@@ -381,7 +482,8 @@ export function AppSidebar({
                 <MenuItem
                   index={data?.workspaces.length ?? 0}
                   icon={PlusIcon}
-                  label="New workspace" disabled
+                  label="New workspace"
+                  disabled
                   onSelect={() => {}}
                 />
               </>
@@ -428,31 +530,60 @@ export function AppSidebar({
                         aria-label={`Notifications (${attentionThreads.length})`}
                       >
                         Notifications
-                        <span className="ml-auto inline-flex">
+                        <span className="ml-auto inline-flex items-center gap-1.5">
                           <Badge color="blue" size="sm">
                             {attentionThreads.length}
                           </Badge>
+                          <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                         </span>
                       </SidebarMenuButton>
                     }
                   />
                   <DropdownContent
-                    className="min-w-0 w-[260px]"
+                    // The popup is portalled (outside the sidebar), so
+                    // --sidebar-width doesn't inherit — but the Positioner
+                    // exposes the trigger button's width as --anchor-width.
+                    // Pinning to it makes the menu exactly the parent
+                    // button's width, so long labels truncate instead of
+                    // stretching the popup.
+                    className="w-[var(--anchor-width)] min-w-0"
                     align="start"
                     sideOffset={4}
                   >
+                    <DropdownSearch
+                      value={notificationQuery}
+                      onValueChange={setNotificationQuery}
+                      placeholder="Search notifications…"
+                    />
                     {attentionThreads.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">
-                        Nothing needs attention.
-                      </div>
+                      <DropdownEmpty>Nothing needs attention.</DropdownEmpty>
+                    ) : filteredNotifications.length === 0 ? (
+                      <DropdownEmpty>Nothing found.</DropdownEmpty>
                     ) : (
-                      attentionThreads.map((thread, index) => (
+                      filteredNotifications.map((thread, index) => (
                         <MenuItem
                           key={thread.id}
                           index={index}
+                          truncate
                           label={thread.title}
                           trailing={
-                            thread.status === "failed" ? "failed" : "waiting"
+                            thread.status === "retrying" ? (
+                              <Badge color="cyan" size="sm">
+                                Retrying
+                              </Badge>
+                            ) : thread.status === "completed" ? (
+                              <Badge color="lime" size="sm">
+                                Completed
+                              </Badge>
+                            ) : thread.status === "failed" ? (
+                              <Badge color="red" size="sm">
+                                Failed
+                              </Badge>
+                            ) : (
+                              <Badge color="yellow" size="sm">
+                                Awaiting Approval
+                              </Badge>
+                            )
                           }
                           onSelect={() => {
                             if (data) {
@@ -504,246 +635,278 @@ export function AppSidebar({
               </p>
             </div>
           )}
-          {(filteredSections ?? sections ?? []).map((section) => (
-            <SidebarGroup key={section.id ?? section.label} collapsible>
-              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
-              <SidebarGroupActions>
-                <Tooltip content="Add item" side="top">
-                  <SidebarGroupAction
-                    aria-label="Add thread"
-                    onClick={() => {
-                      if (currentWorkspace) {
-                        onCreateThread?.(
-                          currentWorkspace.id,
-                          section.id,
-                          "New thread",
-                        );
-                      }
-                    }}
-                  >
-                    <PlusIcon />
-                  </SidebarGroupAction>
-                </Tooltip>
-
-                <Tooltip content="Section settings" side="top">
-                  <DropdownMenu>
-                    <DropdownTrigger
-                      render={
-                        <SidebarGroupAction aria-label="Section settings">
-                          <SlidersIcon />
-                        </SidebarGroupAction>
-                      }
-                    />
-                    {/* 240px — the header/footer trigger width */}
-                    <DropdownContent
-                      className="min-w-0 w-[240px]"
-                      align="start"
-                      sideOffset={4}
-                    >
-                      <MenuItem
-                        index={0}
-                        icon={PlayIcon}
-                        label={"Run All"}
-                        onSelect={() => {
-                          const runnable = section.items
-                            .filter(
-                              (item) =>
-                                item.boundWorkflowId != null &&
-                                item.status !== "running" &&
-                                item.status !== "awaiting_approval",
-                            )
-                            .map((item) => item.id);
-                          if (runnable.length > 0) onRunAll?.(runnable);
-                        }}
-                      />
-                      <MenuItem
-                        index={1}
-                        icon={StopIcon}
-                        label={"Stop All"}
-                        disabled={
-                          !section.items.some((item) =>
-                            [
-                              "running",
-                              "sleeping",
-                              "waiting_for_approval",
-                            ].includes(item.status),
-                          )
-                        }
-                        onSelect={() => {
-                          const active = section.items
-                            .filter((item) =>
-                              [
-                                "running",
-                                "sleeping",
-                                "waiting_for_approval",
-                              ].includes(item.status),
-                            )
-                            .map((item) => item.id);
-                          if (active.length > 0) onStopAll?.(active);
-                        }}
-                      />
-                      <MenuItem
-                        index={2}
-                        icon={PencilIcon}
-                        label="Rename Group"
-                        disabled={section.id === null}
-                        onSelect={() => {
-                          if (section.id === null) return;
-                          setRenameGroupTarget({
-                            id: section.id,
-                            name: section.label,
-                          });
-                          setRenameGroupOpen(true);
-                        }}
-                      />
-
-                      <DropdownSeparator />
-                      <MenuItem
-                        index={3}
-                        icon={DustbinIcon}
-                        label="Delete Group"
-                        disabled={section.id === null}
-                        onSelect={() => {
-                          if (section.id === null) return;
-                          setDeleteTarget({
-                            kind: "group",
-                            id: section.id,
-                            name: section.label,
-                          });
-                          setConfirmDeleteOpen(true);
-                        }}
-                      />
-                    </DropdownContent>
-                  </DropdownMenu>
-                </Tooltip>
-              </SidebarGroupActions>
-              <SidebarMenu>
-                {section.items.map((item) => (
-                  <SidebarMenuItem key={item.id}>
-                    {/* status drives the dot and the screen-reader "unread" text */}
-                    <SidebarMenuButton
-                      status={item.status as RunStatus}
-                      isActive={item.id === (activeThreadId ?? activeId)}
+          {(filteredSections ?? sections ?? []).map((section) => {
+            const sectionKey = section.id ?? section.label;
+            return (
+              <SidebarGroup
+                key={sectionKey}
+                collapsible
+                open={groupOpen[sectionKey] ?? true}
+                onOpenChange={(open) => handleGroupOpenChange(sectionKey, open)}
+              >
+                <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+                <SidebarGroupActions>
+                  <Tooltip content="Add item" side="top">
+                    <SidebarGroupAction
+                      aria-label="Add thread"
                       onClick={() => {
-                        setActiveId(item.id);
-                        if (data) onOpenThread?.(data.workspace.id, item.id);
+                        if (currentWorkspace) {
+                          onCreateThread?.(
+                            currentWorkspace.id,
+                            section.id,
+                            "New thread",
+                          );
+                        }
                       }}
                     >
-                      {item.title}
-                    </SidebarMenuButton>
-                    <SidebarMenuActions showOnHover>
-                      {item.status !== "awaiting_approval" && (
-                        <Tooltip
-                          content={item.status === "running" ? "Stop" : "Run"}
-                          side="top"
-                        >
-                          <SidebarMenuAction
-                            aria-label="Run/Stop"
-                            onClick={() => {
-                              if (item.status === "running") {
-                                onStopThread?.(item.id);
-                              } else if (item.boundWorkflowId != null) {
-                                onRunThread?.(item.id);
-                              }
-                            }}
-                          >
-                            {item.status === "running" ? (
-                              <StopIcon />
-                            ) : (
-                              <PlayIcon />
-                            )}
-                          </SidebarMenuAction>
-                        </Tooltip>
-                      )}
-                      <Tooltip content="Rename" side="top">
-                        <SidebarMenuAction
-                          aria-label="Rename"
-                          onClick={() => {
-                            setRenameThreadTarget({
-                              id: item.id,
-                              title: item.title,
-                            });
-                            setRenameThreadOpen(true);
-                          }}
-                        >
-                          <PencilIcon />
-                        </SidebarMenuAction>
-                      </Tooltip>
-                      <DropdownMenu>
-                        <DropdownTrigger
-                          render={
-                            <SidebarMenuAction aria-label="More options">
-                              <MoreVerticalIcon />
-                            </SidebarMenuAction>
-                          }
-                        />
-                        {/* 240px — the header/footer trigger width */}
-                        <DropdownContent
-                          className="min-w-0 w-[240px]"
-                          align="start"
-                          sideOffset={4}
-                        >
-                          <MenuItem
-                            index={0}
-                            icon={
-                              item.status === "running" ? StopIcon : PlayIcon
-                            }
-                            label={item.status === "running" ? "Stop" : "Run"}
-                            onSelect={() => {
-                              if (item.status === "running") {
-                                onStopThread?.(item.id);
-                              } else if (item.boundWorkflowId != null) {
-                                onRunThread?.(item.id);
-                              }
-                            }}
-                            disabled={
-                              item.status === "awaiting_approval" ||
-                              (item.status !== "running" &&
-                                item.boundWorkflowId == null)
-                            }
-                          />
+                      <PlusIcon />
+                    </SidebarGroupAction>
+                  </Tooltip>
 
-                          <MenuItem
-                            index={2}
-                            icon={PencilIcon}
-                            label="Rename"
-                            onSelect={() => {
+                  <Tooltip content="Section settings" side="top">
+                    <DropdownMenu>
+                      <DropdownTrigger
+                        render={
+                          <SidebarGroupAction aria-label="Section settings">
+                            <SlidersIcon />
+                          </SidebarGroupAction>
+                        }
+                      />
+                      {/* 240px — the header/footer trigger width */}
+                      <DropdownContent
+                        className="min-w-0 w-[240px]"
+                        align="start"
+                        sideOffset={4}
+                      >
+                        <MenuItem
+                          index={0}
+                          icon={PlayIcon}
+                          label={"Run All"}
+                          onSelect={() => {
+                            const runnable = section.items
+                              .filter(
+                                (item) =>
+                                  item.boundWorkflowId != null &&
+                                  item.status !== "running" &&
+                                  item.status !== "retrying" &&
+                                  item.status !== "awaiting_approval",
+                              )
+                              .map((item) => item.id);
+                            if (runnable.length > 0) onRunAll?.(runnable);
+                          }}
+                        />
+                        <MenuItem
+                          index={1}
+                          icon={StopIcon}
+                          label={"Stop All"}
+                          disabled={
+                            !section.items.some((item) =>
+                              [
+                                "running",
+                                "retrying",
+                                "sleeping",
+                                "awaiting_approval",
+                              ].includes(item.status),
+                            )
+                          }
+                          onSelect={() => {
+                            const active = section.items
+                              .filter((item) =>
+                                [
+                                  "running",
+                                  "retrying",
+                                  "sleeping",
+                                  "awaiting_approval",
+                                ].includes(item.status),
+                              )
+                              .map((item) => item.id);
+                            if (active.length > 0) onStopAll?.(active);
+                          }}
+                        />
+                        <MenuItem
+                          index={2}
+                          icon={PencilIcon}
+                          label="Rename Group"
+                          disabled={section.id === null}
+                          onSelect={() => {
+                            if (section.id === null) return;
+                            setRenameGroupTarget({
+                              id: section.id,
+                              name: section.label,
+                            });
+                            setRenameGroupOpen(true);
+                          }}
+                        />
+
+                        <DropdownSeparator />
+                        <MenuItem
+                          index={3}
+                          icon={DustbinIcon}
+                          label="Delete Group"
+                          disabled={section.id === null}
+                          onSelect={() => {
+                            if (section.id === null) return;
+                            setDeleteTarget({
+                              kind: "group",
+                              id: section.id,
+                              name: section.label,
+                            });
+                            setConfirmDeleteOpen(true);
+                          }}
+                        />
+                      </DropdownContent>
+                    </DropdownMenu>
+                  </Tooltip>
+                </SidebarGroupActions>
+                <SidebarMenu>
+                  {section.items.map((item) => (
+                    <SidebarMenuItem key={item.id}>
+                      {/* status drives the dot and the screen-reader "unread" text */}
+                      <SidebarMenuButton
+                        status={item.status as RunStatus}
+                        isActive={item.id === (activeThreadId ?? activeId)}
+                        onClick={() => {
+                          setActiveId(item.id);
+                          if (data) onOpenThread?.(data.workspace.id, item.id);
+                        }}
+                      >
+                        {item.title}
+                      </SidebarMenuButton>
+                      <SidebarMenuActions showOnHover>
+                        {item.status !== "awaiting_approval" && (
+                          <Tooltip
+                            content={
+                              item.status === "running" ||
+                              item.status === "retrying"
+                                ? "Stop"
+                                : "Run"
+                            }
+                            side="top"
+                          >
+                            <SidebarMenuAction
+                              aria-label="Run/Stop"
+                              onClick={() => {
+                                if (
+                                  item.status === "running" ||
+                                  item.status === "retrying"
+                                ) {
+                                  onStopThread?.(item.id);
+                                } else if (item.boundWorkflowId != null) {
+                                  onRunThread?.(item.id);
+                                }
+                              }}
+                            >
+                              {item.status === "running" ||
+                              item.status === "retrying" ? (
+                                <StopIcon />
+                              ) : (
+                                <PlayIcon />
+                              )}
+                            </SidebarMenuAction>
+                          </Tooltip>
+                        )}
+                        <Tooltip content="Rename" side="top">
+                          <SidebarMenuAction
+                            aria-label="Rename"
+                            onClick={() => {
                               setRenameThreadTarget({
                                 id: item.id,
                                 title: item.title,
                               });
                               setRenameThreadOpen(true);
                             }}
+                          >
+                            <PencilIcon />
+                          </SidebarMenuAction>
+                        </Tooltip>
+                        <DropdownMenu>
+                          <DropdownTrigger
+                            render={
+                              <SidebarMenuAction aria-label="More options">
+                                <MoreVerticalIcon />
+                              </SidebarMenuAction>
+                            }
                           />
-                          <MenuItem
-                            index={3}
-                            icon={LinkIcon}
-                            label="Share"
-                            disabled
-                            onSelect={() => {}}
-                          />
-                          <DropdownSeparator />
-                          <MenuItem
-                            index={4}
-                            icon={DustbinIcon}
-                            label="Delete"
-                            onSelect={() => {
-                              setDeleteTarget({
-                                kind: "thread",
-                                id: item.id,
-                                name: item.title,
-                              });
-                              setConfirmDeleteOpen(true);
-                            }}
-                          />
-                        </DropdownContent>
-                      </DropdownMenu>
-                    </SidebarMenuActions>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroup>
-          ))}
+                          {/* 240px — the header/footer trigger width */}
+                          <DropdownContent
+                            className="min-w-0 w-[240px]"
+                            align="start"
+                            sideOffset={4}
+                          >
+                            <MenuItem
+                              index={0}
+                              icon={
+                                item.status === "running" ||
+                                item.status === "retrying"
+                                  ? StopIcon
+                                  : PlayIcon
+                              }
+                              label={
+                                item.status === "running" ||
+                                item.status === "retrying"
+                                  ? "Stop"
+                                  : "Run"
+                              }
+                              onSelect={() => {
+                                if (
+                                  item.status === "running" ||
+                                  item.status === "retrying"
+                                ) {
+                                  onStopThread?.(item.id);
+                                } else if (item.boundWorkflowId != null) {
+                                  onRunThread?.(item.id);
+                                }
+                              }}
+                              disabled={
+                                item.status === "awaiting_approval" ||
+                                (item.status !== "running" &&
+                                  item.status !== "retrying" &&
+                                  item.boundWorkflowId == null)
+                              }
+                            />
+
+                            <MenuItem
+                              index={2}
+                              icon={PencilIcon}
+                              label="Rename"
+                              onSelect={() => {
+                                setRenameThreadTarget({
+                                  id: item.id,
+                                  title: item.title,
+                                });
+                                setRenameThreadOpen(true);
+                              }}
+                            />
+                            <MenuItem
+                              index={3}
+                              icon={LinkIcon}
+                              label="Share"
+                              disabled
+                              onSelect={() => {}}
+                            />
+                            <DropdownSeparator />
+                            <MenuItem
+                              index={4}
+                              icon={DustbinIcon}
+                              label="Delete"
+                              onSelect={() => {
+                                setDeleteTarget({
+                                  kind: "thread",
+                                  id: item.id,
+                                  name: item.title,
+                                });
+                                setConfirmDeleteOpen(true);
+                              }}
+                            />
+                          </DropdownContent>
+                        </DropdownMenu>
+                      </SidebarMenuActions>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroup>
+            );
+          })}
         </SidebarContent>
 
         <SidebarFooter>

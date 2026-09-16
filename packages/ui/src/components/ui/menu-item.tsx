@@ -103,6 +103,10 @@ interface MenuItemProps extends HTMLAttributes<HTMLDivElement> {
   /** Popup-only (inside DropdownContent): whether activating the item closes
    *  the menu. Ignored in the inline Dropdown panel. @default true */
   closeOnClick?: boolean;
+  /** Ellipsize the label instead of sizing the row to its full text. Use in
+   *  fixed-width menus (e.g. the sidebar notifications popup) where a long
+   *  title must not widen the row. */
+  truncate?: boolean;
 }
 
 const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(    ({
@@ -114,6 +118,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(    ({
       onSelect,
       disabled,
       closeOnClick,
+      truncate = false,
       className,
       onClick,
       ...props
@@ -185,18 +190,39 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(    ({
           </span>
         )}
         {/* Both stacked spans carry the text-box trim so the invisible bold
-            sizer and the visible label keep identical boxes. */}
-        <span className={cn("inline-grid flex-1", sizeClasses.text)}>
-          <span
-            className="col-start-1 row-start-1 invisible [text-box:trim-both_cap_alphabetic]"
-            style={{ fontVariationSettings: fontWeights.semibold }}
-            aria-hidden="true"
-          >
-            {label}
-          </span>
+            sizer and the visible label keep identical boxes. With `truncate`,
+            the sizer is dropped — it exists to size the row to the label, and
+            keeping it would defeat the ellipsis — and the visible label becomes
+            a block so `text-overflow: ellipsis` engages and the label's box
+            stretches to the badge's left edge. */}
+        <span
+          className={cn(
+            "inline-grid flex-1 min-w-0",
+            truncate && "block",
+            sizeClasses.text,
+          )}
+        >
+          {!truncate && (
+            <span
+              className="col-start-1 row-start-1 invisible [text-box:trim-both_cap_alphabetic]"
+              style={{ fontVariationSettings: fontWeights.semibold }}
+              aria-hidden="true"
+            >
+              {label}
+            </span>
+          )}
           <span
             className={cn(
-              "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
+              "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80",
+              // Truncate mode must drop the trim entirely: cap/alphabetic
+              // trimming removes the descender space (g, p, q, y…) and with
+              // the truncate's overflow:hidden those strokes get clipped.
+              // Keeping both `text-box` declarations on the span is not
+              // enough — which one wins is CSS output order, not class
+              // order — so the trim class is excluded outright.
+              truncate
+                ? "block truncate"
+                : "[text-box:trim-both_cap_alphabetic]",
               isActive || checked
                 ? "text-foreground"
                 : "text-muted-foreground"

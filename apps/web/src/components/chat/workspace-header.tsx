@@ -13,10 +13,12 @@ import { MenuItem } from "@aevryn/ui/components/ui/menu-item";
 
 import { getBrowserSupabase } from "@aevryn/auth";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useIcon } from "@aevryn/ui/lib/icon-context";
+import { SidebarTrigger } from "@aevryn/ui/components/ui/sidebar";
 
 import { relativeTime } from "@/lib/relative-time";
+import { subscribeToRealtime } from "@/lib/realtime-channel";
 
 export interface ProviderModelOption {
   providerSlug: string;
@@ -92,43 +94,44 @@ export function WorkspaceHeader({
     let cancelled = false;
 
     async function fetchThreads() {
-      const { data, error } = await supabase
-        .from("threads")
-        .select("id, title, group_id, last_message_at")
-        .eq("workspace_id", workspaceId)
-        .is("deleted_at", null);
-      if (error) {
-        console.error("[workspace-header] load threads failed", error);
-        return;
-      }
-      if (!cancelled && data) {
-        setThreads(
-          data.map((t: Record<string, unknown>) => ({
-            id: t.id as string,
-            title: (t.title as string) || "Untitled",
-            groupId: (t.group_id as string | null) ?? null,
-            lastMessageAt: (t.last_message_at as string | null) ?? null,
-          })),
-        );
+      try {
+        const { data, error } = await supabase
+          .from("threads")
+          .select("id, title, group_id, last_message_at")
+          .eq("workspace_id", workspaceId);
+        if (error) return;
+        if (!cancelled && data) {
+          setThreads(
+            data.map((t: Record<string, unknown>) => ({
+              id: t.id as string,
+              title: (t.title as string) || "Untitled",
+              groupId: (t.group_id as string | null) ?? null,
+              lastMessageAt: (t.last_message_at as string | null) ?? null,
+            })),
+          );
+        }
+      } catch {
+        // threads table may not exist yet
       }
     }
 
     async function fetchGroups() {
-      const { data, error } = await supabase
-        .from("groups")
-        .select("id, name")
-        .eq("workspace_id", workspaceId);
-      if (error) {
-        console.error("[workspace-header] load groups failed", error);
-        return;
-      }
-      if (!cancelled && data) {
-        setGroups(
-          data.map((g: Record<string, unknown>) => ({
-            id: g.id as string,
-            name: g.name as string,
-          })),
-        );
+      try {
+        const { data, error } = await supabase
+          .from("groups")
+          .select("id, name")
+          .eq("workspace_id", workspaceId);
+        if (error) return;
+        if (!cancelled && data) {
+          setGroups(
+            data.map((g: Record<string, unknown>) => ({
+              id: g.id as string,
+              name: g.name as string,
+            })),
+          );
+        }
+      } catch {
+        // groups table may not exist yet; non-critical
       }
     }
 
@@ -136,48 +139,51 @@ export function WorkspaceHeader({
 
     void fetchThreads();
 
-    const channel = supabase
-      .channel(`threads:header:${workspaceId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "threads",
-          filter: `workspace_id=eq.${workspaceId}`,
-        },
-        (payload: {
-          eventType?: string;
-          new?: Record<string, unknown>;
-          old?: Record<string, unknown>;
-        }) => {
-          const row = payload.new ?? payload.old;
-          if (!row?.id) return;
-          setThreads((prev) => {
-            const byId = new Map(prev.map((t) => [t.id, t]));
-            if (payload.eventType === "DELETE" || row.deleted_at) {
-              byId.delete(row.id as string);
-            } else {
-              byId.set(row.id as string, {
-                id: row.id as string,
-                title: (row.title as string) || "Untitled",
-                groupId: (row.group_id as string | null) ?? null,
-                lastMessageAt: (row.last_message_at as string | null) ?? null,
-              });
-            }
-            return Array.from(byId.values());
-          });
-        },
-      )
-      .subscribe((status: string) => {
-        if (status === "SUBSCRIBE_ERROR" || status === "CHANNEL_ERROR") {
+    const unsubscribe = subscribeToRealtime({
+      supabase,
+      channelName: `threads:header:${workspaceId}`,
+      config: {
+        event: "*",
+        schema: "public",
+        table: "threads",
+        filter: `workspace_id=eq.${workspaceId}`,
+      },
+      onStatus: (status) => {
+        if (status === "CHANNEL_ERROR" || status === "SUBSCRIBE_ERROR") {
           console.error("[workspace-header] threads channel failed", status);
         }
-      });
+      },
+      onEvent: ({
+        eventType,
+        new: row,
+        old,
+      }: {
+        eventType?: string;
+        new?: Record<string, unknown>;
+        old?: Record<string, unknown>;
+      }) => {
+        const used = row ?? old;
+        if (!used?.id) return;
+        setThreads((prev) => {
+          const byId = new Map(prev.map((t) => [t.id, t]));
+          if (eventType === "DELETE") {
+            byId.delete(used.id as string);
+          } else {
+            byId.set(used.id as string, {
+              id: used.id as string,
+              title: (used.title as string) || "Untitled",
+              groupId: (used.group_id as string | null) ?? null,
+              lastMessageAt: (used.last_message_at as string | null) ?? null,
+            });
+          }
+          return Array.from(byId.values());
+        });
+      },
+    });
 
     return () => {
       cancelled = true;
-      void supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [workspaceId, supabase]);
 
@@ -227,17 +233,25 @@ export function WorkspaceHeader({
   }, [models, modelQuery]);
 
   return (
-    <header className="flex h-12 shrink-0 items-center px-4">
+    <header className="flex h-12 shrink-0 items-center px-2">
       <div className="flex w-full flex-row items-center justify-between">
         {" "}
-        <div className="flex min-w-0 flex-row items-center gap-px">
+        <div className="flex min-w-0 flex-row items-center gap-1">
+          <SidebarTrigger />
           {/* Thread switcher — Header.tsx, real data */}
           <DropdownMenu>
             <DropdownTrigger
               render={
-                <Button variant="ghost" trailingIcon={ChevronsUpDown}>
-                  {/* <group> · <thread> variant */}
-                  {current?.title || "Select a thread"}
+                <Button
+                  variant="ghost"
+                  trailingIcon={ChevronsUpDown}
+                  className="min-w-0 "
+                >
+                  {/* <group> · <thread> variant — truncate so a long title
+                      clips with an ellipsis instead of stretching the header */}
+                  <span className="">
+                    {current?.title || "Select a thread"}
+                  </span>
                 </Button>
               }
             />
@@ -252,41 +266,42 @@ export function WorkspaceHeader({
                 onValueChange={setQuery}
                 placeholder="Search threads"
               />
-              {threads.length === 0 ? (
+              {groupedThreads.length === 0 ? (
                 <DropdownEmpty>No threads found</DropdownEmpty>
               ) : (
                 <>
                   {groupedThreads.map((group) => (
-                    <DropdownLabel key={group.key}>{group.label}</DropdownLabel>
+                    <Fragment key={group.key}>
+                      <DropdownLabel>{group.label}</DropdownLabel>
+                      {group.items.map((item) => {
+                        const thread = threads.find((t) => t.id === item.id);
+                        const activity = relativeTime(thread?.lastMessageAt);
+                        return (
+                          <MenuItem
+                            key={item.id}
+                            index={item.idx}
+                            truncate
+                            label={item.title}
+                            trailing={activity}
+                            checked={item.id === threadId ? true : undefined}
+                            onSelect={() => {
+                              if (item.id !== threadId) {
+                                router.push(
+                                  `/workspace/${workspaceId}/${item.id}`,
+                                );
+                              }
+                            }}
+                          />
+                        );
+                      })}
+                    </Fragment>
                   ))}
-                  {groupedThreads.flatMap((group) =>
-                    group.items.map((item) => {
-                      const thread = threads.find((t) => t.id === item.id);
-                      const activity = relativeTime(thread?.lastMessageAt);
-                      return (
-                        <MenuItem
-                          key={item.id}
-                          index={item.idx}
-                          label={item.title}
-                          trailing={activity}
-                          checked={item.id === threadId ? true : undefined}
-                          onSelect={() => {
-                            if (item.id !== threadId) {
-                              router.push(
-                                `/workspace/${workspaceId}/${item.id}`,
-                              );
-                            }
-                          }}
-                        />
-                      );
-                    }),
-                  )}
                 </>
               )}
             </DropdownContent>
           </DropdownMenu>
         </div>
-        <div className="flex shrink-0 flex-row items-center gap-2">
+        <div className="flex shrink-0 flex-row items-center gap-1">
           <div className="flex flex-col items-end gap-1">
             {runError && (
               <span className="text-xs text-destructive">{runError}</span>
@@ -309,12 +324,16 @@ export function WorkspaceHeader({
                 <Button
                   variant="ghost"
                   aria-label="Select model"
-                  className="w-56 justify-between"
                   trailingIcon={ChevronsUpDown}
+                  // Cap the picker so "Model · Provider" never stretches the
+                  // header row; the label truncates with an ellipsis.
+                  className=" justify-between"
                 >
-                  {selectedModel
-                    ? `${selectedModel.modelName} · ${selectedModel.providerName}`
-                    : "Select model"}
+                  <span className="">
+                    {selectedModel
+                      ? `${selectedModel.modelName} · ${selectedModel.providerName}`
+                      : "Select model"}
+                  </span>
                 </Button>
               }
             />
@@ -333,6 +352,7 @@ export function WorkspaceHeader({
                   <MenuItem
                     key={`${model.providerSlug}:${model.modelId}`}
                     index={index}
+                    truncate
                     label={`${model.modelName} · ${model.providerName}`}
                     checked={
                       selectedModel?.providerSlug === model.providerSlug &&
@@ -346,12 +366,7 @@ export function WorkspaceHeader({
               )}
             </DropdownContent>
           </DropdownMenu>{" "}
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onOpenSettings}
-            disabled
-          >
+          <Button size="icon" variant="ghost" onClick={onOpenSettings}>
             <Sliders />
           </Button>
         </div>

@@ -1,10 +1,15 @@
-import { convertToModelMessages, validateUIMessages, type UIMessage } from "ai";
-import { MemoryClient } from "mem0ai";
+import {
+  convertToModelMessages,
+  generateText,
+  validateUIMessages,
+  type UIMessage,
+} from "ai";
 
 import {
   ModelRegistry,
   anakinToolSet,
   askUserTool,
+  beginTaskTool,
   buildSystemPrompt,
   createAevrynAgent,
   makeRetryAgentTool,
@@ -13,11 +18,28 @@ import {
   updateStepStatusTool,
   type ToolContext,
 } from "@aevryn/agent";
-import type { StepToolCall, Workflow } from "@aevryn/db";
+import type { RunStatus, StepToolCall, Workflow } from "@aevryn/db";
 import { db, decryptSecret, ids, threads, userKeys, userProviders, userSettings } from "@aevryn/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { ChatService } from "./chat-service";
+
+// Scoped to chat mode, where the model only needs research/scrape + memory.
+// Wire/browser automation stays in run mode (bound workflow execution).
+const CHAT_TOOL_NAMES = new Set([
+  "searchWeb",
+  "scrapeUrl",
+  "scrapeBatch",
+  "crawlSite",
+  "mapSite",
+  "researchTopic",
+  "aiVisibility",
+  "aiVisibilitySources",
+  "aiVisibilitySearches",
+  "aiVisibilityRetry",
+  "storeMemory",
+  "searchMemory",
+]);
 
 export interface AgentRunInput {
   userId: string;
@@ -26,6 +48,8 @@ export interface AgentRunInput {
   uiMessages: UIMessage[];
   mode: "chat" | "run";
     modelOverride?: { providerSlug?: string; modelId?: string };
+    /** Reasoning effort (providerOptions) — ignored by non-reasoning models. */
+    thinkingEffort?: string;
 }
 
 export interface AgentRunServices {
@@ -42,8 +66,11 @@ export class AgentService {
     this.chat = services?.chat ?? new ChatService(this.client);
   }
 
-    async respond(input: AgentRunInput, init?: ResponseInit): Promise<Response> {
-    const { model } = await this.resolveModel(input);
+    async respond(
+      input: AgentRunInput,
+      init?: ResponseInit & { signal?: AbortSignal },
+    ): Promise<Response> {
+    const { model, providerSlug } = await this.resolveModel(input);
     const [{ anakinKey, mem0Key }, settingsRows] = await Promise.all([
       this.resolveKeys(input.userId),
       this.client
@@ -55,9 +82,25 @@ export class AgentService {
     // Memory switch: null means "on when a key exists" (legacy behavior).
     const memoryEnabled =
       (settingsRows[0]?.settings.memoryEnabled ?? null) !== false;
-    const memoryContext = memoryEnabled
-      ? await this.recallMemory(mem0Key, input)
-      : undefined;
+
+    // Thread status writes are serialized and deduped: mid-run tool failures
+    // flip "running" → "retrying" → "running" via the stream callbacks without
+    // spamming the DB/realtime channel, and the fire-and-forget writes can't
+    // land out of order (the terminal onEnd awaits the tail of the queue).
+    let lastSetStatus: RunStatus | null = null;
+    let statusQueue: Promise<void> = Promise.resolve();
+    const setStatus = (status: RunStatus): Promise<void> => {
+      if (status === lastSetStatus) return statusQueue;
+      lastSetStatus = status;
+      statusQueue = statusQueue.then(() =>
+        this.chat
+          .setThreadStatus({ threadId: input.threadId, status })
+          .catch(() => undefined),
+      );
+      return statusQueue;
+    };
+
+    await setStatus("running");
 
     const boundWorkflow: Workflow | null =
       input.mode === "run"
@@ -74,15 +117,31 @@ export class AgentService {
     const threadFailed = threadRow?.status === "failed";
 
     // Thread status lifecycle: running while the agent works; onEnd sets the
-    // terminal state. Sidebar dots and Run/Stop buttons read this.
-    await this.chat
-      .setThreadStatus({ threadId: input.threadId, status: "running" })
-      .catch(() => undefined);
+    // terminal state. Sidebar dots and Run/Stop buttons read this. A re-run
+    // of a failed thread starts as `retrying` — the agent is in repair mode,
+    // not starting a fresh run.
+    await setStatus(threadFailed ? "retrying" : "running");
+
+    // Tool set is mode-scoped. Plain chat carries only the research/scrape/
+    // memory core — every tool body ships its full parameter schema in the
+    // prompt, and wire/browser automation schemas alone eat thousands of
+    // input tokens per turn ("Hi" was burning ~5k worth mostly on tool JSON).
+    // Run mode gets the complete set, since executing a bound workflow
+    // legitimately needs site automation.
+    const toolNames =
+      input.mode === "run"
+        ? Object.keys(anakinToolSet)
+        : Object.keys(anakinToolSet).filter((name) =>
+            CHAT_TOOL_NAMES.has(name),
+          );
 
     const tools = {
-      ...anakinToolSet,
+      ...Object.fromEntries(
+        toolNames.map((name) => [name, anakinToolSet[name as keyof typeof anakinToolSet]]),
+      ),
       askUser: askUserTool,
       presentPlan: presentPlanTool,
+      beginTask: beginTaskTool,
       retryAgent: makeRetryAgentTool({ model }),
       ...(input.mode === "run" && boundWorkflow
         ? { updateStepStatus: updateStepStatusTool }
@@ -109,8 +168,10 @@ export class AgentService {
       model,
       mode: input.mode,
       tools: tools as never,
-      instructions: buildInstructions(input, memoryContext, boundWorkflow, threadFailed),
+      instructions: buildInstructions(input, boundWorkflow, threadFailed),
       toolsContext,
+      thinkingEffort: input.thinkingEffort,
+      providerOptionsKey: providerSlug,
     });
 
     // Lifecycle accumulators (AI SDK group A-3 callbacks feed these).
@@ -135,8 +196,9 @@ export class AgentService {
       totalTokens: 0,
     };
     // Filled by the agent-level onEnd (which has finishReason); consumed by
-    // the UIMessage-stream onEnd to flip the thread to `failed`.
+    // the UIMessage-stream onEnd to flip the thread to `failed`/`idle`.
     let streamFailed = false;
+    let streamAborted = false;
 
     // The SDK's declared `stream()` type omits `toolsContext`/`streamRetries`
     // (they exist at runtime); extend it rather than losing callback types.
@@ -147,12 +209,22 @@ export class AgentService {
       },
     ) => ReturnType<typeof agent.stream>;
     const result = await streamFn({
-      messages: await convertToModelMessages(input.uiMessages),
+      messages: await convertToModelMessages(pruneModelHistory(input.uiMessages)),
       experimental_transform: [...streamTransform],
       // Per-call context + mid-stream retry (Groq malformed tool-JSON
       // retries the current step, preserving earlier steps/results).
       toolsContext: toolsContext,
       streamRetries: 2,
+      // Client disconnect / composer Stop / sidebar Stop abort the HTTP
+      // request; forwarding the signal cancels the model call and in-flight
+      // tools instead of letting the loop run to completion invisibly.
+      abortSignal: init?.signal,
+      onToolExecutionStart: (event) => {
+        if (event.toolCall?.toolName === "retryAgent") {
+          void setStatus("retrying");
+        }
+      },
+
       onToolExecutionEnd: (event) => {
         const call = event.toolCall as {
           toolCallId?: string;
@@ -176,6 +248,15 @@ export class AgentService {
               ? { error: String(output.error) }
               : output?.output,
         });
+        // Status drives the sidebar dot: a failed tool call flips the thread
+        // to `retrying` (the agent is recovering); the next successful call
+        // flips it back to `running`. streamRetries (malformed tool JSON) and
+        // the retryAgent sub-agent both route through this.
+        if (output?.type === "tool-error") {
+          void setStatus("retrying");
+        } else if (lastSetStatus === "retrying") {
+          void setStatus("running");
+        }
       },
 
       onStepEnd: (event) => {
@@ -209,24 +290,25 @@ export class AgentService {
           if (event.finishReason === "error") {
             streamFailed = true;
           }
+          // The user stopped the turn (composer Stop, sidebar Stop, tab
+          // close): persist what streamed so far, but mark it aborted so the
+          // terminal persistence below resets the thread instead of
+          // flagging it failed. AI SDK v7 has no dedicated abort finish
+          // reason — an aborted stream reports `other` (or `error` when the
+          // provider throws on the dead request), so `abortSignal` presence
+          // + non-stop reasons is the discriminator.
+          if (
+            init?.signal != null &&
+            (event.finishReason === "other" || event.finishReason === "error")
+          ) {
+            streamAborted = true;
+          }
           const usage = event.totalUsage;
           finalUsage = {
             inputTokens: usage.inputTokens ?? 0,
             outputTokens: usage.outputTokens ?? 0,
             totalTokens: usage.totalTokens ?? 0,
           };
-
-          if (mem0Key && memoryEnabled) {
-            const lastUser = lastUserText(input.uiMessages);
-            if (lastUser) {
-              await storeMemoryTurn(
-                mem0Key,
-                input.threadId,
-                lastUser,
-                event.text ?? "",
-              );
-            }
-          }
         } catch (err) {
           console.error("[agent-service] on-finish hooks failed", err);
         }
@@ -255,10 +337,12 @@ export class AgentService {
       },
       originalMessages: input.uiMessages,
       generateMessageId: () => ids.message(),
-      // Reasoning parts never reach the client/persistence: replaying them
-      // would serialize to `reasoning_content`, which Groq (and other
-      // OpenAI-compatible providers) reject with a 400.
-      sendReasoning: false,
+      // Reasoning parts stream LIVE to the client (the timeline renders them
+      // as step descriptions inside the thinking card). They are stripped
+      // from persistence below: replaying them would serialize to
+      // `reasoning_content`, which Groq (and other OpenAI-compatible
+      // providers) reject with a 400.
+      sendReasoning: true,
       // The UIMessage-stream end event carries the FULL message list —
       // including every tool part, client-tool answer (askUser answers,
       // plan decisions), and approval response. Persisting here is what
@@ -272,12 +356,33 @@ export class AgentService {
                 .join("\n")
             : "";
 
+          // Failure/abort digest: summarize the tool calls that DID complete
+          // as a text part, so the next turn's model (which only sees text
+          // parts of older messages after pruneModelHistory) knows what work
+          // actually happened — instead of confidently reporting "nothing".
+          const digest =
+            streamFailed || streamAborted
+              ? buildFailureDigest(toolExecutions, toolResults)
+              : null;
+          // Reasoning streamed to the client live but is never persisted
+          // (providers reject `reasoning_content` on replay).
+          const persistedParts = (responseMessage?.parts ?? []).filter(
+            (p) => {
+              const type = (p as { type?: string }).type;
+              return type !== "reasoning" && type !== "reasoning-file";
+            },
+          );
+          const partsWithDigest =
+            digest && responseMessage
+              ? [...persistedParts, { type: "text" as const, text: `\n\n${digest}` }]
+              : persistedParts;
+
           await this.chat.saveMessage({
             userId: input.userId,
             threadId: input.threadId,
             role: "assistant",
-            content: text,
-            parts: responseMessage?.parts as unknown[] | undefined,
+            content: digest ? `${text}\n\n${digest}` : text,
+            parts: partsWithDigest,
             usage: finalUsage,
             steps: stepSnapshots,
           });
@@ -302,33 +407,41 @@ export class AgentService {
                 { type: "system-message", variant: "error", text: FAILED_TURN_TEXT },
               ],
             });
-            await this.chat.setThreadStatus({
-              threadId: input.threadId,
-              status: "failed",
-            });
+            await setStatus("failed");
+            return;
+          }
+
+          // The user stopped the turn: partial content was persisted above;
+          // settle the thread to idle (NOT awaiting_approval — the pending
+          // cards are dead now) so the sidebar/header leave run state.
+          if (streamAborted) {
+            await setStatus("idle");
             return;
           }
 
           // Terminal thread status: awaiting_approval when a client tool is
-          // still pending (QuestionFlow / plan card), otherwise idle.
+          // still pending (QuestionFlow / plan card / native approval),
+          // otherwise idle. presentPlan and askUser halt the stream with
+          // state "input-available"; native approvals (wireAction etc.) use
+          // "approval-requested". Why the thread stays "running" while the
+          // plan card sits on screen if this misses any of those.
           const hasPendingClientTool = (responseMessage?.parts ?? []).some(
-            (p) =>
-              typeof p === "object" &&
-              p !== null &&
-              "state" in p &&
-              (p as { state?: string }).state === "input-available" &&
-              String((p as { type?: string }).type ?? "").startsWith(
-                "tool-askUser",
-              ) ||
-              (typeof p === "object" &&
-                p !== null &&
-                "state" in p &&
-                (p as { state?: string }).state === "approval-requested"),
+            (p) => {
+              if (typeof p !== "object" || p === null || !("state" in p))
+                return false;
+              const type = String((p as { type?: string }).type ?? "");
+              const state = (p as { state?: string }).state;
+              if (!type.startsWith("tool-")) return false;
+              if (state === "output-available" || state === "output-error")
+                return false;
+              return (
+                type.startsWith("tool-askUser") ||
+                type.startsWith("tool-presentPlan") ||
+                state === "approval-requested"
+              );
+            },
           );
-          await this.chat.setThreadStatus({
-            threadId: input.threadId,
-            status: hasPendingClientTool ? "awaiting_approval" : "idle",
-          });
+          await setStatus(hasPendingClientTool ? "awaiting_approval" : "idle");
         } catch (err) {
           console.error("[agent-service] persist-on-finish failed", err);
         }
@@ -336,11 +449,69 @@ export class AgentService {
     });
   }
 
+  // ─── Auto title ───────────────────────────────────────────────────────
+
+  /** Titles that mean "the user never named this thread" — safe to
+   *  auto-replace with a generated summary title. */
+  private static readonly DEFAULT_TITLES = new Set([
+    "",
+    "new thread",
+    "untitled",
+  ]);
+
+  /** After the first real user message, generate a short ChatGPT-style
+   *  title (3–6 words) from it and update the thread row. Fire-and-forget:
+   *  the postgres_changes realtime channel pushes the new title to the
+   *  header thread-switcher and the sidebar automatically. Never overwrites
+   *  a user-set title or an already-generated one. */
+  async autoTitle(input: {
+    threadId: string;
+    userId: string;
+    message: string;
+  }): Promise<void> {
+    try {
+      const [threadRow] = await this.client
+        .select({ title: threads.title })
+        .from(threads)
+        .where(
+          and(eq(threads.id, input.threadId), eq(threads.userId, input.userId)),
+        )
+        .limit(1);
+      if (!threadRow) return;
+      if (!AgentService.DEFAULT_TITLES.has(threadRow.title.trim().toLowerCase()))
+        return;
+
+      const { model } = await this.resolveModel({
+        userId: input.userId,
+      } as AgentRunInput);
+      const { text } = await generateText({
+        model,
+        maxOutputTokens: 40,
+        prompt:
+          `Generate a concise title (3-6 words, no quotes, no trailing period) ` +
+          `summarizing what the user wants in this conversation. Reply with ` +
+          `ONLY the title text and nothing else.\n\nUser message: ${input.message.slice(0, 500)}`,
+      });
+      const title = text.trim().replace(/^["'“”]+|["'“”.]+$/g, "").slice(0, 80);
+      if (!title) return;
+
+      await this.client
+        .update(threads)
+        .set({ title })
+        .where(
+          and(eq(threads.id, input.threadId), eq(threads.userId, input.userId)),
+        );
+    } catch {
+      // Title generation is cosmetic — provider errors, missing models, or
+      // race conditions must never break the chat turn.
+    }
+  }
+
   // ─── Resolution helpers ────────────────────────────────────────────────────
 
   private async resolveModel(
     input: AgentRunInput,
-  ): Promise<{ model: ReturnType<typeof ModelRegistry.resolve> }> {
+  ): Promise<{ model: ReturnType<typeof ModelRegistry.resolve>; providerSlug: string }> {
     const [providers, settingsRows] = await Promise.all([
       this.client
         .select()
@@ -382,7 +553,10 @@ export class AgentService {
       );
     }
 
-    return { model: ModelRegistry.resolve(provider, modelId) };
+    return {
+      model: ModelRegistry.resolve(provider, modelId),
+      providerSlug: provider.slug,
+    };
   }
 
   private async resolveKeys(userId: string): Promise<{
@@ -406,80 +580,99 @@ export class AgentService {
 
     return { anakinKey: find("anakin"), mem0Key: find("mem0") };
   }
-
-    private async recallMemory(
-    mem0Key: string | null,
-    input: AgentRunInput,
-  ): Promise<string | undefined> {
-    if (!mem0Key) return undefined;
-    const query = lastUserText(input.uiMessages);
-    if (!query) return undefined;
-
-    try {
-      const client = new MemoryClient({ apiKey: mem0Key });
-      const { results } = await client.search(query, {
-        filters: { user_id: input.threadId },
-        topK: 5,
-      });
-      const memories = results
-        .map((m) => (typeof m.memory === "string" ? m.memory : undefined))
-        .filter((m): m is string => Boolean(m));
-      return memories.length > 0
-        ? memories.map((m) => `- ${m}`).join("\n")
-        : undefined;
-    } catch (err) {
-      console.warn("[agent-service] mem0 recall failed (continuing)", err);
-      return undefined;
-    }
-  }
-}
-
-async function storeMemoryTurn(
-  mem0Key: string,
-  threadId: string,
-  userText: string,
-  assistantText: string,
-): Promise<void> {
-  // Mem0 rejects messages with empty/blank content (HTTP 400 'code=blank').
-  const user = userText.trim();
-  const assistant = assistantText.trim().slice(0, 2_000);
-  if (!user || !assistant) return;
-  try {
-    const client = new MemoryClient({ apiKey: mem0Key });
-    await client.add(
-      [
-        { role: "user", content: user },
-        { role: "assistant", content: assistant },
-      ],
-      { userId: threadId },
-    );
-  } catch (err) {
-    console.warn("[agent-service] mem0 store failed (continuing)", err);
-  }
 }
 
 const FAILED_TURN_TEXT =
   "The generation failed mid-run and this turn was cut off. Re-run the thread or reply \"continue\" to pick back up.";
 
-function lastUserText(uiMessages: UIMessage[]): string | undefined {
-  for (let i = uiMessages.length - 1; i >= 0; i--) {
-    const message = uiMessages[i]!;
-    if (message.role !== "user") continue;
-    const textParts = message.parts.filter(
-      (p): p is { type: "text"; text: string } => p.type === "text",
-    );
-    const text = textParts
-      .map((p) => p.text)
-      .join("\n")
-      .trim();
-    return text || undefined;
+// ─── Failure digest ───────────────────────────────────────────────────────────
+// When a turn dies mid-loop (provider credits, abort, error), the model's
+// only knowledge of its tool calls lived in that turn's tool parts — which
+// pruneModelHistory strips before the next request. Persisting a compact
+// digest as a *text* part on the assistant message keeps the breadcrumbs
+// model-visible: text parts survive history pruning, tool parts don't.
+
+// Per-tool output budget in the digest (chars). Big scrapes are truncated;
+// the goal is "enough to answer about it", not a full replay.
+const DIGEST_TOOL_OUTPUT_CHARS = 600;
+// Total digest ceiling so a 30-tool run can't blow Groq's 8k TPM on its own.
+const DIGEST_MAX_CHARS = 4000;
+
+function buildFailureDigest(
+  toolExecutions: Map<string, { toolName: string; input: unknown; startedAt: string }>,
+  toolResults: Map<string, { status: "running" | "completed" | "failed"; output?: unknown }>,
+): string | null {
+  if (toolExecutions.size === 0) return null;
+
+  const lines: string[] = [];
+  let total = 0;
+
+  for (const [callId, exec] of toolExecutions) {
+    const result = toolResults.get(callId);
+    const status = result?.status ?? "running";
+    const mark = status === "completed" ? "✓" : status === "failed" ? "✗" : "…";
+    const inputStr = JSON.stringify(exec.input ?? null);
+    const inputPreview =
+      inputStr.length > 150 ? `${inputStr.slice(0, 150)}…` : inputStr;
+
+    let outputPreview = "";
+    if (result?.output != null) {
+      const outputStr =
+        typeof result.output === "string"
+          ? result.output
+          : JSON.stringify(result.output);
+      outputPreview =
+        outputStr.length > DIGEST_TOOL_OUTPUT_CHARS
+          ? `${outputStr.slice(0, DIGEST_TOOL_OUTPUT_CHARS)}… [truncated]`
+          : outputStr;
+    }
+
+    const line =
+      `- ${mark} ${exec.toolName}(${inputPreview})${
+        outputPreview ? ` → ${outputPreview}` : status === "running" ? " → (never finished)" : " → (no output)"
+      }`;
+
+    // Respect the total ceiling: stop adding lines rather than emitting a
+    // half-truncated blob.
+    if (total + line.length > DIGEST_MAX_CHARS) {
+      lines.push(`- … (${toolExecutions.size - lines.length} more tool calls omitted)`);
+      break;
+    }
+    lines.push(line);
+    total += line.length;
   }
-  return undefined;
+
+  return [
+    "[Work completed before this turn was cut off — these tool results are real and can be cited, but they were NOT included in the conversation.]",
+    ...lines,
+  ].join("\n");
+}
+
+// Model-history budget. Only the last few messages travel to the model, and
+// each one is reduced to the agent's finished text (the summary/message it
+// actually produced) — tool calls and their outputs are dropped so giant
+// replay payloads (scrapes, tables, screenshots) don't re-enter the prompt
+// every turn. The final message is kept whole: on a resume it carries the
+// paired client-tool call+answer (askUser, presentPlan, approvals) that the
+// SDK needs to continue.
+const MODEL_HISTORY_WINDOW = 8;
+
+function pruneModelHistory(uiMessages: UIMessage[]): UIMessage[] {
+  const tail = uiMessages.slice(-MODEL_HISTORY_WINDOW);
+  return tail.map((message, i) => {
+    if (i === tail.length - 1) {
+      return message;
+    }
+    const { parts, ...rest } = message;
+    return {
+      ...rest,
+      parts: parts.filter((p) => (p as { type?: string }).type === "text"),
+    } as UIMessage;
+  });
 }
 
 function buildInstructions(
   input: AgentRunInput,
-  memoryContext?: string,
   boundWorkflow?: Workflow | null,
   retryAfterFailure = false,
 ): string {
@@ -498,9 +691,15 @@ A previous turn failed mid-stream. Do NOT restart earlier steps: re-run only the
   const prompt = buildSystemPrompt({
     mode: input.mode,
     plan,
-    memoryContext,
   });
-  return failureGuidance ? prompt + failureGuidance : prompt;
+  // Task-affinity card headers: the model titles each subtask; the timeline
+  // groups the calls between beginTask calls under that label.
+  const taskGuidance =
+    `\n\n## Step cards\n` +
+    `When you move to a DISTINCT subtask, call beginTask(label) first — a short imperative label like "Searching flights". ` +
+    `Group the tool calls of the SAME task together between beginTask calls. ` +
+    `If the user explicitly ordered steps ("first X, then Y"), emit one beginTask per ordered step, in order.`;
+  return failureGuidance ? prompt + failureGuidance : prompt + taskGuidance;
 }
 
 export async function loadThreadMessages(

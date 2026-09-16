@@ -3,6 +3,8 @@
 import { getBrowserSupabase } from "@aevryn/auth";
 import { useCallback, useEffect, useState } from "react";
 
+import { subscribeToRealtime } from "@/lib/realtime-channel";
+
 export interface PlanStepView {
 	id: string;
 	position: number;
@@ -42,45 +44,66 @@ export function usePlanSteps(workflowId: string | null) {
 		);
 	}, [workflowId]);
 
+	/** Client-side reset: marks every step idle so the progress slider jumps
+	 *  back to step 1 the moment a new run starts, before the agent's
+	 *  updateStepStatus writes arrive over realtime. */
+	const reset = useCallback(() => {
+		setSteps((prev) =>
+			prev.map((s) => ({ ...s, status: "idle" })),
+		);
+	}, []);
+
 	useEffect(() => {
 		void load();
 	}, [load]);
 
 	useEffect(() => {
 		if (!workflowId) return;
-		const channel = supabase
-			.channel(`plan_steps:${workflowId}`)
-			.on(
-				"postgres_changes",
-				{
-					event: "UPDATE",
-					schema: "public",
-					table: "plan_steps",
-					filter: `workflow_id=eq.${workflowId}`,
-				},
-				(payload: { new?: Record<string, unknown> }) => {
-					const row = payload.new;
-					if (!row?.id) return;
-					setSteps((prev) => {
-						const idx = prev.findIndex((s) => s.id === row.id);
-						if (idx === -1) return prev;
-						const next = [...prev];
-						next[idx] = {
-							...next[idx]!,
-							status: String(row.status ?? next[idx].status),
-							title: typeof row.title === "string" ? row.title : next[idx].title,
-							description:
-								(row.description as string | null) ?? next[idx].description,
-						};
-						return next;
-					});
-				},
-			)
-			.subscribe();
+		const unsubscribe = subscribeToRealtime({
+			supabase,
+			channelName: `plan_steps:${workflowId}`,
+			config: {
+				event: "*",
+				schema: "public",
+				table: "plan_steps",
+				filter: `workflow_id=eq.${workflowId}`,
+			},
+			maxRetries: 4,
+			onEvent: ({ eventType, new: row, old }) => {
+				if (eventType === "DELETE") {
+					setSteps((prev) =>
+						prev.filter((s) => s.id !== (old?.id as string | undefined)),
+					);
+					return;
+				}
+				if (!row?.id) return;
+				setSteps((prev) => {
+					const idx = prev.findIndex((s) => s.id === row.id);
+					const updated = {
+						id: row.id as string,
+						position: Number(row.position ?? prev[idx]?.position ?? 0),
+						title:
+							typeof row.title === "string"
+								? row.title
+								: (prev[idx]?.title ?? ""),
+						description:
+							(row.description as string | null) ??
+							(prev[idx]?.description ?? null),
+						status: String(row.status ?? prev[idx]?.status ?? "idle"),
+					};
+					if (idx === -1) {
+						return [...prev, updated];
+					}
+					const next = [...prev];
+					next[idx] = updated;
+					return next;
+				});
+			},
+		});
 		return () => {
-			void supabase.removeChannel(channel);
+			unsubscribe();
 		};
 	}, [workflowId, supabase]);
 
-	return { steps, reload: load };
+	return { steps, reload: load, reset };
 }

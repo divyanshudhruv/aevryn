@@ -30,7 +30,7 @@ interface ApiSearchSummary extends Record<string, unknown> {
 
 export const aiVisibilitySearchesTool = tool({
 	description:
-		"List your 20 most recent AI Visibility runs with per-source statuses and total credit cost. Requires an API key. Use it to recover results for runs that finished after a disconnect, then fetch full answers with aiVisibility on the same question.",
+		"List 20 recent AI Visibility runs. Per-source status, total credit cost. Needs API key. Recover results after disconnect. Refetch answers with aiVisibility.",
 	inputSchema: z.object({}),
 	contextSchema: toolContextSchema,
 	execute: async (

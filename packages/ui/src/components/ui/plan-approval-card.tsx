@@ -62,28 +62,11 @@ const DECISION_OPTIONS = [
   },
 ] as const;
 
-function decisionBannerLabel(decision: PlanDecision | undefined): string {
-  switch (decision) {
-    case "approved":
-      return "Plan approved \u2014 executing now";
-    case "bound":
-      return "Plan approved and bound to this thread";
-    case "changes_requested":
-      return "Changes requested";
-    case "declined":
-      return "Plan declined \u2014 staying in chat";
-    default:
-      return "Decision recorded";
-  }
-}
-
 export function PlanApprovalCard({
   plan,
   onDecision,
   className,
   completed = false,
-  decision,
-  feedback,
 }: PlanApprovalCardProps) {
   const [decided, setDecided] = useState(false);
 
@@ -117,7 +100,7 @@ export function PlanApprovalCard({
 
   return (
     <div className={cn(className, "min-w-full")}>
-      {completed && (
+      {/* {completed && (
         <div
           role="status"
           className="mb-3 flex flex-col gap-1 rounded-md bg-muted/50 px-3 py-2 text-[13px] text-foreground"
@@ -127,15 +110,15 @@ export function PlanApprovalCard({
             <span className="text-muted-foreground">{`“${feedback}”`}</span>
           )}
         </div>
-      )}
-      <div className="mb-3 flex flex-col gap-1">
-        <span className="text-[16px] font-medium text-foreground ">
+      )} */}
+      <div className="mb-3 flex flex-col gap-2">
+        <span className="text-[18px] font-medium text-foreground ">
           {plan.title}
         </span>
         <span className="text-muted-foreground">{plan.objective}</span>
-        {plan.summary && (
+        {/* {plan.summary && (
           <span className="text-muted-foreground/80">{plan.summary}</span>
-        )}
+        )} */}
       </div>
 
       <AccordionGroup type="single" className="mb-3 w-full" collapsible>

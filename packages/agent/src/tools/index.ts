@@ -1,5 +1,7 @@
 export { toolContextSchema, type ToolContext } from "./context";
 
+export { beginTaskTool } from "./begin-task";
+
 export { scrapeUrlTool } from "./scrape-url";
 export { scrapeBatchTool } from "./scrape-batch";
 export { searchWebTool } from "./search-web";

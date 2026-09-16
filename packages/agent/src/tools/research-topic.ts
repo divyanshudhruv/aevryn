@@ -9,16 +9,12 @@ import {
 } from "./anakin-client";
 
 const inputSchema = z.object({
-	prompt: z
-		.string()
-		.min(1)
-		.max(8_192)
-		.describe("The research question or topic."),
+	prompt: z.string().min(1).max(8_192),
 });
 
 export const researchTopicTool = tool({
 	description:
-		"Deep multi-source research report (searches the web, scrapes the best citations, and synthesizes an analysis). Costs 10 Anakin credits + 1 per cited URL; requires an API key. Takes 1–5 minutes — announce that you're starting it and narrate the wait. Returns a summary, structured data, and the schema describing that data's shape. For a quick ranked list of links use searchWeb (3 credits) instead.",
+		"Deep multi-source research. Summary, structured data, data schema. Web search + best citations + analysis. 10 credits + 1/cited URL. Needs API key. 1–5 min, announce wait. Quick links: searchWeb (3 credits).",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

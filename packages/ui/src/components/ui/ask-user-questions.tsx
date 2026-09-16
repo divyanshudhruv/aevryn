@@ -249,6 +249,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
     const reactId = useId();
     const total = questions.length;
     const safeIndex = Math.max(0, Math.min(index, Math.max(0, total - 1)));
+    const isLast = safeIndex >= total - 1;
     const question = questions[safeIndex];
     const qId = question ? questionKey(question, safeIndex) : "";
     const currentAnswer = answers[qId];
@@ -695,7 +696,20 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
         if (e.key === "ArrowLeft") {
           if (safeIndex > 0) handleBack();
         } else if (isSkippable && total > 1) {
-          handleSkip();
+          if (isLast) {
+            // Last question: → submits (mirrors the submit button — needs an
+            // answer, same as the button's disabled state).
+            if (isFreeText) {
+              if (otherText.trim().length > 0) handleOtherSubmit();
+            } else if (
+              selectedIds.length > 0 ||
+              otherText.trim().length > 0
+            ) {
+              handleMultiNext();
+            }
+          } else {
+            handleSkip();
+          }
         }
         return;
       }
@@ -829,9 +843,12 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
     const blocks = useMergeSplitBlocks(selectedGroups, itemRects, shape.bgRadius);
 
     const showBack = total > 1 && safeIndex > 0;
-    const showSkip = total > 1 && isSkippable;
-    // freeText commits through the same bottom submit button as multi-select.
-    const showSubmit = !disabled && (isMulti || isFreeText);
+    // Skip moves PAST a question; the last question has nothing after it, so
+    // it shows the submit button (Finish/Submit) instead of Skip.
+    const showSkip = !isLast && total > 1 && isSkippable;
+    // freeText and multi-select always commit through a bottom submit button;
+    // the last question gets one too (single-select included).
+    const showSubmit = !disabled && (isMulti || isFreeText || isLast);
     const showFooter = showBack || showSkip || showSubmit;
 
     // ── Roving tabindex ──────────────────────────────────────────

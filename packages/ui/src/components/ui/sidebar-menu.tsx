@@ -43,12 +43,12 @@ import { FluidHoverHighlight } from "@aevryn/ui/components/fluid-hover-highlight
 import type { RunStatus } from "@aevryn/db";
 import { DotmCircular4 } from "../dotm-circular-4";
 import { DotmCircular7 } from "../dotm-circular-7";
+import { DotmCircular3 } from "../dotm-circular-3";
 import { DotmCircular17 } from "../dotm-circular-17";
 import { DotmCircular14 } from "../dotm-circular-14";
 import { Badge } from "./badge";
 import { DotmCustomFilled } from "../dotm-custom-filled";
 import { DotmCustomOutlined } from "../dotm-custom-outlined";
-
 
 // SSR-safe layout effect (client components still server-render in Next).
 const useIsoLayoutEffect =
@@ -1070,6 +1070,11 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
                 <DotmCircular7 size={17} dotSize={2} />
               </div>
             )}
+            {status === "retrying" && (
+              <div>
+                <DotmCircular3 size={17} dotSize={2} />
+              </div>
+            )}
             {status === "awaiting_approval" && (
               <div>
                 <DotmCircular17 size={17} dotSize={2} />
@@ -1102,11 +1107,21 @@ const SidebarMenuButton = forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
                     )}
                   />
                 </span> */}
-                                <DotmCustomOutlined size={17} dotSize={2} />
-
+                <DotmCustomOutlined size={17} dotSize={2} />
               </div>
             )}
           </div>
+        )}
+
+        {status == "retrying" && (
+          <Badge color="cyan" size="sm">
+            Retrying
+          </Badge>
+        )}
+        {status == "completed" && (
+          <Badge color="lime" size="sm">
+            Completed
+          </Badge>
         )}
         {status == "failed" && (
           <Badge color="red" size="sm">

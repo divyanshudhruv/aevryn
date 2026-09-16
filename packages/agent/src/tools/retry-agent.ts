@@ -46,7 +46,7 @@ function uniqueToolNames(steps: Array<{ toolCalls?: Array<{ toolName: string }> 
 export function makeRetryAgentTool(opts: { model: LanguageModel }) {
   return tool({
     description:
-      "Spawn a sub-agent to repair a step that failed mid-run. Give it the failing step's description and the error; it investigates with search/scrape/map and returns the corrected result while the main run continues.",
+      "Spawn sub-agent to repair a failed step mid-run. Give it step description, error. It investigates (search/scrape/map), returns corrected result. Main run continues.",
     inputSchema: z.object({
       failedStepDescription: z
         .string()

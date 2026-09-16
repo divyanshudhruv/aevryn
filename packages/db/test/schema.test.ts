@@ -34,6 +34,7 @@ describe("new schema tables", () => {
 	it("does not regress the confirmed run statuses", () => {
 		expect(RUN_STATUSES).toEqual([
 			"running",
+			"retrying",
 			"awaiting_approval",
 			"completed",
 			"failed",

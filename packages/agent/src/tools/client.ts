@@ -58,7 +58,7 @@ const askUserInputSchema = z
 
 export const askUserTool = tool({
 	description:
-		"Ask the user one or more clarifying questions with clickable options or a free-text field. Use when a request is ambiguous, a decision is the user's to make, or required parameters are missing. The conversation pauses until they answer. Pass the questions as a top-level ARRAY, e.g. [{ title: '...', options: [{ title: '...' }] }].",
+		"Ask user clarifying questions. Clickable options or free-text field. Use when: request ambiguous, user decision, missing params. Pauses conversation until answered. Pass questions as top-level ARRAY: [{ title: '...', options: [{ title: '...' }] }].",
 	inputSchema: askUserInputSchema,
 	// No contextSchema needed: the tool carries no per-request state.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- client tool has no execute
@@ -71,7 +71,7 @@ export const askUserTool = tool({
 
 export const presentPlanTool = tool({
 	description:
-		"Present a multi-step execution plan as an approve/decline card. Use BEFORE burning significant credits or doing anything long-running or write-like. On approval the plan is bound to the thread as a workflow and you execute it step by step.",
+		"Present multi-step plan as approve/decline card. Use before burning significant credits, long-running, or write work. On approval: plan bound to thread as workflow, execute step by step.",
 	inputSchema: z.object({
 		title: z.string().min(1).describe("Short plan name, e.g. 'Track GPU prices daily'."),
 		objective: z.string().min(1).describe("What this plan accomplishes for the user."),
@@ -83,7 +83,7 @@ export const presentPlanTool = tool({
 					description: z
 						.string()
 						.describe(
-							"What this step concretely does — shown when the user expands the step in the review accordion.",
+							"What this step concretely does — shown in the review accordion.",
 						),
 				}),
 			)

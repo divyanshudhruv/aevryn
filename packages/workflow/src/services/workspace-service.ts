@@ -50,7 +50,7 @@ export class WorkspaceService {
 	}
 
 	async listThreads(workspaceId: string): Promise<ThreadSummary[]> {
-		const rows = await db
+		return db
 			.select({
 				id: threads.id,
 				groupId: threads.groupId,
@@ -58,22 +58,20 @@ export class WorkspaceService {
 				updatedAt: threads.updatedAt,
 				status: threads.status,
 				boundWorkflowId: threads.boundWorkflowId,
-				deletedAt: threads.deletedAt,
 			})
 			.from(threads)
 			.where(eq(threads.workspaceId, workspaceId))
-			.orderBy(asc(threads.createdAt), desc(threads.updatedAt));
-
-		return rows
-			.filter((r) => !r.deletedAt)
-		.map((r) => ({
-			id: r.id,
-			groupId: r.groupId,
-			title: r.title,
-			status: r.status,
-			updatedAt: r.updatedAt.toISOString(),
-			boundWorkflowId: r.boundWorkflowId,
-		}));
+			.orderBy(asc(threads.createdAt), desc(threads.updatedAt))
+			.then((rows) =>
+				rows.map((r) => ({
+					id: r.id,
+					groupId: r.groupId,
+					title: r.title,
+					status: r.status,
+					updatedAt: r.updatedAt.toISOString(),
+					boundWorkflowId: r.boundWorkflowId,
+				})),
+			);
 	}
 
 	async ensureDefaultWorkspace(userId: string): Promise<string> {
@@ -159,9 +157,10 @@ export class WorkspaceService {
 	}
 
 	async deleteThread(threadId: string, userId: string): Promise<void> {
+		// Permanent delete — the thread row and everything under it (messages,
+		// steps, bound workflows → plan steps, tool-call logs) cascade via FK.
 		await db
-			.update(threads)
-			.set({ deletedAt: new Date() })
+			.delete(threads)
 			.where(and(eq(threads.id, threadId), eq(threads.userId, userId)));
 	}
 

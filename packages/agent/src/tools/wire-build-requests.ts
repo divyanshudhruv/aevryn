@@ -24,7 +24,7 @@ interface ApiBuildRequest extends Record<string, unknown> {
 
 export const wireBuildRequestsTool = tool({
 	description:
-		"List your Wire build requests and their lifecycle (pending → success with an action_id, or failed with credits refunded). Requires an API key. Free. Use it to track a build submitted with wireBuildRequest and pick up the action_id once it succeeds.",
+		"List Wire build requests. Lifecycle: pending → success (action_id) or failed (credits refunded). Needs API key. Free. Track wireBuildRequest builds, pick up action_id on success.",
 	inputSchema: z.object({}),
 	contextSchema: toolContextSchema,
 	execute: async (

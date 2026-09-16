@@ -4,6 +4,7 @@ export type PlanLevel = (typeof PLAN_LEVELS)[number];
 // Confirmed run/thread status vocabulary — unchanged by the rewrite.
 export const RUN_STATUSES = [
 	"running",
+	"retrying",
 	"awaiting_approval",
 	"completed",
 	"failed",

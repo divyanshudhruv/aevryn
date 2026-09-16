@@ -26,6 +26,7 @@ const settingsInputSchema = z.object({
 			runFailed: z.boolean(),
 			runCompleted: z.boolean(),
 			runApproval: z.boolean(),
+			runRetrying: z.boolean(),
 		})
 		.partial()
 		.optional(),

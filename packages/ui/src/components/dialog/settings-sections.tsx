@@ -11,6 +11,7 @@ import { useTheme } from "next-themes";
 import { cn } from "@aevryn/ui/lib/utils";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 import { SidebarMenuSkeleton } from "../ui/sidebar-menu";
+import { XIcon } from "lucide-react";
 
 // Switches carry their own (required) label for assistive tech; the row
 // already shows it, so the switch's copy is visually hidden.
@@ -69,18 +70,19 @@ interface ProviderRow {
 
 const PROVIDER_PRESETS: Record<
   string,
-  { displayName: string; baseUrl: string; models: string }
+  { displayName: string; baseUrl: string; modelId: string }
 > = {
   groq: {
     displayName: "Groq",
     baseUrl: "https://api.groq.com/openai/v1",
-    models: "llama-3.3-70b-versatile, llama-3.1-8b-instant",
+    modelId: "llama-3.3-70b-versatile",
   },
-  custom: { displayName: "", baseUrl: "", models: "" },
+  custom: { displayName: "", baseUrl: "", modelId: "" },
 };
 
 function ModelsPanel() {
   const [rows, setRows] = useState<ProviderRow[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [preset, setPreset] = useState("groq");
   const [displayName, setDisplayName] = useState(
@@ -90,8 +92,8 @@ function ModelsPanel() {
     PROVIDER_PRESETS["groq"]?.baseUrl ?? "",
   );
   const [apiKey, setApiKey] = useState("");
-  const [modelsText, setModelsText] = useState(
-    PROVIDER_PRESETS["groq"]?.models ?? "",
+  const [modelId, setModelId] = useState(
+    PROVIDER_PRESETS["groq"]?.modelId ?? "",
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,10 +102,7 @@ function ModelsPanel() {
     modelId: string;
   } | null>(null);
   const [addingModel, setAddingModel] = useState<string | null>(null);
-  const [newModelId, setNewModelId] = useState("");
-  const [testingSlug, setTestingSlug] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<string | null>(null);
-
+  const [newModelIds, setNewModelIds] = useState<Record<string, string>>({});
   const load = useCallback(async () => {
     setLoading(true);
     const [providersRes, settingsRes] = await Promise.all([
@@ -115,9 +114,12 @@ function ModelsPanel() {
     } | null;
     if (json?.data) setRows(json.data);
     const settingsJson = (await settingsRes.json().catch(() => null)) as {
-      data?: { defaultModel?: { providerSlug: string; modelId: string } | null };
+      data?: {
+        defaultModel?: { providerSlug: string; modelId: string } | null;
+      };
     } | null;
-    if (settingsJson?.data) setDefaultModel(settingsJson.data.defaultModel ?? null);
+    if (settingsJson?.data)
+      setDefaultModel(settingsJson.data.defaultModel ?? null);
     setLoading(false);
   }, []);
 
@@ -131,26 +133,20 @@ function ModelsPanel() {
     if (p) {
       setDisplayName(p.displayName);
       setBaseUrl(p.baseUrl);
-      setModelsText(p.models);
+      setModelId(p.modelId);
     }
   };
 
   const save = async () => {
     setError(null);
-    const models = modelsText
-      .split(",")
-      .map((m) => m.trim())
-      .filter(Boolean)
-      .map((id) => ({ id }));
+    const models = modelId.trim() ? [{ id: modelId.trim() }] : [];
     if (
       !displayName.trim() ||
       !baseUrl.trim() ||
       !apiKey.trim() ||
       models.length === 0
     ) {
-      setError(
-        "Fill in the name, base URL, API key, and at least one model id.",
-      );
+      setError("Fill in the name, base URL, API key, and a model id.");
       return;
     }
     const slug =
@@ -196,14 +192,38 @@ function ModelsPanel() {
     await load();
   };
 
-  const setAsDefault = async (
-    providerSlug: string,
-    modelId: string,
-  ) => {
+  const removeModel = async (slug: string, modelIdToRemove: string) => {
+    const provider = rows.find((r) => r.slug === slug);
+    if (!provider) return;
+    const next = provider.models.filter((m) => m.id !== modelIdToRemove);
+    const res = await fetch("/api/providers", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug, models: next }),
+    });
+    if (res.ok) await load();
+  };
+
+  const addModel = async (slug: string) => {
+    const id = (newModelIds[slug] ?? "").trim();
+    if (!id || addingModel === slug) return;
+    setAddingModel(slug);
+    const res = await fetch("/api/providers", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug, modelId: id }),
+    });
+    setAddingModel(null);
+    if (!res.ok) return;
+    setNewModelIds((prev) => ({ ...prev, [slug]: "" }));
+    await load();
+  };
+
+  const setAsDefault = async (providerSlug: string, modelIdToSet: string) => {
     const isSame =
       defaultModel?.providerSlug === providerSlug &&
-      defaultModel?.modelId === modelId;
-    const next = isSame ? null : { providerSlug, modelId };
+      defaultModel?.modelId === modelIdToSet;
+    const next = isSame ? null : { providerSlug, modelId: modelIdToSet };
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "content-type": "application/json" },
@@ -212,83 +232,64 @@ function ModelsPanel() {
     if (res.ok) setDefaultModel(next);
   };
 
-  const appendModel = async (slug: string) => {
-    const modelId = newModelId.trim();
-    if (!modelId) return;
-    setAddingModel(slug);
-    const res = await fetch("/api/providers", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ slug, modelId }),
-    });
-    setAddingModel(null);
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
-      setError(body?.error?.message ?? "Could not add the model.");
-      return;
-    }
-    setNewModelId("");
-    setError(null);
-    await load();
-  };
+  const defaultOptions = rows.flatMap((p) =>
+    p.models.map((m) => ({
+      key: `${p.slug}:${m.id}`,
+      label: `${m.displayName ?? m.id} · ${p.displayName}`,
+      providerSlug: p.slug,
+      modelId: m.id,
+    })),
+  );
 
-  const reorderModel = async (slug: string, from: number, to: number) => {
-    const provider = rows.find((r) => r.slug === slug);
-    if (!provider) return;
-    const next = [...provider.models];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved!);
-    const res = await fetch("/api/providers", {
-      method: "PATCH",
+  const clearDefault = async () => {
+    if (!defaultModel) return;
+    const res = await fetch("/api/settings", {
+      method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ slug, models: next }),
+      body: JSON.stringify({ defaultModel: null }),
     });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
-      setError(body?.error?.message ?? "Could not reorder the models.");
-      return;
-    }
-    setError(null);
-    await load();
-  };
-
-  const testProvider = async (slug: string, provider: ProviderRow) => {
-    const modelId =
-      defaultModel?.providerSlug === slug ? defaultModel.modelId : undefined;
-    setTestingSlug(slug);
-    setTestResult(null);
-    const res = await fetch("/api/providers/test", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        slug,
-        modelId: modelId ?? (provider.models[0]?.id ?? undefined),
-      }),
-    });
-    const json = (await res.json().catch(() => null)) as {
-      data?: { ok?: boolean };
-      error?: { message?: string };
-    } | null;
-    setTestingSlug(null);
-    if (!res.ok || !json?.data?.ok) {
-      setError(
-        json?.error?.message ??
-          `Test failed for ${slug} (${provider.models[0]?.id ?? "no model"}).`,
-      );
-      return;
-    }
-    setError(null);
-    setTestResult(`${slug}: key works`);
+    if (res.ok) setDefaultModel(null);
   };
 
   return (
     <div className="flex flex-col">
+      <SettingRow
+        label="Default model"
+        description="Picked automatically for every new conversation."
+      >
+        <Select
+          value={
+            defaultModel
+              ? `${defaultModel.providerSlug}:${defaultModel.modelId}`
+              : ""
+          }
+          onValueChange={(value) => {
+            const [providerSlug, modelIdToSet] = value.split(":");
+            if (providerSlug && modelIdToSet) {
+              void setAsDefault(providerSlug, modelIdToSet);
+            } else {
+              void clearDefault();
+            }
+          }}
+        >
+          <SelectTrigger placeholder="First model on the list" />
+          <SelectContent>
+            {defaultOptions.map((o, i) => (
+              <SelectItem key={o.key} index={i} value={o.key}>
+                {o.label}
+              </SelectItem>
+            ))}
+            {defaultOptions.length > 0 && (
+              <SelectItem index={defaultOptions.length} value="">
+                No default
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </SettingRow>
+
       {loading ? (
-        <div className=" flex flex-col">
+        <div className="mt-2 flex flex-col">
           <SidebarMenuSkeleton />
           <SidebarMenuSkeleton showIcon />
           <SidebarMenuSkeleton />
@@ -298,107 +299,81 @@ function ModelsPanel() {
           No model providers yet. Add one below to start chatting.
         </p>
       ) : (
-        rows.map((p) => (
-          <SettingRow
-            key={p.id}
-            label={`${p.displayName} (${p.slug})`}
-            description={`${p.models.map((m) => m.id).join(", ")} - ${p.baseUrl}`}
-          >
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void remove(p.slug)}
-            >
-              Remove
-            </Button>
-          </SettingRow>
-        ))
-      )}
-
-      {rows.length > 0 && !loading && (
-        <div className="mt-2 flex flex-col">
-          <span className="text-[13px] text-foreground">
-            Per-provider models
-          </span>
+        <div className="grid grid-cols-2 gap-3">
           {rows.map((p) => (
             <div
               key={p.id}
-              className="flex flex-col gap-2 border-b border-border/60 py-4 last:border-b-0"
+              className="flex flex-col gap-2 rounded-lg border border-border/60 p-3"
             >
-              {p.models.map((m, mi) => (
-                <div
-                  key={m.id}
-                  className="flex items-center justify-between gap-2 border-b border-border/60 py-2 last:border-b-0"
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-[13px] text-foreground">
+                  {p.displayName} ({p.slug})
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void remove(p.slug)}
                 >
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="truncate text-[13px] text-foreground">
+                  Remove
+                </Button>
+              </div>
+              <span className="truncate text-[11px] text-muted-foreground">
+                {p.baseUrl}
+              </span>
+              <div className="flex flex-col gap-1">
+                {p.models.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="truncate text-[12px]">
                       {m.displayName ?? m.id}
                     </span>
-                    <span className="text-[12px] text-muted-foreground">
-                      {" "}
-                      {p.displayName}{" "}
-                    </span>
-                  </span>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={mi === 0}
-                      onClick={() => void reorderModel(p.slug, mi, mi - 1)}
-                    >
-                      ↑
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={mi === p.models.length - 1}
-                      onClick={() => void reorderModel(p.slug, mi, mi + 1)}
-                    >
-                      ↓
-                    </Button>
-                    <Button
-                      variant={
-                        defaultModel?.providerSlug === p.slug &&
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void setAsDefault(p.slug, m.id)}
+                      >
+                        {defaultModel?.providerSlug === p.slug &&
                         defaultModel?.modelId === m.id
-                          ? "primary"
-                          : "secondary"
-                      }
-                      size="sm"
-                      onClick={() => void setAsDefault(p.slug, m.id)}
-                    >
-                      {defaultModel?.providerSlug === p.slug &&
-                      defaultModel?.modelId === m.id
-                        ? "Default"
-                        : "Set default"}
-                    </Button>
+                          ? "Default"
+                          : "Set default"}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon-sm"
+                        onClick={() => void removeModel(p.slug, m.id)}
+                      >
+                        <XIcon />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
-              <div className="flex items-center gap-2 pt-1">
+                ))}
+              </div>
+              <div className="mt-auto flex items-center gap-2 pt-1">
                 <InputGroup className="w-full">
                   <InputField
                     index={0}
                     label=""
-                    value={newModelId}
-                    onChange={setNewModelId}
-                    placeholder="Add a model id (e.g. openai/gpt-oss-120b)"
+                    labelHidden
+                    value={newModelIds[p.slug] ?? ""}
+                    onChange={(v) =>
+                      setNewModelIds((prev) => ({ ...prev, [p.slug]: v }))
+                    }
+                    placeholder="Add a model id"
                   />
                 </InputGroup>{" "}
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={!newModelId.trim() || addingModel === p.slug}
-                  onClick={() => void appendModel(p.slug)}
+                  disabled={
+                    !(newModelIds[p.slug] ?? "").trim() ||
+                    addingModel === p.slug
+                  }
+                  onClick={() => void addModel(p.slug)}
                 >
-                  {addingModel === p.slug ? "Adding…" : "Add model"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={testingSlug === p.slug}
-                  onClick={() => void testProvider(p.slug, p)}
-                >
-                  {testingSlug === p.slug ? "Testing…" : "Test key"}
+                  Add
                 </Button>
               </div>
             </div>
@@ -439,22 +414,18 @@ function ModelsPanel() {
           <InputField
             index={2}
             label="API key"
-            type="password"
             value={apiKey}
             onChange={setApiKey}
             placeholder="gsk_…"
           />
           <InputField
             index={3}
-            label="Model ids"
-            value={modelsText}
-            onChange={setModelsText}
+            label="Model id"
+            value={modelId}
+            onChange={setModelId}
             placeholder="llama-3.3-70b-versatile"
           />
         </InputGroup>
-        {testResult && (
-          <p className="text-[12px] text-emerald-600">{testResult}</p>
-        )}
         {error && <p className="text-[12px] text-destructive">{error}</p>}
         <div className="mt-4">
           <Button
@@ -538,12 +509,6 @@ function ByokPanel() {
   if (loading) {
     return (
       <div className="mt-2">
-        <SidebarMenuSkeleton showIcon />
-        <SidebarMenuSkeleton />
-        <SidebarMenuSkeleton />
-        <SidebarMenuSkeleton />
-        <SidebarMenuSkeleton showIcon />
-        <SidebarMenuSkeleton />
         <SidebarMenuSkeleton />
         <SidebarMenuSkeleton />
       </div>
@@ -552,11 +517,6 @@ function ByokPanel() {
 
   return (
     <div className="flex flex-col">
-      <MemorySwitch />
-      <p className="pb-4 text-[12px] text-muted-foreground">
-        Memories are scoped per conversation: each thread reads and writes its
-        own memory only, so context never leaks across chats.
-      </p>
       {BYOK_KEYS.map((k) => (
         <div
           key={k.name}
@@ -583,12 +543,11 @@ function ByokPanel() {
               <InputField
                 index={0}
                 label=""
-                type="password"
                 value={drafts[k.name] ?? ""}
                 onChange={(value) =>
                   setDrafts((d) => ({ ...d, [k.name]: value }))
                 }
-                placeholder={saved[k.name] ? "•••••••• (saved)" : k.placeholder}
+                placeholder={saved[k.name] ? k.placeholder : k.placeholder}
               />
             </InputGroup>{" "}
             {saved[k.name] && (
@@ -621,6 +580,7 @@ interface NotificationsData {
   runFailed: boolean;
   runCompleted: boolean;
   runApproval: boolean;
+  runRetrying: boolean;
 }
 
 function NotificationsPanel() {
@@ -671,6 +631,11 @@ function NotificationsPanel() {
       label: "Approval requests",
       description: "When a run pauses and waits for your approval.",
     },
+    {
+      key: "runRetrying",
+      label: "Retrying runs",
+      description: "When a failed run automatically starts retrying.",
+    },
   ];
 
   return (
@@ -686,51 +651,6 @@ function NotificationsPanel() {
         </SettingRow>
       ))}
     </div>
-  );
-}
-
-// --- Memory (real: /api/settings memoryEnabled) ----------------------------
-
-function MemorySwitch() {
-  const [value, setValue] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      const res = await fetch("/api/settings", { cache: "no-store" });
-      const json = (await res.json().catch(() => null)) as {
-        data?: { memoryEnabled?: boolean | null };
-      } | null;
-      if (json?.data) setValue(json.data.memoryEnabled ?? null);
-    })();
-  }, []);
-
-  const toggle = () => {
-    if (value === null) return;
-    const next = !value;
-    setValue(next);
-    void fetch("/api/settings", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ memoryEnabled: next }),
-    });
-  };
-
-  if (value === null) {
-    return <p className="py-4 text-[13px] text-muted-foreground">Loading…</p>;
-  }
-
-  return (
-    <SettingRow
-      label="Chat memory"
-      description="Remember learned facts and recall them across chats via Mem0. Requires a Mem0 API key."
-    >
-      <Switch
-        className={SWITCH_LABEL_HIDDEN}
-        label="Chat memory"
-        checked={value}
-        onToggle={toggle}
-      />
-    </SettingRow>
   );
 }
 
@@ -820,9 +740,7 @@ function WorkspacePanel({
               variant="secondary"
               size="sm"
               disabled={
-                savingName ||
-                !name.trim() ||
-                name.trim() === workspace.name
+                savingName || !name.trim() || name.trim() === workspace.name
               }
               onClick={() => void saveName()}
             >
@@ -901,26 +819,6 @@ function AppearancePanel() {
   const icons = useIcons();
   const { theme, setTheme } = useTheme();
   const { size, setSize } = useSizeContext();
-  const [quality, setQuality] = useState<string>("auto");
-
-  useEffect(() => {
-    void (async () => {
-      const res = await fetch("/api/settings", { cache: "no-store" });
-      const json = (await res.json().catch(() => null)) as {
-        data?: { defaultQuality?: string };
-      } | null;
-      if (json?.data?.defaultQuality) setQuality(json.data.defaultQuality);
-    })();
-  }, []);
-
-  const saveQuality = (value: string) => {
-    setQuality(value);
-    void fetch("/api/settings", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ defaultQuality: value }),
-    });
-  };
 
   return (
     <div className="flex flex-col">
@@ -958,28 +856,6 @@ function AppearancePanel() {
             </SelectItem>
             <SelectItem index={1} value="compact">
               Compact
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </SettingRow>
-      <SettingRow
-        label="Default quality"
-        description="Output resolution when the model is not told how to think. The composer can still override per-message."
-      >
-        <Select value={quality} onValueChange={saveQuality}>
-          <SelectTrigger placeholder="Quality" />
-          <SelectContent>
-            <SelectItem index={0} value="auto">
-              Auto
-            </SelectItem>
-            <SelectItem index={1} value="high">
-              High
-            </SelectItem>
-            <SelectItem index={2} value="medium">
-              Medium
-            </SelectItem>
-            <SelectItem index={3} value="low">
-              Low
             </SelectItem>
           </SelectContent>
         </Select>

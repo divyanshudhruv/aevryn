@@ -10,7 +10,7 @@ import {
 } from "./anakin-client";
 
 const inputSchema = z.object({
-	prompt: z.string().min(1).max(8_192).describe("What to search the web for."),
+	prompt: z.string().min(1).max(8_192),
 	limit: z
 		.number()
 		.int()
@@ -22,7 +22,7 @@ const inputSchema = z.object({
 
 export const searchWebTool = tool({
 	description:
-		"Web search with ranked results (title, URL, snippet, date). Costs 3 Anakin credits; requires an API key. Use when the user needs fresh web information. For deep multi-source reports use researchTopic instead.",
+		"Search web for fresh info. Ranked results: title, URL, snippet, date. 3 credits. Needs API key. Deep reports: researchTopic.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

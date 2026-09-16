@@ -21,7 +21,7 @@ interface MarkdownProps {
 
 export function Markdown({ content, className }: MarkdownProps) {
   return (
-    <div className={cn("markdown-body min-w-0", className)}>
+    <div className={cn("markdown-body min-w-0 leading-[21px]", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -35,22 +35,63 @@ export function Markdown({ content, className }: MarkdownProps) {
               {children}
             </a>
           ),
-          p: ({ children }) => <p>{children}</p>,
+          p: ({ children }) => <p className="my-1.5 ">{children}</p>,
           ul: ({ children }) => (
-            <ul className="list-disc list-inside">{children}</ul>
+            <ul className="list-disc space-y-0.5 pl-1 marker:text-muted-foreground/70">
+              {children}
+            </ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal list-inside">{children}</ol>
+            <ol className="list-decimal space-y-0.5 pl-1 marker:text-muted-foreground/70">
+              {children}
+            </ol>
           ),
-          li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+          li: ({ children }) => <li className="">{children}</li>,
           h1: ({ children }) => (
-            <h1 className=" text-[16px] font-semibold">{children}</h1>
+            <h1 className="text-[20px] font-normal">
+              {/* <span className="mr-1 select-none text-muted-foreground/70">
+                #
+              </span> */}
+              {children}
+            </h1>
           ),
           h2: ({ children }) => (
-            <h2 className=" text-[15px] font-semibold">{children}</h2>
+            <h2 className="text-[18px] font-medium">
+              {/* <span className="mr-1 select-none text-muted-foreground/70"></span> */}
+              {children}
+            </h2>
           ),
           h3: ({ children }) => (
-            <h3 className=" text-[14px] font-semibold">{children}</h3>
+            <h3 className="text-[16px] font-normal">
+              {/* <span className="mr-1 select-none text-muted-foreground/70">
+                #
+              </span> */}
+              {children}
+            </h3>
+          ),
+          h4: ({ children }) => (
+            <h4 className="text-[14px] font-normal">
+              {/* <span className="mr-1 select-none text-muted-foreground/70">
+                #
+              </span> */}
+              {children}
+            </h4>
+          ),
+          h5: ({ children }) => (
+            <h5 className="text-[12px] font-normal">
+              {/* <span className="mr-1 select-none text-muted-foreground/70">
+                #
+              </span> */}
+              {children}
+            </h5>
+          ),
+          h6: ({ children }) => (
+            <h6 className="text-[12px] font-normal">
+              {/* <span className="mr-1 select-none text-muted-foreground/70">
+                #
+              </span> */}
+              {children}
+            </h6>
           ),
           blockquote: ({ children }) => (
             <blockquote className="border-l-2 border-border pl-3 text-muted-foreground">
@@ -102,7 +143,7 @@ export function Markdown({ content, className }: MarkdownProps) {
           td: ({ children }) => <TableCell>{children}</TableCell>,
           hr: () => <hr className=" border-border/60" />,
           strong: ({ children }) => (
-            <strong className="font-medium">{children}</strong>
+            <strong className="font-normal">{children}</strong>
           ),
         }}
       >

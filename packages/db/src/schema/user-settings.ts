@@ -18,6 +18,7 @@ export interface UserSettingsData {
 		runFailed: boolean;
 		runCompleted: boolean;
 		runApproval: boolean;
+		runRetrying: boolean;
 	};
 	defaultModel: { providerSlug: string; modelId: string } | null;
 	/** Master switch for Mem0 recall/store. Null = default on when a key exists. */
@@ -27,7 +28,12 @@ export interface UserSettingsData {
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettingsData = {
-	notifications: { runFailed: true, runCompleted: true, runApproval: true },
+	notifications: {
+		runFailed: true,
+		runCompleted: true,
+		runApproval: true,
+		runRetrying: true,
+	},
 	defaultModel: null,
 	memoryEnabled: null,
 	defaultQuality: "auto",

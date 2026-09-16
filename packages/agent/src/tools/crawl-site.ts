@@ -10,14 +10,14 @@ import {
 } from "./anakin-client";
 
 const inputSchema = z.object({
-	url: z.string().url().describe("The site/page to start crawling from."),
+	url: z.string().url(),
 	maxPages: z
 		.number()
 		.int()
 		.min(1)
 		.max(100)
 		.optional()
-		.describe("Max pages to crawl (default 10, max 100). ~1 credit/page."),
+		.describe("Default 10, max 100. ~1 credit/page."),
 	depth: z
 		.number()
 		.int()
@@ -43,7 +43,7 @@ const inputSchema = z.object({
 
 export const crawlSiteTool = tool({
 	description:
-		"Crawl many pages of ONE site and get each page's markdown and html (≈1 credit/page, max 100 pages). Requires an API key. For a list of URLs only (no content) use mapSite — it's cheaper.",
+		"Crawl many pages of one site. ≈1 credit/page, max 100. Markdown + html per page. Needs API key. URLs only: cheaper mapSite.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

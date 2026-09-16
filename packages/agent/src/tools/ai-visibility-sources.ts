@@ -16,7 +16,7 @@ export interface VisibilitySource {
 
 export const aiVisibilitySourcesTool = tool({
 	description:
-		"List the AI engines currently available for aiVisibility searches (ChatGPT, Gemini, Google AI Overview, …). Requires an API key. Free. The roster is managed platform-side — call this when unsure which source slugs to pass to aiVisibility.",
+		"List AI engines for aiVisibility searches (ChatGPT, Gemini, Google AI Overview, …). Needs API key. Free. Roster platform-managed. Call when unsure of source slugs.",
 	inputSchema: z.object({}),
 	contextSchema: toolContextSchema,
 	execute: async (

@@ -8,6 +8,7 @@ import {
 	type SidebarData,
 } from "@aevryn/ui/components/sidebar-preset/app-sidebar";
 import { supabaseClient } from "@/lib/supabase-client";
+import { subscribeToRealtime } from "@/lib/realtime-channel";
 
 export function WorkspaceSidebar() {
 	const params = useParams<{ workspaceId?: string; threadId?: string }>();
@@ -34,73 +35,82 @@ export function WorkspaceSidebar() {
 		void refresh();
 
 		// Realtime replaces the 15s polling: thread status/title/binding changes
-		// for this workspace patch the local rows in place. No reordering — the
-		// initial listThreads fetch stays the source of order; NEW threads are
-		// ignored until a later refresh (they arrive with their first UPDATE).
-		const channel = supabaseClient
-			.channel(`sidebar-threads:${workspaceId ?? "all"}`)
-			.on(
-				"postgres_changes",
-				{
-					event: "UPDATE",
-					schema: "public",
-					table: "threads",
-					...(workspaceId ? { filter: `workspace_id=eq.${workspaceId}` } : {}),
-				},
-				(payload: {
-					eventType?: string;
-					new?: Record<string, unknown>;
-				}) => {
-					const row = payload.new;
-					const id = row?.id;
-					if (typeof id !== "string" || row == null) return;
-					if (row.deleted_at != null) {
-						setData((prev) => {
-							if (!prev) return prev;
-							const nextThreads = prev.threads.filter((t) => t.id !== id);
-							return nextThreads.length === prev.threads.length
-								? prev
-								: { ...prev, threads: nextThreads };
-						});
-						return;
-					}
-					setData((prev) => {
-						if (!prev) return prev;
-						const nextThreads = [...prev.threads];
-						const idx = nextThreads.findIndex((t) => t.id === id);
-						if (idx === -1) return prev;
-						const current = nextThreads[idx]!;
-						nextThreads[idx] = {
-							...current,
-							title:
-								typeof row.title === "string" && row.title
-									? row.title
-									: current.title,
-							status:
-								typeof row.status === "string"
-									? row.status
-									: current.status,
-							boundWorkflowId:
-								typeof row.bound_workflow_id === "string"
-									? row.bound_workflow_id
-									: current.boundWorkflowId,
-							updatedAt:
-								typeof row.updated_at === "string"
-									? row.updated_at
-									: current.updatedAt,
-						};
-						return { ...prev, threads: nextThreads };
-					});
-				},
-			)
-			.subscribe((status: string) => {
-				if (status === "SUBSCRIBE_ERROR" || status === "CHANNEL_ERROR") {
+		// for this workspace patch the local rows in place; hard-deleted threads
+		// are removed from the list. No reordering — the initial listThreads
+		// fetch stays the source of order; NEW threads are ignored until a
+		// later refresh (they arrive with their first UPDATE).
+		const unsubscribe = subscribeToRealtime({
+			supabase: supabaseClient,
+			channelName: `sidebar-threads:${workspaceId ?? "all"}`,
+			config: {
+				event: "*",
+				schema: "public",
+				table: "threads",
+				...(workspaceId
+					? { filter: `workspace_id=eq.${workspaceId}` }
+					: {}),
+			},
+			onStatus: (status) => {
+				if (status === "CHANNEL_ERROR" || status === "SUBSCRIBE_ERROR") {
 					console.error("[workspace-sidebar] threads channel failed", status);
 				}
-			});
+			},
+			onEvent: ({
+				eventType,
+				new: row,
+				old,
+			}: {
+				eventType?: string;
+				new?: Record<string, unknown>;
+				old?: Record<string, unknown>;
+			}) => {
+				const id = eventType === "DELETE" ? old?.id : row?.id;
+				if (typeof id !== "string" || id === "") return;
+				if (eventType === "DELETE") {
+					setData((prev) => {
+						if (!prev) return prev;
+						const nextThreads = prev.threads.filter((t) => t.id !== id);
+						return nextThreads.length === prev.threads.length
+							? prev
+							: { ...prev, threads: nextThreads };
+					});
+					return;
+				}
+				if (eventType !== "UPDATE") return;
+				const attrs = row as Record<string, unknown> | null;
+				if (attrs == null) return;
+				setData((prev) => {
+					if (!prev) return prev;
+					const nextThreads = [...prev.threads];
+					const idx = nextThreads.findIndex((t) => t.id === id);
+					if (idx === -1) return prev;
+					const current = nextThreads[idx]!;
+					nextThreads[idx] = {
+						...current,
+						title:
+							typeof attrs.title === "string" && attrs.title
+								? attrs.title
+								: current.title,
+						status:
+							typeof attrs.status === "string"
+								? attrs.status
+								: current.status,
+						boundWorkflowId:
+							typeof attrs.bound_workflow_id === "string"
+								? attrs.bound_workflow_id
+								: current.boundWorkflowId,
+						updatedAt:
+							typeof attrs.updated_at === "string"
+								? attrs.updated_at
+								: current.updatedAt,
+					};
+					return { ...prev, threads: nextThreads };
+				});
+			},
+		});
 
 		return () => {
-			void supabaseClient.removeChannel(channel);
+			unsubscribe();
 		};
 	}, [workspaceId, refresh]);
 
@@ -194,7 +204,7 @@ export function WorkspaceSidebar() {
 
 	const logout = useCallback(async () => {
 		await supabaseClient.auth.signOut();
-		router.push("/login");
+		router.push("/signup");
 	}, [router]);
 
 	/** Run trigger: opens the thread, which starts in run mode and shows the

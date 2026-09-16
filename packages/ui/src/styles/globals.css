@@ -519,3 +519,6 @@
     inherits: false;
     initial-value: 1;
 }
+html {
+  scroll-behavior: smooth;
+}

@@ -17,7 +17,7 @@ const inputSchema = z.object({
 
 export const wireDownloadTool = tool({
 	description:
-		"Get a downloadable link for a file produced by a Wire action (PDF, CSV, …). Requires an API key. Call after wireAction returns a files manifest. Returns a proxy URL that streams the bytes — share it with the user or fetch it directly.",
+		"Get download link for a Wire action file (PDF, CSV, …). Needs API key. Call after wireAction returns a files manifest. Returns proxy URL streaming the bytes.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

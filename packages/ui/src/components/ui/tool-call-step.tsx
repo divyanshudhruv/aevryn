@@ -29,10 +29,10 @@ import { cn } from "@aevryn/ui/lib/utils";
 export interface ToolCallView {
   toolCallId: string;
   toolName: string;
-    input: unknown;
-    output?: unknown;
-    isRunning: boolean;
-    isError?: boolean;
+  input: unknown;
+  output?: unknown;
+  isRunning: boolean;
+  isError?: boolean;
 }
 
 // ─── Per-tool display metadata ──────────────────────────────────────────────
@@ -82,10 +82,12 @@ function summarizeInput(toolName: string, input: unknown): string | undefined {
   const record = input as Record<string, unknown>;
 
   const url = typeof record.url === "string" ? record.url : undefined;
-  const siteUrl = typeof record.siteUrl === "string" ? record.siteUrl : undefined;
+  const siteUrl =
+    typeof record.siteUrl === "string" ? record.siteUrl : undefined;
   const prompt = typeof record.prompt === "string" ? record.prompt : undefined;
   const query = typeof record.query === "string" ? record.query : undefined;
-  const actionId = typeof record.actionId === "string" ? record.actionId : undefined;
+  const actionId =
+    typeof record.actionId === "string" ? record.actionId : undefined;
   const name = typeof record.name === "string" ? record.name : undefined;
   const text = typeof record.text === "string" ? record.text : undefined;
 
@@ -105,7 +107,9 @@ function summarizeInput(toolName: string, input: unknown): string | undefined {
       return query ? truncate(query, 60) : undefined;
     case "wireAction":
     case "wireBuildRequest":
-      return actionId ?? (siteUrl ? truncate(stripScheme(siteUrl), 50) : undefined);
+      return (
+        actionId ?? (siteUrl ? truncate(stripScheme(siteUrl), 50) : undefined)
+      );
     case "aiVisibility":
       return truncate(query, 70);
     case "browserSessionCreate":
@@ -116,9 +120,10 @@ function summarizeInput(toolName: string, input: unknown): string | undefined {
     case "searchMemory":
       return truncate(query, 70);
     case "retryAgent": {
-      const failed = typeof record.failedStepDescription === "string"
-        ? record.failedStepDescription
-        : undefined;
+      const failed =
+        typeof record.failedStepDescription === "string"
+          ? record.failedStepDescription
+          : undefined;
       return failed ? truncate(failed, 60) : undefined;
     }
     default:
@@ -139,23 +144,6 @@ function truncate(text: string | undefined, max: number): string | undefined {
 // "View output" dropdown instead of stretching the step row.
 const OUTPUT_COLLAPSE_THRESHOLD = 250;
 
-// Renders an output as a plain string. Returns the string when it is too
-// large to inline (drives the collapsed dropdown); undefined when it fits.
-function summarizeOutput(output: unknown): string | undefined {
-  if (output == null) return undefined;
-  let text: string;
-  if (typeof output === "string") {
-    text = output;
-  } else {
-    try {
-      text = JSON.stringify(output, null, 2) ?? "null";
-    } catch {
-      text = String(output);
-    }
-  }
-  return text.length > OUTPUT_COLLAPSE_THRESHOLD ? text : undefined;
-}
-
 function extractSubSteps(
   output: unknown,
 ): Array<{ label: string; failed?: boolean }> | null {
@@ -165,31 +153,32 @@ function extractSubSteps(
   const pickArray = (key: string): unknown[] | null =>
     Array.isArray(record[key]) ? (record[key] as unknown[]) : null;
 
-  const candidates = pickArray("documents") ?? pickArray("pages") ?? pickArray("results");
+  const candidates =
+    pickArray("documents") ?? pickArray("pages") ?? pickArray("results");
   if (candidates && candidates.length > 0) {
-    return candidates
-      .slice(0, 20)
-      .map((entry) => {
-        if (entry != null && typeof entry === "object") {
-          const item = entry as Record<string, unknown>;
-          const label =
-            (typeof item.url === "string" && truncate(stripScheme(item.url), 56)) ||
-            (typeof item.source === "string" && item.source) ||
-            (typeof item.title === "string" && truncate(item.title, 56)) ||
-            "item";
-          const failed = item.status === "failed" || item.status === "timed_out";
-          return { label, failed };
-        }
-        return { label: String(entry) };
-      });
+    return candidates.slice(0, 20).map((entry) => {
+      if (entry != null && typeof entry === "object") {
+        const item = entry as Record<string, unknown>;
+        const label =
+          (typeof item.url === "string" &&
+            truncate(stripScheme(item.url), 56)) ||
+          (typeof item.source === "string" && item.source) ||
+          (typeof item.title === "string" && truncate(item.title, 56)) ||
+          "item";
+        const failed = item.status === "failed" || item.status === "timed_out";
+        return { label, failed };
+      }
+      return { label: String(entry) };
+    });
   }
 
   if (Array.isArray(record.links) && record.links.length > 0) {
-    return (record.links as unknown[])
-      .slice(0, 20)
-      .map((link) => ({
-        label: typeof link === "string" ? truncate(stripScheme(link), 56) ?? "link" : "link",
-      }));
+    return (record.links as unknown[]).slice(0, 20).map((link) => ({
+      label:
+        typeof link === "string"
+          ? (truncate(stripScheme(link), 56) ?? "link")
+          : "link",
+    }));
   }
 
   return null;
@@ -211,7 +200,9 @@ function extractSources(output: unknown): string[] | null {
   if (!Array.isArray(record.results)) return null;
   const urls = (record.results as unknown[])
     .map((r) =>
-      r != null && typeof r === "object" && typeof (r as Record<string, unknown>).url === "string"
+      r != null &&
+      typeof r === "object" &&
+      typeof (r as Record<string, unknown>).url === "string"
         ? ((r as Record<string, unknown>).url as string)
         : null,
     )
@@ -304,8 +295,10 @@ function extractWireFiles(output: unknown): WireFileRef[] | null {
       if (typeof obj.name !== "string") return null;
       return {
         name: obj.name,
-        contentType: typeof obj.contentType === "string" ? obj.contentType : undefined,
-        sizeBytes: typeof obj.sizeBytes === "number" ? obj.sizeBytes : undefined,
+        contentType:
+          typeof obj.contentType === "string" ? obj.contentType : undefined,
+        sizeBytes:
+          typeof obj.sizeBytes === "number" ? obj.sizeBytes : undefined,
       } as WireFileRef;
     })
     .filter((f): f is WireFileRef => f != null);
@@ -370,7 +363,11 @@ function outputHasError(output: unknown): boolean {
   const record = output as Record<string, unknown>;
   if (record.ok === false) return true;
   const error = record.error;
-  if (error != null && typeof error === "object" && typeof (error as Record<string, unknown>).code === "string") {
+  if (
+    error != null &&
+    typeof error === "object" &&
+    typeof (error as Record<string, unknown>).code === "string"
+  ) {
     return true;
   }
   return false;
@@ -444,7 +441,10 @@ function OutputDetails({ output }: { output: unknown }) {
     // truncate per cell instead.
     let json: string;
     try {
-      json = typeof output === "string" ? output : JSON.stringify(output, null, 2) ?? "null";
+      json =
+        typeof output === "string"
+          ? output
+          : (JSON.stringify(output, null, 2) ?? "null");
     } catch {
       json = String(output);
     }
@@ -454,11 +454,16 @@ function OutputDetails({ output }: { output: unknown }) {
         {json}
       </pre>
     );
-    if (summarizeOutput(output) == null) return pre;
+    // Plain string outputs that fit inline; every JSON/object output goes in a
+    // "View output" dropdown, no matter how small.
+    if (
+      typeof output === "string" &&
+      output.length <= OUTPUT_COLLAPSE_THRESHOLD
+    ) {
+      return pre;
+    }
     return (
-      <ThinkingStepDetails summary="View output">
-        {pre}
-      </ThinkingStepDetails>
+      <ThinkingStepDetails summary="View output">{pre}</ThinkingStepDetails>
     );
   }
 
@@ -472,7 +477,10 @@ function OutputDetails({ output }: { output: unknown }) {
           {subSteps
             .filter((s) => s.failed)
             .map((s, i) => (
-              <span key={i} className="text-[11px] text-red-600 dark:text-red-400">
+              <span
+                key={i}
+                className="text-[11px] text-red-600 dark:text-red-400"
+              >
                 failed · {s.label}
               </span>
             ))}
@@ -491,7 +499,9 @@ function OutputDetails({ output }: { output: unknown }) {
           ))}
         </div>
       )}
-      {wireFiles && wireFiles.length > 0 && <WireFileChips output={output} files={wireFiles} />}
+      {wireFiles && wireFiles.length > 0 && (
+        <WireFileChips output={output} files={wireFiles} />
+      )}
       {sources && (
         <ThinkingStepSources>
           {sources.map((source, i) => (
@@ -618,7 +628,11 @@ export function ToolCallStep({ call, className }: ToolCallStepProps) {
 
   if (call.isRunning) {
     return (
-      <ThinkingSteps open={open} onOpenChange={setOpen} className={cn("w-full", className)}>
+      <ThinkingSteps
+        open={open}
+        onOpenChange={setOpen}
+        className={cn("w-full", className)}
+      >
         <ThinkingStepsHeader>{label}</ThinkingStepsHeader>
         <ThinkingStepsContent>
           <ToolStepLine call={call} isLast />
@@ -628,7 +642,11 @@ export function ToolCallStep({ call, className }: ToolCallStepProps) {
   }
 
   return (
-    <ThinkingSteps open={open} onOpenChange={setOpen} className={cn("w-full", className)}>
+    <ThinkingSteps
+      open={open}
+      onOpenChange={setOpen}
+      className={cn("w-full", className)}
+    >
       <ThinkingStepsHeader>{label}</ThinkingStepsHeader>
       <ThinkingStepsContent>
         <ToolStepLine call={call} isLast />
@@ -650,13 +668,37 @@ function ToolStepLine({
   const meta = metaFor(call.toolName);
   const summary = summarizeInput(call.toolName, call.input);
   const label = [meta.label, summary].filter(Boolean).join(" · ") || meta.label;
+  const isStoreMemory = call.toolName === "storeMemory";
+
+  if (call.isStopped && !call.isRunning) {
+    return (
+      <ThinkingStep
+        icon={meta.icon}
+        label={label}
+        description="Stopped before this call finished."
+        isLast={isLast}
+      />
+    );
+  }
 
   if (call.isRunning) {
     return (
       <ThinkingStep
         icon={meta.icon}
-        label={label}
-        description="Running…"
+        label={
+          isStoreMemory
+            ? summary
+              ? `Storing memory · ${summary}`
+              : "Storing memory"
+            : label
+        }
+        description={
+          isStoreMemory
+            ? "Saving to long-term memory…"
+            : call.description?.trim()
+              ? call.description
+              : "Running…"
+        }
         status="active"
         isLast={isLast}
       />
@@ -664,14 +706,29 @@ function ToolStepLine({
   }
 
   const hasError = call.isError || outputHasError(call.output);
+  const resultLabel = isStoreMemory
+    ? hasError
+      ? "Memory failed"
+      : "Memory saved"
+    : hasError
+      ? `${label}`
+      : label;
   return (
     <ThinkingStep
       icon={hasError ? "x" : meta.icon}
-      label={hasError ? `${label} — failed` : label}
-      description={hasError ? errorDetail(call.output) : undefined}
+      label={resultLabel}
+      description={
+        hasError
+          ? errorDetail(call.output)
+          : call.description?.trim()
+            ? truncate(call.description, 400)
+            : undefined
+      }
       isLast={isLast}
     >
-      {call.output != null && !hasError && <OutputDetails output={call.output} />}
+      {call.output != null && !hasError && (
+        <OutputDetails output={call.output} />
+      )}
     </ThinkingStep>
   );
 }
@@ -691,6 +748,12 @@ export interface ToolCallStepSegment {
   output?: unknown;
   isRunning: boolean;
   isError?: boolean;
+  /** The turn was stopped/aborted while this call was in flight — render
+   *  as interrupted instead of shimmering forever. */
+  isStopped?: boolean;
+  /** Model reasoning captured before this call — shown as the step's
+   *  description (falls back to the generic "Running…" copy). */
+  description?: string;
 }
 
 export interface ToolCallSequenceProps {
@@ -724,7 +787,11 @@ export function ToolCallSequence({
         : "Tools";
 
   return (
-    <ThinkingSteps open={open} onOpenChange={setOpen} className={cn("w-full", className)}>
+    <ThinkingSteps
+      open={open}
+      onOpenChange={setOpen}
+      className={cn("w-full", className)}
+    >
       <ThinkingStepsHeader>{headline}</ThinkingStepsHeader>
       <ThinkingStepsContent>
         {steps.map((call, i) => (

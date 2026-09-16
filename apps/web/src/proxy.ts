@@ -31,10 +31,11 @@ export default async function proxy(req: NextRequest) {
 
 	const path = req.nextUrl.pathname;
 	const isProtected = path.startsWith("/workspace");
-	const isPublic = path === "/" || path === "/login" || path.startsWith("/auth");
+	const isPublic =
+		path === "/" || path === "/signup" || path.startsWith("/auth");
 
 	if (isProtected && !user) {
-		return NextResponse.redirect(new URL("/login", req.url));
+		return NextResponse.redirect(new URL("/signup", req.url));
 	}
 	if (isPublic && user) {
 		return NextResponse.redirect(new URL("/workspace", req.url));

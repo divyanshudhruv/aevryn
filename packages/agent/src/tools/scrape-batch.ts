@@ -25,7 +25,7 @@ const inputSchema = z.object({
 
 export const scrapeBatchTool = tool({
 	description:
-		"Scrape 2–10 URLs in parallel (1 credit per URL, one rate-limit slot). Requires an Anakin API key. Returns per-URL documents including each one's index, status and error if it failed individually.",
+		"Scrape 2–10 URLs in parallel. 1 credit/URL, one rate slot. Needs API key. Returns per-URL docs: index, status, per-item error.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

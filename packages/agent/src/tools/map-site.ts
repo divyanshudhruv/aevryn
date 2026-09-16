@@ -9,7 +9,7 @@ import {
 } from "./anakin-client";
 
 const inputSchema = z.object({
-	url: z.string().url().describe("Site root or starting page to map."),
+	url: z.string().url(),
 	searchQuery: z
 		.string()
 		.optional()
@@ -49,7 +49,7 @@ const inputSchema = z.object({
 
 export const mapSiteTool = tool({
 	description:
-		"List the URLs of a website (up to 5000) without scraping page content. Requires an API key. Cheap — use it to plan a crawl or find specific pages before scraping them individually. Supports depth, per-level limits and external-link collection for breadth control.",
+		"List site URLs, up to 5000. No page content. Needs API key. Cheap: plan crawl or find pages before scraping. Breadth: depth, per-level limits, external links.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

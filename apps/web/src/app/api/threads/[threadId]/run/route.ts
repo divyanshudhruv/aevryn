@@ -1,6 +1,6 @@
 import { requireUser } from "@aevryn/auth";
-import { db, threads } from "@aevryn/db";
-import { and, eq } from "drizzle-orm";
+import { db, planSteps, threads } from "@aevryn/db";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
@@ -50,6 +50,24 @@ export async function POST(
 			.update(threads)
 			.set({ status: "idle" })
 			.where(eq(threads.id, threadId));
+		// Unwind the bound workflow's in-flight steps too — otherwise the
+		// footer PlanStepsCard and the agent's step slider stay stuck on a
+		// mid-run state after the stop.
+		if (thread.boundWorkflowId) {
+			await db
+				.update(planSteps)
+				.set({ status: "idle" })
+				.where(
+					and(
+						eq(planSteps.workflowId, thread.boundWorkflowId),
+						inArray(planSteps.status, [
+							"running",
+							"retrying",
+							"awaiting_approval",
+						]),
+					),
+				);
+		}
 		return Response.json(
 			{ data: { status: "idle" }, error: null, meta: {} },
 			{ headers: { "cache-control": "no-store" } },

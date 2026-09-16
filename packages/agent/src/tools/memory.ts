@@ -1,37 +1,14 @@
 import { tool } from "ai";
+import MemoryClient from "mem0ai";
 import { z } from "zod";
 
 import { toolContextSchema, type ToolContext } from "./context";
 
-const MEM0_BASE_URL = "https://api.mem0.ai/v1";
-
-async function mem0Request(
-	path: string,
-	body: Record<string, unknown>,
-	mem0Key: string,
-): Promise<unknown> {
-	const response = await fetch(`${MEM0_BASE_URL}${path}`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Token ${mem0Key}`,
-		},
-		body: JSON.stringify(body),
-		signal: AbortSignal.timeout(15_000),
-	});
-	if (!response.ok) {
-		const text = await response.text().catch(() => "");
-		throw new Error(`Mem0 ${path} failed (${response.status}): ${text.slice(0, 200)}`);
-	}
-	return response.json();
-}
-
-
 export const storeMemoryTool = tool({
 	description:
-		"Save a durable fact or preference about the user/project to this conversation's long-term memory (Mem0). Use for things worth remembering across the chat: preferences, decisions, credentials locations (never secrets), ongoing goals.",
+		"Save a durable fact/preference about user or project to chat long-term memory (Mem0). Use for things worth remembering across sessions: preferences, decisions, credential locations (never secrets), ongoing goals.",
 	inputSchema: z.object({
-		text: z.string().min(1).max(2_000).describe("The fact to remember, one self-contained sentence or two."),
+		text: z.string().min(1).max(2_000).describe("The fact, 1–2 self-contained sentences."),
 		category: z
 			.enum(["preference", "decision", "fact", "goal"])
 			.optional()
@@ -53,17 +30,13 @@ export const storeMemoryTool = tool({
 			};
 		}
 		try {
-			await mem0Request(
-				"/memories",
+			const client = new MemoryClient({ apiKey: context.mem0Key });
+			await client.add(
+				[{ role: "user", content: input.text }],
 				{
-					messages: [
-						{ role: "user", content: input.text },
-					],
-					user_id: context.threadId,
-					metadata: input.category ? { category: input.category } : undefined,
-					version: "v2",
+					userId: context.threadId,
+					...(input.category ? { metadata: { category: input.category } } : {}),
 				},
-				context.mem0Key,
 			);
 			return { ok: true, stored: true };
 		} catch (err) {
@@ -80,10 +53,10 @@ export const storeMemoryTool = tool({
 
 export const searchMemoryTool = tool({
 	description:
-		"Search this conversation's long-term memory (Mem0) for previously saved facts, preferences, or decisions. Use when the user refers to something discussed before.",
+		"Search chat long-term memory (Mem0). Saved facts, preferences, decisions. Use when user references earlier discussion.",
 	inputSchema: z.object({
-		query: z.string().min(1).describe("What to look up."),
-		limit: z.number().int().min(1).max(20).optional().describe("Max memories returned (default 5)."),
+		query: z.string().min(1),
+		limit: z.number().int().min(1).max(20).optional().describe("Max memories (default 5)."),
 	}),
 	contextSchema: toolContextSchema,
 	execute: async (
@@ -103,22 +76,16 @@ export const searchMemoryTool = tool({
 			};
 		}
 		try {
-			const results = (await mem0Request(
-				"/memories/search",
-				{
-					query: input.query,
-					user_id: context.threadId,
-					limit: input.limit ?? 5,
-					version: "v2",
-				},
-				context.mem0Key,
-			)) as Array<{ memory?: string; text?: string; score?: number }>;
-
+			const client = new MemoryClient({ apiKey: context.mem0Key });
+			const { results } = await client.search(input.query, {
+				filters: { user_id: context.threadId },
+				topK: input.limit ?? 5,
+			});
 			return {
 				ok: true,
 				memories: results.map((m) => ({
-					memory: m.memory ?? m.text ?? "",
-					score: m.score,
+					memory: typeof m.memory === "string" ? m.memory : "",
+					score: typeof m.score === "number" ? m.score : undefined,
 				})),
 			};
 		} catch (err) {

@@ -22,7 +22,9 @@ import {
   DropdownMenu,
   DropdownTrigger,
   DropdownContent,
+  DropdownLabel,
 } from "@aevryn/ui/components/ui/dropdown";
+import { MenuItem } from "@aevryn/ui/components/ui/menu-item";
 
 const SUGGESTIONS = [
   "Monitor this product and notify me when its price drops below ₹5,000",
@@ -42,6 +44,7 @@ export function ChatComposer({
   onSend,
   onStop,
   status = "idle",
+  onThinkingChange,
 }: {
   /** Fired on submit (or queue auto-dispatch) with the sent text. */
   onSend?: (text: string) => void;
@@ -49,6 +52,8 @@ export function ChatComposer({
   onStop?: () => void;
   /** Assistant activity state: drives Send/Queue/Stop morphing. */
   status?: "idle" | "streaming";
+  /** Fired when the session thinking effort changes ("free"…"god"). */
+  onThinkingChange?: (effort: string) => void;
 }) {
   const shape = useShape();
   const PlusIcon = useIcon("plus");
@@ -59,7 +64,7 @@ export function ChatComposer({
     {
       id: "seed",
       from: "user",
-      text: "Make my input box feel less stiff",
+      text: "",
       files: [],
     },
   ]);
@@ -68,10 +73,14 @@ export function ChatComposer({
   // Run state comes from the page (real backend), not a local stub.
   // The streaming → idle edge is what auto-dispatches the next queued
   // message through onSend.
-  const qualityLabels = ["Free", "Low", "Medium", "High", "Ultra", "God"];
   const [quality, setQuality] = useState(30000);
   const [displayQuality, setDisplayQuality] = useState(30000);
   const releaseQuality = () => setDisplayQuality(quality);
+
+  // Session-only thinking effort. Never persisted — refresh resets to the
+  // default. The page reads it per send; models without reasoning ignore it.
+  const thinkingEfforts = ["Low", "Medium", "High", "Ultra", "God"] as const;
+  const [thinking, setThinking] = useState("Medium");
 
   // The id of the message currently playing its queued→sent morph. The
   // morph props are applied ONLY to this one, ONLY for the brief
@@ -244,7 +253,7 @@ export function ChatComposer({
             setFiles([]);
           }
         }}
-        placeholderSuggestion="Why is every other input box so stiff?"
+        placeholderSuggestion="Research <topic> for me and summarize"
         suggestions={SUGGESTIONS}
         // ArrowUp recalls sent messages, ArrowDown walks back to the draft.
         history={messages
@@ -266,35 +275,73 @@ export function ChatComposer({
           </Tooltip>
         )}
         rightSlot={
-          <DropdownMenu>
-            <DropdownTrigger
-              render={
-<Button
-                  variant="ghost"
-                  size="sm"
-                  trailingIcon={ChevronDownIcon}
-                >
-                  {qualityLabels[Math.min(Math.floor(displayQuality / 10000), 5)]}
-                </Button>
-              }
-            />
-            <DropdownContent>
-              <Slider
-                label="Quality"
-                className="p-4"
-                value={quality}
-                onChange={(v) => setQuality(Array.isArray(v) ? v[0] : v)}
-                onPointerUp={releaseQuality}
-                min={0}
-                max={50000}
-                step={10000}
-                formatValue={(v) =>
-                  qualityLabels[Math.min(Math.floor(v / 10000), 5)] ??
-                  `${v.toLocaleString()} tokens`
-                }
-              />
-            </DropdownContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-1">
+            {/* Session-only thinking effort — its own dropdown, resets on
+                refresh. Non-reasoning models silently ignore it. */}
+            <Tooltip content="Thinking effort" side="top">
+              <DropdownMenu>
+                <DropdownTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      trailingIcon={ChevronDownIcon}
+                      aria-label="Thinking effort"
+                    >
+                      {thinking}
+                    </Button>
+                  }
+                />
+                <DropdownContent className="w-48">
+                  <DropdownLabel>Thinking Effort</DropdownLabel>
+                  {thinkingEfforts.map((effort, index) => (
+                    <MenuItem
+                      key={effort}
+                      index={index}
+                      label={effort}
+                      checked={thinking === effort}
+                      onClick={() => {
+                        setThinking(effort);
+                        onThinkingChange?.(effort.toLowerCase());
+                      }}
+                    />
+                  ))}
+                </DropdownContent>
+              </DropdownMenu>
+            </Tooltip>
+            {/* Max output tokens (showcase) — unchanged behavior. */}
+            <Tooltip content="Max output tokens" side="top">
+              <DropdownMenu>
+                <DropdownTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      trailingIcon={ChevronDownIcon}
+                      aria-label="Max output tokens"
+                    >
+                      {displayQuality >= 1000
+                        ? `${Math.round(displayQuality)}`
+                        : displayQuality.toLocaleString()}
+                    </Button>
+                  }
+                />
+                <DropdownContent className="p-0 !important">
+                  <Slider
+                    label="Max Output Tokens"
+                    className="p-4"
+                    value={quality}
+                    onChange={(v) => setQuality(Array.isArray(v) ? v[0] : v)}
+                    onPointerUp={releaseQuality}
+                    min={5000}
+                    max={50000}
+                    step={5000}
+                    formatValue={(v) => `${v.toLocaleString()} tokens`}
+                  />
+                </DropdownContent>
+              </DropdownMenu>
+            </Tooltip>
+          </div>
         }
         // While streaming, submits enqueue; flipping back to idle
         // dispatches the head of the queue through onSend.

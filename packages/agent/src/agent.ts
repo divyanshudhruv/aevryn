@@ -23,6 +23,14 @@ export const AGENT_ID = "aevryn-agent";
 export const CHAT_BUDGET_USD = 0.5;
 export const RUN_BUDGET_USD = 1;
 
+// Ceiling on completion tokens per step. Gpt-oss-2xb happily rambles many
+// thousands of tokens on a one-line greeting, blowing Groq's free 8k TPM / 200k
+// TPD buckets — cap output so a turn can't eat the allowance. Run-mode steps
+// legitimately need more room (long extracted reports), so they get a bigger
+// cap; plain chat is capped tighter.
+export const CHAT_MAX_OUTPUT_TOKENS = 1024;
+export const RUN_MAX_OUTPUT_TOKENS = 8192;
+
 export const streamTransform = [
   smoothStream({ delayInMs: 12, chunking: "word" }),
 ] as const;
@@ -34,6 +42,12 @@ export interface AevrynAgentOptions {
   instructions: string;
     budgetUsd?: number;
     toolsContext?: unknown;
+    maxOutputTokens?: number;
+    /** Reasoning effort (providerOptions) — models without reasoning ignore it. */
+    thinkingEffort?: string;
+    /** Provider options key — the `name` the openai-compatible client was
+     *  created with (the provider slug). Required with thinkingEffort. */
+    providerOptionsKey?: string;
 }
 
 export function createAevrynAgent(opts: AevrynAgentOptions) {
@@ -46,6 +60,9 @@ export function createAevrynAgent(opts: AevrynAgentOptions) {
     model: opts.model,
     tools: opts.tools,
     instructions: opts.instructions,
+    maxOutputTokens:
+      opts.maxOutputTokens ??
+      (opts.mode === "run" ? RUN_MAX_OUTPUT_TOKENS : CHAT_MAX_OUTPUT_TOKENS),
     // Per-request BYOK context — consumed by tool `execute({ context })`.
     toolsContext: opts.toolsContext as never,
     stopWhen,
@@ -54,6 +71,15 @@ export function createAevrynAgent(opts: AevrynAgentOptions) {
     // Lenient repair of malformed tool arguments (trailing commas, wrapped
     // arrays, cut-off JSON) — gpt-oss-120b emits these occasionally.
     experimental_repairToolCall: repairToolCall as never,
+    ...(opts.thinkingEffort && opts.providerOptionsKey
+      ? {
+          providerOptions: {
+            // OpenAI-compatible `reasoningEffort`; unsupported models and
+            // providers silently ignore it (the non-reasoning fallback).
+            [opts.providerOptionsKey]: { reasoningEffort: opts.thinkingEffort },
+          },
+        }
+      : {}),
     // Strip reasoning parts and prune stale tool outputs on every step.
     // Groq free-tier is 8k TPM — bloated histories blow the limit.
     prepareStep: ({ messages }) => {

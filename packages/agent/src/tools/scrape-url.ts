@@ -69,14 +69,12 @@ interface ScrapeBody extends Record<string, unknown> {
 }
 
 const inputSchema = z.object({
-	url: z.string().url().describe("The page to scrape (HTTP/HTTPS)."),
+	url: z.string().url(),
 	formats: z
 		.array(z.enum(SCRAPE_FORMATS))
 		.max(9)
 		.optional()
-		.describe(
-			"Outputs to produce. Default: markdown + html + cleanedHtml.",
-		),
+		.describe("Default: markdown + html + cleanedHtml."),
 	useBrowser: z
 		.boolean()
 		.optional()
@@ -84,9 +82,7 @@ const inputSchema = z.object({
 	outputSchema: z
 		.record(z.string(), z.unknown())
 		.optional()
-		.describe(
-			"JSON Schema of fields to AI-extract (+2 credits, implies generateJson).",
-		),
+		.describe("JSON Schema of fields to AI-extract (+2 credits, implies generateJson)."),
 	country: z
 		.string()
 		.length(2)
@@ -104,7 +100,7 @@ const inputSchema = z.object({
 
 export const scrapeUrlTool = tool({
 	description:
-		"Scrape ONE page and get its content inline (markdown + html + cleanedHtml by default). Works without an API key. Costs 1 credit (2 with JSON extraction); free if the URL was scraped in the last 24h unless forceFresh. For 2–10 pages use scrapeBatch; for a whole site use crawlSite; for just the URL list use mapSite.",
+		"Scrape one page inline. Returns markdown + html + cleanedHtml by default. Keyless. 1 credit (2 with JSON extraction). Free if cached <24h unless forceFresh. 2–10 pages: scrapeBatch. Whole site: crawlSite. URLs only: mapSite.",
 	inputSchema,
 	// Zero Touch: no context key required.
 	contextSchema: toolContextSchema,

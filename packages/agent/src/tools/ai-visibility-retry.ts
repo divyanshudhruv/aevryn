@@ -47,7 +47,7 @@ function mapResult(item: ApiRetryResult): VisibilitySourceResult {
 
 export const aiVisibilityRetryTool = tool({
 	description:
-		"Re-run ONE failed or timed-out source of an existing AI Visibility search and return its fresh answer (synchronous, ~10–60s). Requires an API key. A timed-out source whose engine actually finished is adopted without re-billing; a genuinely fresh re-run bills again. Only the retried source's result is replaced.",
+		"Re-run ONE failed/timed-out aiVisibility source. Sync, ~10–60s, fresh answer. Needs API key. Timed-out engine already finished: no re-bill. Fresh re-run: bills again. Replaces only that source's result.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

@@ -122,7 +122,7 @@ const inputSchema = z.object({
 
 export const wireCatalogTool = tool({
 	description:
-		"Browse the Wire catalog. Without a slug: list every website with visible actions (name, domain, category, auth requirements, action count). With a slug: full detail — every action's action_id, exact parameter schema, sync/async mode, auth_mode, and credits_per_call. Requires an API key. Call this between wireDiscover and wireAction when a parameter schema is unclear.",
+		"Browse Wire catalog. No slug: list sites with actions (name, domain, category, auth, action count). With slug: full detail — action_id, param schema, mode, auth_mode, credits_per_call. Needs API key. Use between wireDiscover, wireAction when schema unclear.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

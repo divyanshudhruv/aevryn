@@ -88,7 +88,7 @@ function mapJobBody(body: WireJobBody, jobId: string): WireRunResult {
 
 export const wireActionTool = tool({
 	description:
-		"Execute a Wire action found via wireDiscover on a supported site. Read-only actions run keyless and free-tier; write actions need an API key AND user approval. Pass params exactly as the action's schema requires. File-returning actions come back with a files manifest — download the bytes with wireDownload.",
+		"Execute a Wire action from wireDiscover. Read-only: keyless, free-tier. Write actions: need API key + user approval. Params exactly per action schema. File results: files manifest, download with wireDownload.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

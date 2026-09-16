@@ -43,6 +43,34 @@
       "when": 1789543241752,
       "tag": "0005_lumpy_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789570442073,
+      "tag": "0006_lively_realtime",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789730000000,
+      "tag": "0007_add_retrying_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789800000000,
+      "tag": "0008_permanent_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789583137373,
+      "tag": "0009_organic_clint_barton",
+      "breakpoints": true
     }
   ]
 }

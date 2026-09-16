@@ -4,6 +4,16 @@ import {
 } from "@aevryn/ui/components/ui/sidebar";
 
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
+import { WorkspaceTopbar } from "@/components/workspace/workspace-topbar";
+
+export const metadata = {
+  title: {
+    default: "Workspaces · Aevryn",
+    template: "%s · Aevryn",
+  },
+  description:
+    "Your Aevryn workspaces — agents that search, scrape, and research the live web with your own key.",
+};
 
 export default function WorkspaceLayout({
   children,
@@ -11,7 +21,10 @@ export default function WorkspaceLayout({
   return (
     <SidebarProvider>
       <WorkspaceSidebar />
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset>
+        <WorkspaceTopbar />
+        <div className="min-h-0 flex-1 flex flex-col">{children}</div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }

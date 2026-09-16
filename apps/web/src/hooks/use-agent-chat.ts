@@ -17,6 +17,9 @@ export interface UseAgentChatOptions {
 	initialMessages?: UIMessage[];
 	mode?: AgentMode;
 	model?: { providerSlug?: string; modelId?: string };
+	/** Session-only thinking effort (Free→God). Not persisted; resets to
+	 *  default per session. Silently ignored by models without reasoning. */
+	thinkingEffort?: string;
 	enabled?: boolean;
 }
 
@@ -26,15 +29,16 @@ export function useAgentChat({
 	initialMessages,
 	mode = "chat",
 	model,
+	thinkingEffort,
 	enabled = true,
 }: UseAgentChatOptions) {
 	const transport = useMemo(
 		() =>
 			new DefaultChatTransport({
 				api: "/api/chat",
-				body: { threadId, workspaceId, mode, model },
+				body: { threadId, workspaceId, mode, model, thinkingEffort },
 			}),
-		[threadId, workspaceId, mode, model],
+		[threadId, workspaceId, mode, model, thinkingEffort],
 	);
 
 	const chat = useChat({

@@ -43,7 +43,7 @@ export interface BuildRequestResult {
 
 export const wireBuildRequestTool = tool({
 	description:
-		"Request a NEW Wire action for a site that isn't in the catalog yet. Requires an API key and user approval (~25 credits, refunded if the build fails). The build is asynchronous — report the request id and tell the user the action will appear in the catalog when ready.",
+		"Request NEW Wire action for a site not in catalog. Needs API key + user approval. ~25 credits, refunded if build fails. Async: report request id. Action appears in catalog when ready.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

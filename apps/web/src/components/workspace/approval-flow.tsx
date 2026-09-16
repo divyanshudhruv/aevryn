@@ -11,10 +11,13 @@ import type { AskUserAnswer } from "@aevryn/ui/components/ui/ask-user-questions"
 export function ApprovalFlow({
   toolName,
   input,
+  disabled = false,
   onDecide,
 }: {
   toolName: string;
   input: unknown;
+  /** Locks the flow (e.g. the run was stopped or superseded by a newer message). */
+  disabled?: boolean;
   onDecide: (decision: "approved" | "denied") => void;
 }) {
   const inputSummary = (() => {
@@ -51,6 +54,7 @@ export function ApprovalFlow({
           },
         ]}
         onComplete={handleComplete}
+        disabled={disabled}
       />
       <pre className="mt-2 max-h-40 overflow-auto rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
         {inputSummary}

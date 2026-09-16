@@ -28,17 +28,14 @@ const inputSchema = z.object({
 		.string()
 		.optional()
 		.describe("Intent, e.g. 'search airbnb listings', 'post a tweet'."),
-	catalog: z.string().optional().describe("Limit to one catalog slug, e.g. 'airbnb'."),
-	category: z.string().optional().describe("Category filter."),
-	authMode: z
-		.enum(["none", "optional", "required"])
-		.optional()
-		.describe("Filter by auth requirement."),
+	catalog: z.string().optional(),
+	category: z.string().optional(),
+	authMode: z.enum(["none", "optional", "required"]).optional(),
 });
 
 export const wireDiscoverTool = tool({
 	description:
-		"Find ready-made Wire actions for websites (940+ sites: search, extract, post, and more). Free and keyless. Returns action_ids with their parameter schemas and credit costs — call this BEFORE any site-specific task, then execute with wireAction.",
+		"Find ready-made Wire actions. 940+ sites: search, extract, post, … Free, keyless. Returns action_ids with param schemas, credit costs. Call before any site task. Execute with wireAction.",
 	inputSchema,
 	contextSchema: toolContextSchema,
 	execute: async (

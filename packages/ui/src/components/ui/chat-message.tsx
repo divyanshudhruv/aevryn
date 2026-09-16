@@ -69,7 +69,12 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
         style={{ transformOrigin: isUser ? "bottom right" : "bottom left" }}
         className={cn(
           "group flex flex-col gap-1.5",
-          isUser ? "max-w-[80%] items-end self-end" : "max-w-[80%] items-start self-start",
+          // Assistant replies pin to the full 80% lane — wide widgets (plan
+          // cards, step cards, tables) always span it instead of shrinking to
+          // fit the shortest text. User bubbles stay fit-width.
+          isUser
+            ? "max-w-[80%] items-end self-end"
+            : "w-full max-w-[80%] items-start self-start",
           className,
         )}
         {...props}
