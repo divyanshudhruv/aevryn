@@ -9,8 +9,7 @@ import { useSize, type SizeVariant } from "@aevryn/ui/lib/size-context";
 import { useTouchPrimary } from "@aevryn/ui/hooks/use-touch-primary";
 import { FileThumbnail } from "@aevryn/ui/components/ui/file-thumbnail";
 
-interface ChatMessageProps
-  extends Omit<HTMLMotionProps<"div">, "children"> {
+interface ChatMessageProps extends Omit<HTMLMotionProps<"div">, "children"> {
   /** Who sent the message. Drives alignment and bubble colour:
    *  `user` → right-aligned accent bubble, `assistant` → left-aligned plain text. */
   from: "user" | "assistant";
@@ -39,8 +38,18 @@ interface ChatMessageProps
 // lets earlier messages slide up smoothly when a new one is appended.
 const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
   (
-    { from, files, thumbnailSize = 64, time, actions, children, size, className, ...props },
-    ref
+    {
+      from,
+      files,
+      thumbnailSize = 64,
+      time,
+      actions,
+      children,
+      size,
+      className,
+      ...props
+    },
+    ref,
   ) => {
     const shape = useShape();
     const compact = useSize(size).variant === "compact";
@@ -59,9 +68,9 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
         transition={spring.moderate}
         style={{ transformOrigin: isUser ? "bottom right" : "bottom left" }}
         className={cn(
-          "group flex max-w-[80%] flex-col gap-1.5",
+          "group flex max-w-[80%] flex-col gap-1.5  ",
           isUser ? "items-end self-end" : "items-start self-start",
-          className
+          className,
         )}
         {...props}
       >
@@ -69,7 +78,7 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
           <div
             className={cn(
               "flex flex-wrap gap-1.5",
-              isUser ? "justify-end" : "justify-start"
+              isUser ? "justify-end" : "justify-start",
             )}
           >
             {files.map((file, i) => (
@@ -84,6 +93,9 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
         {children != null && children !== "" && (
           <div
             className={cn(
+              // Assistant replies run full message width (so wide widgets like
+              // the plan/ask-user cards span it); user bubbles stay fit-width.
+              !isUser && "w-full",
               "whitespace-pre-wrap break-words",
               compact ? "py-1.5 text-[13px]" : "py-2 text-[14px]",
               // User keeps the bubble chrome (rounded fill + horizontal padding);
@@ -98,9 +110,9 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
                     // word-by-word stream visibly reflows earlier words to new
                     // lines. Default (normal) wrapping appends left-to-right and
                     // stays put as the text grows.
-                    "text-pretty bg-[color-mix(in_oklab,var(--accent),var(--background)_45%)] text-accent-foreground"
+                    "text-pretty bg-[color-mix(in_oklab,var(--accent),var(--background)_25%)] text-accent-foreground",
                   )
-                : "text-foreground"
+                : "text-foreground",
             )}
           >
             {children}
@@ -120,20 +132,18 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
                 "opacity-0 transition-opacity duration-150",
                 "group-hover:opacity-100",
                 "group-focus-within:opacity-100",
-              ]
+              ],
             )}
           >
             {showTime && <span className="tabular-nums">{time}</span>}
             {actions != null && (
-              <span className="flex items-center gap-2 py-1">
-                {actions}
-              </span>
+              <span className="flex items-center gap-2 py-1">{actions}</span>
             )}
           </div>
         )}
       </motion.div>
     );
-  }
+  },
 );
 
 ChatMessage.displayName = "ChatMessage";

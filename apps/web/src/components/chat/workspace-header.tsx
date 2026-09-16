@@ -179,8 +179,6 @@ export function WorkspaceHeader({
     };
   }, [workspaceId, supabase]);
 
-
-
   const groupedThreads = useMemo((): ThreadGroup[] => {
     const filtered = query
       ? threads.filter((t) =>
@@ -257,9 +255,7 @@ export function WorkspaceHeader({
               ) : (
                 <>
                   {groupedThreads.map((group) => (
-                    <DropdownLabel key={group.key}>
-                      {group.label}
-                    </DropdownLabel>
+                    <DropdownLabel key={group.key}>{group.label}</DropdownLabel>
                   ))}
                   {groupedThreads.flatMap((group) =>
                     group.items.map((item) => {
@@ -274,7 +270,9 @@ export function WorkspaceHeader({
                           checked={item.id === threadId ? true : undefined}
                           onSelect={() => {
                             if (item.id !== threadId) {
-                              router.push(`/workspace/${workspaceId}/${item.id}`);
+                              router.push(
+                                `/workspace/${workspaceId}/${item.id}`,
+                              );
                             }
                           }}
                         />
@@ -285,7 +283,6 @@ export function WorkspaceHeader({
               )}
             </DropdownContent>
           </DropdownMenu>
-
         </div>
         <div className="flex shrink-0 flex-row items-center gap-2">
           {onRun && (
@@ -342,7 +339,12 @@ export function WorkspaceHeader({
               )}
             </DropdownContent>
           </DropdownMenu>{" "}
-          <Button size="icon" variant="ghost" onClick={onOpenSettings}>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onOpenSettings}
+            disabled
+          >
             <Sliders />
           </Button>
         </div>

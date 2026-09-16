@@ -77,6 +77,8 @@ import {
   Database,
   Command,
   Key,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 
 export interface IconComponentProps {
@@ -154,7 +156,10 @@ export type IconName =
   | "share"
   | "arrowupfromline"
   | "arrowdownfromline"
-  | "command"|"key";
+  | "command"
+  | "key"
+  | "thumbs-up"
+  | "thumbs-down";
 
 export const defaultIcons: Record<IconName, IconComponent> = {
   "chevron-right": ChevronRight,
@@ -225,6 +230,8 @@ export const defaultIcons: Record<IconName, IconComponent> = {
   arrowdownfromline: ArrowDownFromLine,
   command: Command,
   key: Key,
+  "thumbs-up": ThumbsUp,
+  "thumbs-down": ThumbsDown,
 };
 
 const IconContext = createContext<Record<IconName, IconComponent> | null>(null);

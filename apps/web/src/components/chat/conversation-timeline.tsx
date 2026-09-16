@@ -20,6 +20,8 @@ import { ApprovalFlow } from "@/components/workspace/approval-flow";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { UIMessage } from "ai";
 import { useIcon } from "@aevryn/ui/lib/icon-context";
+import { useSize } from "@aevryn/ui/lib/size-context";
+import { cn } from "@aevryn/ui/lib/utils";
 
 const CLIENT_TOOLS = new Set(["askUser", "presentPlan"]);
 const APPROVAL_TOOLS = new Set(["wireAction", "wireBuildRequest"]);
@@ -82,7 +84,7 @@ function messageTimestamp(message: UIMessage): string {
   const date = createdAt ? new Date(createdAt) : new Date();
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString(undefined, {
-    weekday: "short",
+    weekday: "long",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -272,40 +274,11 @@ export function ConversationTimeline({
       );
     }
 
-    // Completed askUser / presentPlan cards render live again — the user can
-    // re-answer them. (The old inert/ResolvedCard freeze is gone; the outcome
-    // SystemRow below still carries the human-readable decision text.)
-    if (toolName === "askUser" && toolPart.state === "output-available") {
-      const questions = questionsFromInput(toolPart.input);
-      if (!questions) return null;
-      return (
-        <AskUserCard
-          key={key}
-          questions={questions}
-          answers={
-            toolPart.output != null && typeof toolPart.output === "object"
-              ? (toolPart.output as Record<string, AskUserAnswer>)
-              : undefined
-          }
-          onComplete={(answers) => {
-            onToolAnswer(toolPart.toolCallId ?? "", "askUser", answers);
-          }}
-        />
-      );
-    }
-
-    if (toolName === "presentPlan" && toolPart.state === "output-available") {
-      const plan = planFromInput(toolPart.input);
-      if (!plan) return null;
-      return (
-        <PlanApprovalCard
-          key={key}
-          plan={plan}
-          onDecision={(result: PlanDecisionResult) =>
-            onToolAnswer(toolPart.toolCallId ?? "", "presentPlan", result)
-          }
-        />
-      );
+    // Completed askUser / presentPlan parts render as the SystemRow only —
+    // the card is not re-rendered after the answer, matching the mock (card
+    // disappears on submit, replaced by the outcome note).
+    if (toolName === "askUser" || toolName === "presentPlan") {
+      return null;
     }
 
     // Native approvals (wireAction, wireBuildRequest).
@@ -341,7 +314,7 @@ export function ConversationTimeline({
         }
         scrollContainerRef.current = el;
       }}
-      className="flex min-h-full flex-col gap-6 p-4"
+      className="flex min-h-full flex-col gap-2 p-4"
     >
       {" "}
       {messages.flatMap((message, messageIndex) => {
@@ -396,7 +369,6 @@ export function ConversationTimeline({
         }
 
         return [
-          ...systemRows,
           ...responses.map((responseParts, responseIndex) => {
             const isLastResponse = responseIndex === responses.length - 1;
             const responseKey = message.id;
@@ -444,8 +416,9 @@ export function ConversationTimeline({
               },
             );
 
-            // Text the model wrote BEFORE its first tool call doubles as the
-            // card title — fully model-authored, no hardcoded agent/user names.
+            // Text the model wrote BEFORE its first tool call renders as a normal
+            // paragraph above the step card — text reads as text, steps as
+            // steps, like the mock (a <p> over the agent calls).
             const leadText = hasAgentSteps
               ? responseParts
                   .slice(0, firstSegIndex)
@@ -460,12 +433,10 @@ export function ConversationTimeline({
               isLastResponse &&
               (status === "submitted" || status === "streaming");
 
-            const responseText = isUser
-              ? ""
-              : responseParts
-                  .filter((p) => p.type === "text")
-                  .map((p) => (p as { text?: string }).text ?? "")
-                  .join("\n");
+            const responseText = responseParts
+              .filter((p) => p.type === "text")
+              .map((p) => (p as { text?: string }).text ?? "")
+              .join("\n");
 
             // Usage is a per-message (per-turn) figure from the stream's
             // finish event — show it once, on the turn's final bubble.
@@ -485,11 +456,16 @@ export function ConversationTimeline({
 
             const bubbleChildren: ReactNode[] = [];
 
+            if (leadText) {
+              bubbleChildren.push(
+                <Markdown key={`${responseKey}-lead`} content={leadText} />,
+              );
+            }
+
             if (hasAgentSteps) {
               bubbleChildren.push(
                 <ToolCallSequence
                   key={`${responseKey}-steps`}
-                  title={leadText}
                   steps={segments}
                   answerStep={
                     stillRunning ||
@@ -535,11 +511,13 @@ export function ConversationTimeline({
                 key={responseKey}
                 from={isUser ? "user" : "assistant"}
                 time={messageTimestamp(message)}
+                className=" w-full flex"
                 actions={
-                  !isUser && responseText.trim().length > 0 ? (
-                    <AssistantActions
+                  responseText.trim().length > 0 ? (
+                    <MessageActions
                       text={responseText}
-                      usage={assistantUsage}
+                      usage={isUser ? undefined : assistantUsage}
+                      feedback={!isUser}
                     />
                   ) : undefined
                 }
@@ -548,11 +526,24 @@ export function ConversationTimeline({
               </ChatMessage>
             );
           }),
+          // Outcome rows land AFTER the message that produced them (mock
+          // shows the card, then the system note).
+          ...systemRows,
         ];
       })}
       {showThinking && (
         <ThinkingIndicator
-          words={activityWords ?? ["Thinking", "Planning", "Refining"]}
+          words={[
+            "Thinking",
+            "Planning",
+            "Refining",
+            "Analyzing",
+            "Processing",
+            "Generating",
+            "Creating",
+            "Building",
+            "Designing",
+          ]}
         />
       )}
       {errorMessage && (
@@ -568,32 +559,51 @@ export function ConversationTimeline({
   );
 }
 
-/** Hover action bar under an assistant message: token usage + copy. */
-function AssistantActions({
+/** Hover action bar under a message: copy (both roles), thumbs feedback and
+ *  token usage on assistant replies only. The thumbs are inert — clicking one
+ *  just confirms the choice with a check mark. */
+function MessageActions({
   text,
   usage,
+  feedback,
 }: {
   text: string;
-  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null;
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+  } | null;
+  feedback?: boolean;
 }) {
   const Copy = useIcon("copy");
   const Check = useIcon("check");
+  const ThumbsUp = useIcon("thumbs-up");
+  const ThumbsDown = useIcon("thumbs-down");
   const [copied, setCopied] = useState(false);
+  const [vote, setVote] = useState<"up" | "down" | null>(null);
 
   const usageLabel =
     usage?.totalTokens != null && usage.totalTokens > 0
       ? `${usage.totalTokens.toLocaleString()} tokens`
       : undefined;
+  const compact = useSize().variant === "compact";
+
+  const iconButton = cn(
+    "flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground",
+  );
 
   return (
     <>
       {usageLabel && (
         <span
-          className="text-[11px] tabular-nums text-muted-foreground select-none"
+          className={cn(
+            "tabular-nums text-muted-foreground select-none",
+            compact ? "text-[11px]" : "text-[12px]",
+          )}
           title={
             usage?.inputTokens != null && usage?.outputTokens != null
               ? `${usage.inputTokens.toLocaleString()} in · ${usage.outputTokens.toLocaleString()} out`
-            : undefined
+              : undefined
           }
         >
           {usageLabel}
@@ -602,7 +612,7 @@ function AssistantActions({
       <button
         type="button"
         aria-label="Copy message"
-        className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+        className={iconButton}
         onClick={async () => {
           try {
             await navigator.clipboard.writeText(text);
@@ -619,6 +629,34 @@ function AssistantActions({
           <Copy size={13} strokeWidth={1.75} />
         )}
       </button>
+      {feedback && (
+        <>
+          <button
+            type="button"
+            aria-label="Good response"
+            className={iconButton}
+            onClick={() => setVote("up")}
+          >
+            {vote === "up" ? (
+              <Check size={13} strokeWidth={1.75} />
+            ) : (
+              <ThumbsUp size={13} strokeWidth={1.75} />
+            )}
+          </button>
+          <button
+            type="button"
+            aria-label="Poor response"
+            className={iconButton}
+            onClick={() => setVote("down")}
+          >
+            {vote === "down" ? (
+              <Check size={13} strokeWidth={1.75} />
+            ) : (
+              <ThumbsDown size={13} strokeWidth={1.75} />
+            )}
+          </button>
+        </>
+      )}
     </>
   );
 }

@@ -21,8 +21,24 @@ import {
 import {
   useFluidHover,
   useRegisterFluidHoverItem,
+  type ItemRectMeasure,
 } from "@aevryn/ui/hooks/use-fluid-hover";
 import { FluidHoverHighlight } from "@aevryn/ui/components/ui/fluid-hover-highlight";
+
+// Table rows live in the table's own layout space — offsetParent math can't
+// map a `<tr>` into the container frame, so measure via getBoundingClientRect
+// (both boxes are in viewport space; the diff is the row's container-space rect,
+// scroll compensated so later scrolling doesn't skew it).
+const measureRowRect: ItemRectMeasure = (element, container) => {
+  const el = element.getBoundingClientRect();
+  const box = container.getBoundingClientRect();
+  return {
+    top: el.top - box.top + container.scrollTop - container.clientTop,
+    left: el.left - box.left + container.scrollLeft - container.clientLeft,
+    width: el.width,
+    height: el.height,
+  };
+};
 
 // ── Context ──────────────────────────────────────────────
 
@@ -48,7 +64,7 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const sizeClasses = useSize(size);
 
-    const hover = useFluidHover(containerRef);
+    const hover = useFluidHover(containerRef, { measureRect: measureRowRect });
     const { activeIndex, handlers, registerItem } = hover;
 
     const contextValue = useMemo(
@@ -177,7 +193,7 @@ const TableHead = forwardRef<
     <th
       ref={ref}
       className={cn(
-        "text-left text-foreground underline font-[300]",
+        "text-left text-foreground font-[300]",
         // py + line box lands the row on the ladder (36px / 28px).
         sizeClasses.variant === "compact" ? "px-2.5 py-[5px]" : "px-3 py-2",
         className,

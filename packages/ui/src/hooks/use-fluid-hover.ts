@@ -17,6 +17,19 @@ export interface ItemRect {
   width: number;
 }
 
+/**
+ * Custom measurement for a registered item: returns the item's rect in the
+ * container's layout coordinate space. The default reads offsetParent-based
+ * coordinates, which breaks for table rows — `<tr>`/`<td>` boxes live in the
+ * table's own row-group coordinate space (and report no reliable offsetParent),
+ * so their offsets never land in the container frame. Pass a
+ * getBoundingClientRect diff against the container for those.
+ */
+export type ItemRectMeasure = (
+  element: HTMLElement,
+  container: HTMLElement,
+) => ItemRect;
+
 export interface UseFluidHoverOptions {
   /**
    * Which direction to resolve the nearest item along.
@@ -43,6 +56,12 @@ export interface UseFluidHoverOptions {
    * highlighted item's edge.
    */
   gapClick?: boolean | { maxDistance?: number };
+  /**
+   * Overrides how a registered item's rect is read (default: offsetParent
+   * based). Table rows need this — pass a getBoundingClientRect diff so the
+   * highlight tracks rows despite the table's own coordinate space.
+   */
+  measureRect?: ItemRectMeasure;
 }
 
 export interface UseFluidHoverReturn {
@@ -215,7 +234,7 @@ export function useFluidHover<T extends HTMLElement>(
   containerRef: RefObject<T | null>,
   options: UseFluidHoverOptions = {}
 ): UseFluidHoverReturn {
-  const { axis = "y", isItemDisabled, gapClick = true } = options;
+  const { axis = "y", isItemDisabled, gapClick = true, measureRect } = options;
   const gapClickMaxDistance =
     typeof gapClick === "object" ? (gapClick.maxDistance ?? Infinity) : Infinity;
   const itemsRef = useRef(new Map<number, HTMLElement>());
@@ -274,29 +293,37 @@ export function useFluidHover<T extends HTMLElement>(
         everyItemHasLayout = false;
         return;
       }
-      // Use offset* instead of getBoundingClientRect so measurements are
-      // unaffected by CSS transforms (e.g. scaleY animation on the parent
-      // motion.div). offsetTop/offsetLeft are layout values relative to the
-      // offsetParent (the scroll container), matching the coordinate space
-      // used by `position: absolute` children. Items nested inside positioned
-      // descendants of the container (a sidebar sub-menu's rows live inside a
-      // positioned row) accumulate those ancestors' offsets, so every rect
-      // lands in the container's own coordinate space; for a flat list the
-      // loop never runs and this is exactly the plain offsetTop/offsetLeft.
-      let top = element.offsetTop;
-      let left = element.offsetLeft;
-      let ancestor = element.offsetParent as HTMLElement | null;
-      while (ancestor && ancestor !== container && container.contains(ancestor)) {
-        top += ancestor.offsetTop + ancestor.clientTop;
-        left += ancestor.offsetLeft + ancestor.clientLeft;
-        ancestor = ancestor.offsetParent as HTMLElement | null;
+      if (measureRect) {
+        rects[index] = measureRect(element, container);
+      } else {
+        // Use offset* instead of getBoundingClientRect so measurements are
+        // unaffected by CSS transforms (e.g. scaleY animation on the parent
+        // motion.div). offsetTop/offsetLeft are layout values relative to the
+        // offsetParent (the scroll container), matching the coordinate space
+        // used by `position: absolute` children. Items nested inside positioned
+        // descendants of the container (a sidebar sub-menu's rows live inside a
+        // positioned row) accumulate those ancestors' offsets, so every rect
+        // lands in the container's own coordinate space; for a flat list the
+        // loop never runs and this is exactly the plain offsetTop/offsetLeft.
+        let top = element.offsetTop;
+        let left = element.offsetLeft;
+        let ancestor = element.offsetParent as HTMLElement | null;
+        while (
+          ancestor &&
+          ancestor !== container &&
+          container.contains(ancestor)
+        ) {
+          top += ancestor.offsetTop + ancestor.clientTop;
+          left += ancestor.offsetLeft + ancestor.clientLeft;
+          ancestor = ancestor.offsetParent as HTMLElement | null;
+        }
+        rects[index] = {
+          top,
+          height: element.offsetHeight,
+          left,
+          width: element.offsetWidth,
+        };
       }
-      rects[index] = {
-        top,
-        height: element.offsetHeight,
-        left,
-        width: element.offsetWidth,
-      };
     });
     if (!everyItemHasLayout) return false;
     // Skip the state update when nothing moved (a cheap top/left/width/height
@@ -320,7 +347,7 @@ export function useFluidHover<T extends HTMLElement>(
       setItemRects(rects);
     }
     return true;
-  }, [containerRef]);
+  }, [containerRef, measureRect]);
 
   const measureItems = useCallback(() => {
     runMeasurement();

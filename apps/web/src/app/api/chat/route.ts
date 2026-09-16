@@ -130,60 +130,95 @@ export async function POST(request: Request): Promise<Response> {
 				output: body.toolAnswer.answer,
 			});
 		}
+	}
 
-		// Plan decision approve/bind: persist the workflow + plan steps and bind
-		// it to the thread BEFORE the resumed loop runs. The plan's original
-		// presentPlan input lives on the pending tool part of the last message.
-		const decision =
-			body.toolAnswer.toolName === "presentPlan" &&
-			body.toolAnswer.answer != null &&
-			typeof body.toolAnswer.answer === "object"
-				? (body.toolAnswer.answer as { decision?: string }).decision
-				: undefined;
-		if (decision === "approved" || decision === "bound") {
-			// The original pending presentPlan part (with the plan in `input`)
-			// lives on an earlier assistant message; find it by toolCallId.
-			const pendingPart = uiMessages
-				.flatMap((m) => m.parts as unknown as Array<Record<string, unknown>>)
-				.find(
-					(p) =>
-						p.type === "tool-presentPlan" &&
-						p.toolCallId === body.toolAnswer!.toolCallId &&
-						typeof p.input === "object" &&
-						p.input !== null,
-				);
-			const rawPlan = pendingPart?.input as Record<string, unknown> | undefined;
-			if (
-				rawPlan &&
-				typeof rawPlan.title === "string" &&
-				typeof rawPlan.objective === "string" &&
-				Array.isArray(rawPlan.steps)
-			) {
-				try {
-					const workflow = await chatService.createWorkflowFromPlan({
-						userId: user.id,
-						threadId: body.threadId,
-						title: rawPlan.title,
-						objective: rawPlan.objective,
-						...(typeof rawPlan.summary === "string"
-							? { summary: rawPlan.summary }
-							: {}),
-						steps: rawPlan.steps as Array<{
-							title: string;
-							description?: string;
-						}>,
-					});
-					// Reflect the binding on the decision so the agent knows the
-					// workflow id (run mode uses it for updateStepStatus).
-					const answerRecord = last!.parts.at(-1) as {
-						output?: Record<string, unknown>;
-					};
-					if (answerRecord?.output && typeof answerRecord.output === "object") {
-						answerRecord.output.workflowId = workflow.id;
+	// Plan decision approve/bind: persist the workflow + plan steps and bind
+	// it to the thread BEFORE the resumed loop runs. The decision arrives two
+	// ways — as an explicit body.toolAnswer, or merged into the client's
+	// messages array by useChat's auto-resume (the normal path). Handle both:
+	// find the answered presentPlan part anywhere in the synced message list
+	// that has not been bound yet.
+	const presentPlanAnswers = uiMessages
+		.flatMap((m) => m.parts as unknown as Array<Record<string, unknown>>)
+		.filter(
+			(p) =>
+				p.type === "tool-presentPlan" &&
+				p.state === "output-available" &&
+				p.output != null &&
+				typeof p.output === "object",
+		)
+		.map((p) => ({
+			toolCallId: p.toolCallId as string | undefined,
+			output: p.output as Record<string, unknown>,
+			input: p.input as Record<string, unknown> | undefined,
+		}));
+	const unboundDecision = presentPlanAnswers.find(
+		(a) =>
+			(a.output.decision === "approved" || a.output.decision === "bound") &&
+			a.output.workflowId == null,
+	);
+	if (unboundDecision) {
+		// Authoritative idempotency: if this thread already has a bound
+		// workflow, the decision was processed on an earlier resume — skip.
+		const [threadRow] = await db
+			.select({ boundWorkflowId: threads.boundWorkflowId })
+			.from(threads)
+			.where(
+				and(eq(threads.id, body.threadId), eq(threads.userId, user.id)),
+			);
+		if (threadRow?.boundWorkflowId) {
+			unboundDecision.output.workflowId = threadRow.boundWorkflowId;
+			return await agentService.respond({
+				userId: user.id,
+				workspaceId: body.workspaceId,
+				threadId: body.threadId,
+				uiMessages,
+				mode: body.mode,
+				modelOverride: body.model,
+			});
+		}
+		const rawPlan = unboundDecision.input;
+		if (
+			rawPlan &&
+			typeof rawPlan.title === "string" &&
+			typeof rawPlan.objective === "string" &&
+			Array.isArray(rawPlan.steps)
+		) {
+			// Idempotency guard: a previous approved/bound answer may already
+			// have created a workflow for this thread + plan title.
+			try {
+				const workflow = await chatService.createWorkflowFromPlan({
+					userId: user.id,
+					threadId: body.threadId,
+					title: rawPlan.title,
+					objective: rawPlan.objective,
+					...(typeof rawPlan.summary === "string"
+						? { summary: rawPlan.summary }
+						: {}),
+					steps: rawPlan.steps as Array<{
+						title: string;
+						description?: string;
+					}>,
+				});
+				// Reflect the binding on the decision so the agent knows the
+				// workflow id (run mode uses it for updateStepStatus), and on the
+				// client message parts so syncThreadMessages persists it — no
+				// double-bind on the next resume.
+				unboundDecision.output.workflowId = workflow.id;
+				for (const m of uiMessages) {
+					for (const p of m.parts as unknown as Array<Record<string, unknown>>) {
+						if (
+							p.type === "tool-presentPlan" &&
+							p.toolCallId === unboundDecision.toolCallId &&
+							p.output != null &&
+							typeof p.output === "object"
+						) {
+							(p.output as Record<string, unknown>).workflowId = workflow.id;
+						}
 					}
-				} catch (err) {
-					console.error("[api/chat] createWorkflowFromPlan failed", err);
 				}
+			} catch (err) {
+				console.error("[api/chat] createWorkflowFromPlan failed", err);
 			}
 		}
 	}
