@@ -7,13 +7,14 @@ import {
   askUserTool,
   buildSystemPrompt,
   createAevrynAgent,
+  makeRetryAgentTool,
   presentPlanTool,
   streamTransform,
   updateStepStatusTool,
   type ToolContext,
 } from "@aevryn/agent";
 import type { StepToolCall, Workflow } from "@aevryn/db";
-import { db, decryptSecret, ids, userKeys, userProviders, userSettings } from "@aevryn/db";
+import { db, decryptSecret, ids, threads, userKeys, userProviders, userSettings } from "@aevryn/db";
 import { eq } from "drizzle-orm";
 
 import { ChatService } from "./chat-service";
@@ -63,6 +64,15 @@ export class AgentService {
         ? await this.chat.boundWorkflow(input.threadId)
         : null;
 
+    // A thread left in `failed` tells the agent the previous turn died
+    // mid-run: retryAgent repairs the missed step instead of restarting.
+    const [threadRow] = await this.client
+      .select({ status: threads.status })
+      .from(threads)
+      .where(eq(threads.id, input.threadId))
+      .limit(1);
+    const threadFailed = threadRow?.status === "failed";
+
     // Thread status lifecycle: running while the agent works; onEnd sets the
     // terminal state. Sidebar dots and Run/Stop buttons read this.
     await this.chat
@@ -73,6 +83,7 @@ export class AgentService {
       ...anakinToolSet,
       askUser: askUserTool,
       presentPlan: presentPlanTool,
+      retryAgent: makeRetryAgentTool({ model }),
       ...(input.mode === "run" && boundWorkflow
         ? { updateStepStatus: updateStepStatusTool }
         : {}),
@@ -98,7 +109,7 @@ export class AgentService {
       model,
       mode: input.mode,
       tools: tools as never,
-      instructions: buildInstructions(input, memoryContext, boundWorkflow),
+      instructions: buildInstructions(input, memoryContext, boundWorkflow, threadFailed),
       toolsContext,
     });
 
@@ -123,6 +134,9 @@ export class AgentService {
       outputTokens: 0,
       totalTokens: 0,
     };
+    // Filled by the agent-level onEnd (which has finishReason); consumed by
+    // the UIMessage-stream onEnd to flip the thread to `failed`.
+    let streamFailed = false;
 
     // The SDK's declared `stream()` type omits `toolsContext`/`streamRetries`
     // (they exist at runtime); extend it rather than losing callback types.
@@ -192,6 +206,9 @@ export class AgentService {
 
       onEnd: async (event) => {
         try {
+          if (event.finishReason === "error") {
+            streamFailed = true;
+          }
           const usage = event.totalUsage;
           finalUsage = {
             inputTokens: usage.inputTokens ?? 0,
@@ -271,6 +288,27 @@ export class AgentService {
               status: "running",
             });
           }
+
+          // A provider/model error killed the stream (retries exhausted):
+          // persist a thread-internal error tile and mark the thread failed
+          // so a re-run triggers the retryAgent repair path.
+          if (streamFailed) {
+            await this.chat.saveMessage({
+              userId: input.userId,
+              threadId: input.threadId,
+              role: "system",
+              content: FAILED_TURN_TEXT,
+              parts: [
+                { type: "system-message", variant: "error", text: FAILED_TURN_TEXT },
+              ],
+            });
+            await this.chat.setThreadStatus({
+              threadId: input.threadId,
+              status: "failed",
+            });
+            return;
+          }
+
           // Terminal thread status: awaiting_approval when a client tool is
           // still pending (QuestionFlow / plan card), otherwise idle.
           const hasPendingClientTool = (responseMessage?.parts ?? []).some(
@@ -420,6 +458,9 @@ async function storeMemoryTurn(
   }
 }
 
+const FAILED_TURN_TEXT =
+  "The generation failed mid-run and this turn was cut off. Re-run the thread or reply \"continue\" to pick back up.";
+
 function lastUserText(uiMessages: UIMessage[]): string | undefined {
   for (let i = uiMessages.length - 1; i >= 0; i--) {
     const message = uiMessages[i]!;
@@ -440,17 +481,26 @@ function buildInstructions(
   input: AgentRunInput,
   memoryContext?: string,
   boundWorkflow?: Workflow | null,
+  retryAfterFailure = false,
 ): string {
   let plan: string | undefined;
   if (input.mode === "run" && boundWorkflow) {
     plan = `${boundWorkflow.objective ? `Objective: ${boundWorkflow.objective}\n` : ""}(Step statuses live in plan_steps — use updateStepStatus.)`;
   }
 
-  return buildSystemPrompt({
+  const failureGuidance = retryAfterFailure
+    ? `
+
+## Recovering from a failed run
+A previous turn failed mid-stream. Do NOT restart earlier steps: re-run only the failed step with retryAgent (describe the step and the error), then continue the plan from where it stopped.`
+    : "";
+
+  const prompt = buildSystemPrompt({
     mode: input.mode,
     plan,
     memoryContext,
   });
+  return failureGuidance ? prompt + failureGuidance : prompt;
 }
 
 export async function loadThreadMessages(

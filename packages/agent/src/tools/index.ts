@@ -35,6 +35,7 @@ export {
 	browserSessionRename,
 } from "./browser-sessions";
 export { searchMemoryTool, storeMemoryTool } from "./memory";
+export { makeRetryAgentTool } from "./retry-agent";
 export { updateStepStatusTool } from "./workflow-progress";
 export {
 	askUserTool,

@@ -65,6 +65,7 @@ const TOOL_META: Record<string, ToolMeta> = {
   browserSessionDelete: { label: "Delete session", icon: "dustbin" },
   storeMemory: { label: "Save memory", icon: "brain" },
   searchMemory: { label: "Search memory", icon: "brain" },
+  retryAgent: { label: "Sub-agent retry", icon: "rotate-ccw" },
   updateStepStatus: { label: "Update step", icon: "check" },
 };
 
@@ -114,6 +115,12 @@ function summarizeInput(toolName: string, input: unknown): string | undefined {
       return truncate(text, 70);
     case "searchMemory":
       return truncate(query, 70);
+    case "retryAgent": {
+      const failed = typeof record.failedStepDescription === "string"
+        ? record.failedStepDescription
+        : undefined;
+      return failed ? truncate(failed, 60) : undefined;
+    }
     default:
       return undefined;
   }
@@ -186,6 +193,16 @@ function extractSubSteps(
   }
 
   return null;
+}
+
+function extractRetrySubSteps(output: unknown): string[] | null {
+  if (output == null || typeof output !== "object") return null;
+  const record = output as Record<string, unknown>;
+  if (!Array.isArray(record.subSteps)) return null;
+  const items = (record.subSteps as unknown[]).filter(
+    (s): s is string => typeof s === "string",
+  );
+  return items.length > 0 ? items : null;
 }
 
 function extractSources(output: unknown): string[] | null {
@@ -381,6 +398,38 @@ function OutputDetails({ output }: { output: unknown }) {
   const wireFiles = extractWireFiles(output);
   const table = extractTable(output);
   const details: string[] = subSteps?.map((s) => s.label) ?? [];
+
+  // retryAgent outcome: the corrected result text with a sub-step trail.
+  const retrySteps = extractRetrySubSteps(output);
+  if (retrySteps) {
+    const resultText =
+      output != null && typeof output === "object"
+        ? (output as Record<string, unknown>).resultText
+        : undefined;
+    const text =
+      typeof resultText === "string" && resultText.trim().length > 0
+        ? resultText.trim()
+        : undefined;
+    return (
+      <div className="mt-1 flex flex-col gap-1.5">
+        {text && (
+          <p className="whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">
+            {truncate(text, 400)}
+          </p>
+        )}
+        <ThinkingStepDetails
+          summary={`${retrySteps.length} sub-step${retrySteps.length === 1 ? "" : "s"}`}
+          details={retrySteps}
+        >
+          {retrySteps.map((s, i) => (
+            <span key={i} className="text-[11px] text-muted-foreground">
+              {s}
+            </span>
+          ))}
+        </ThinkingStepDetails>
+      </div>
+    );
+  }
 
   if (
     details.length === 0 &&
