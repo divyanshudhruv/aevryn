@@ -262,6 +262,17 @@ export function AppSidebar({
     }));
   }, [sections, query]);
 
+  // Derived attention feed (no new table): failed threads + bound threads
+  // paused on an approval. Recomputes off the same realtime-patched state.
+  const attentionThreads = useMemo(() => {
+    if (!data) return [];
+    return data.threads.filter(
+      (t) =>
+        t.status === "failed" ||
+        (t.status === "awaiting_approval" && t.boundWorkflowId != null),
+    );
+  }, [data]);
+
   const deleteItems = useMemo(() => {
     if (!deleteTarget) return [];
     if (deleteTarget.kind === "thread") return [{ value: deleteTarget.name }];
@@ -409,17 +420,50 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton icon={BellIcon}>
-                  Notifications {/* shortcut chip, revealed on row hover */}
-                  <span className="ml-auto inline-flex ">
-                    {" "}
-                    <Badge color="blue" size="sm">
-                      0
-                    </Badge>
-                    {/* <kbd className="font-sans text-[11px] text-muted-foreground">
-                    </kbd> */}
-                  </span>
-                </SidebarMenuButton>
+                <DropdownMenu>
+                  <DropdownTrigger
+                    render={
+                      <SidebarMenuButton
+                        icon={BellIcon}
+                        aria-label={`Notifications (${attentionThreads.length})`}
+                      >
+                        Notifications
+                        <span className="ml-auto inline-flex">
+                          <Badge color="blue" size="sm">
+                            {attentionThreads.length}
+                          </Badge>
+                        </span>
+                      </SidebarMenuButton>
+                    }
+                  />
+                  <DropdownContent
+                    className="min-w-0 w-[260px]"
+                    align="start"
+                    sideOffset={4}
+                  >
+                    {attentionThreads.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">
+                        Nothing needs attention.
+                      </div>
+                    ) : (
+                      attentionThreads.map((thread, index) => (
+                        <MenuItem
+                          key={thread.id}
+                          index={index}
+                          label={thread.title}
+                          trailing={
+                            thread.status === "failed" ? "failed" : "waiting"
+                          }
+                          onSelect={() => {
+                            if (data) {
+                              onOpenThread?.(data.workspace.id, thread.id);
+                            }
+                          }}
+                        />
+                      ))
+                    )}
+                  </DropdownContent>
+                </DropdownMenu>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton icon={CommandIcon}>
