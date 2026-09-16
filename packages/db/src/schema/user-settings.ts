@@ -22,12 +22,15 @@ export interface UserSettingsData {
 	defaultModel: { providerSlug: string; modelId: string } | null;
 	/** Master switch for Mem0 recall/store. Null = default on when a key exists. */
 	memoryEnabled: boolean | null;
+	/** Default output quality/resolution for the composer. */
+	defaultQuality: "auto" | "high" | "medium" | "low";
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettingsData = {
 	notifications: { runFailed: true, runCompleted: true, runApproval: true },
 	defaultModel: null,
 	memoryEnabled: null,
+	defaultQuality: "auto",
 };
 
 export const userSettings = pgTable(

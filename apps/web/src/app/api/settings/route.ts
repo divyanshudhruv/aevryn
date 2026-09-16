@@ -37,6 +37,7 @@ const settingsInputSchema = z.object({
 		.nullable()
 		.optional(),
 	memoryEnabled: z.boolean().nullable().optional(),
+	defaultQuality: z.enum(["auto", "high", "medium", "low"]).optional(),
 });
 
 async function loadSettings(userId: string): Promise<UserSettingsData> {
@@ -90,6 +91,7 @@ export async function PUT(request: Request): Promise<Response> {
 			body.memoryEnabled !== undefined
 				? body.memoryEnabled
 				: (current.memoryEnabled ?? null),
+		defaultQuality: body.defaultQuality ?? current.defaultQuality,
 	};
 
 	await db

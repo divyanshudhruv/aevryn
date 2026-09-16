@@ -101,6 +101,8 @@ function ModelsPanel() {
   } | null>(null);
   const [addingModel, setAddingModel] = useState<string | null>(null);
   const [newModelId, setNewModelId] = useState("");
+  const [testingSlug, setTestingSlug] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -232,6 +234,57 @@ function ModelsPanel() {
     await load();
   };
 
+  const reorderModel = async (slug: string, from: number, to: number) => {
+    const provider = rows.find((r) => r.slug === slug);
+    if (!provider) return;
+    const next = [...provider.models];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved!);
+    const res = await fetch("/api/providers", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug, models: next }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      setError(body?.error?.message ?? "Could not reorder the models.");
+      return;
+    }
+    setError(null);
+    await load();
+  };
+
+  const testProvider = async (slug: string, provider: ProviderRow) => {
+    const modelId =
+      defaultModel?.providerSlug === slug ? defaultModel.modelId : undefined;
+    setTestingSlug(slug);
+    setTestResult(null);
+    const res = await fetch("/api/providers/test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        slug,
+        modelId: modelId ?? (provider.models[0]?.id ?? undefined),
+      }),
+    });
+    const json = (await res.json().catch(() => null)) as {
+      data?: { ok?: boolean };
+      error?: { message?: string };
+    } | null;
+    setTestingSlug(null);
+    if (!res.ok || !json?.data?.ok) {
+      setError(
+        json?.error?.message ??
+          `Test failed for ${slug} (${provider.models[0]?.id ?? "no model"}).`,
+      );
+      return;
+    }
+    setError(null);
+    setTestResult(`${slug}: key works`);
+  };
+
   return (
     <div className="flex flex-col">
       {loading ? (
@@ -272,29 +325,54 @@ function ModelsPanel() {
               key={p.id}
               className="flex flex-col gap-2 border-b border-border/60 py-4 last:border-b-0"
             >
-              {p.models.map((m) => (
-                <SettingRow
+              {p.models.map((m, mi) => (
+                <div
                   key={m.id}
-                  label={m.displayName ?? m.id}
-                  description={p.displayName}
-                  className="py-2"
+                  className="flex items-center justify-between gap-2 border-b border-border/60 py-2 last:border-b-0"
                 >
-                  <Button
-                    variant={
-                      defaultModel?.providerSlug === p.slug &&
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate text-[13px] text-foreground">
+                      {m.displayName ?? m.id}
+                    </span>
+                    <span className="text-[12px] text-muted-foreground">
+                      {" "}
+                      {p.displayName}{" "}
+                    </span>
+                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={mi === 0}
+                      onClick={() => void reorderModel(p.slug, mi, mi - 1)}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={mi === p.models.length - 1}
+                      onClick={() => void reorderModel(p.slug, mi, mi + 1)}
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      variant={
+                        defaultModel?.providerSlug === p.slug &&
+                        defaultModel?.modelId === m.id
+                          ? "primary"
+                          : "secondary"
+                      }
+                      size="sm"
+                      onClick={() => void setAsDefault(p.slug, m.id)}
+                    >
+                      {defaultModel?.providerSlug === p.slug &&
                       defaultModel?.modelId === m.id
-                        ? "primary"
-                        : "secondary"
-                    }
-                    size="sm"
-                    onClick={() => void setAsDefault(p.slug, m.id)}
-                  >
-                    {defaultModel?.providerSlug === p.slug &&
-                    defaultModel?.modelId === m.id
-                      ? "Default"
-                      : "Set default"}
-                  </Button>
-                </SettingRow>
+                        ? "Default"
+                        : "Set default"}
+                    </Button>
+                  </div>
+                </div>
               ))}
               <div className="flex items-center gap-2 pt-1">
                 <InputGroup className="w-full">
@@ -313,6 +391,14 @@ function ModelsPanel() {
                   onClick={() => void appendModel(p.slug)}
                 >
                   {addingModel === p.slug ? "Adding…" : "Add model"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={testingSlug === p.slug}
+                  onClick={() => void testProvider(p.slug, p)}
+                >
+                  {testingSlug === p.slug ? "Testing…" : "Test key"}
                 </Button>
               </div>
             </div>
@@ -366,6 +452,9 @@ function ModelsPanel() {
             placeholder="llama-3.3-70b-versatile"
           />
         </InputGroup>
+        {testResult && (
+          <p className="text-[12px] text-emerald-600">{testResult}</p>
+        )}
         {error && <p className="text-[12px] text-destructive">{error}</p>}
         <div className="mt-4">
           <Button
@@ -464,6 +553,10 @@ function ByokPanel() {
   return (
     <div className="flex flex-col">
       <MemorySwitch />
+      <p className="pb-4 text-[12px] text-muted-foreground">
+        Memories are scoped per conversation: each thread reads and writes its
+        own memory only, so context never leaks across chats.
+      </p>
       {BYOK_KEYS.map((k) => (
         <div
           key={k.name}
@@ -629,7 +722,7 @@ function MemorySwitch() {
   return (
     <SettingRow
       label="Chat memory"
-      description="Remember facts across chats via Mem0. Requires a Mem0 API key."
+      description="Remember learned facts and recall them across chats via Mem0. Requires a Mem0 API key."
     >
       <Switch
         className={SWITCH_LABEL_HIDDEN}
@@ -808,6 +901,27 @@ function AppearancePanel() {
   const icons = useIcons();
   const { theme, setTheme } = useTheme();
   const { size, setSize } = useSizeContext();
+  const [quality, setQuality] = useState<string>("auto");
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch("/api/settings", { cache: "no-store" });
+      const json = (await res.json().catch(() => null)) as {
+        data?: { defaultQuality?: string };
+      } | null;
+      if (json?.data?.defaultQuality) setQuality(json.data.defaultQuality);
+    })();
+  }, []);
+
+  const saveQuality = (value: string) => {
+    setQuality(value);
+    void fetch("/api/settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ defaultQuality: value }),
+    });
+  };
+
   return (
     <div className="flex flex-col">
       <SettingRow
@@ -849,16 +963,26 @@ function AppearancePanel() {
         </Select>
       </SettingRow>
       <SettingRow
-        label="Chat animation"
-        description="Show thinking and tool-call motion in chat."
+        label="Default quality"
+        description="Output resolution when the model is not told how to think. The composer can still override per-message."
       >
-        <Switch
-          className={SWITCH_LABEL_HIDDEN}
-          label="Chat animation"
-          checked={true}
-          disabled
-          onToggle={() => {}}
-        />
+        <Select value={quality} onValueChange={saveQuality}>
+          <SelectTrigger placeholder="Quality" />
+          <SelectContent>
+            <SelectItem index={0} value="auto">
+              Auto
+            </SelectItem>
+            <SelectItem index={1} value="high">
+              High
+            </SelectItem>
+            <SelectItem index={2} value="medium">
+              Medium
+            </SelectItem>
+            <SelectItem index={3} value="low">
+              Low
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </SettingRow>
     </div>
   );

@@ -113,11 +113,21 @@ export async function POST(request: Request): Promise<Response> {
 	);
 }
 
-// Append ONE model to an existing provider (no key re-entry, no commas).
+// Set the model list for a provider: append ONE model (no key re-entry), or
+// replace the whole ordered list (drag/reorder from the settings UI).
 const modelAppendSchema = z.object({
 	slug: z.string().min(1).max(64),
-	modelId: z.string().min(1).max(120),
+	modelId: z.string().min(1).max(120).optional(),
 	displayName: z.string().max(120).optional(),
+	models: z
+		.array(
+			z.object({
+				id: z.string().min(1),
+				displayName: z.string().optional(),
+			}),
+		)
+		.max(50)
+		.optional(),
 });
 
 export async function PATCH(request: Request): Promise<Response> {
@@ -146,14 +156,20 @@ export async function PATCH(request: Request): Promise<Response> {
 	if (!existing) {
 		return jsonError(404, "NOT_FOUND", "Provider not found. Save its API key first (Settings → API Keys).");
 	}
-	if (existing.models.some((m) => m.id === body.modelId)) {
-		return jsonError(409, "MODEL_EXISTS", `Model '${body.modelId}' already exists on this provider.`);
+
+	let models: z.infer<typeof modelAppendSchema>["models"] = existing.models;
+	if (body.models) {
+		models = body.models;
+	} else if (body.modelId) {
+		if (existing.models.some((m) => m.id === body.modelId)) {
+			return jsonError(409, "MODEL_EXISTS", `Model '${body.modelId}' already exists on this provider.`);
+		}
+		models = [
+			...existing.models,
+			{ id: body.modelId, ...(body.displayName ? { displayName: body.displayName } : {}) },
+		];
 	}
 
-	const models = [
-		...existing.models,
-		{ id: body.modelId, ...(body.displayName ? { displayName: body.displayName } : {}) },
-	];
 	const [row] = await db
 		.update(userProviders)
 		.set({ models, updatedAt: new Date() })
