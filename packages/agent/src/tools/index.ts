@@ -58,6 +58,7 @@ import {
 import { askUserTool, presentPlanTool } from "./client";
 import { crawlSiteTool } from "./crawl-site";
 import { mapSiteTool } from "./map-site";
+import { searchMemoryTool, storeMemoryTool } from "./memory";
 import { researchTopicTool } from "./research-topic";
 import { scrapeBatchTool } from "./scrape-batch";
 import { scrapeUrlTool } from "./scrape-url";
@@ -91,10 +92,12 @@ export const anakinToolSet = {
 	wireCatalog: wireCatalogTool,
 	wireBuildRequests: wireBuildRequestsTool,
 	wireDownload: wireDownloadTool,
-	browserSessionList,
-	browserSessionCreate,
-	browserSessionRename,
-	browserSessionDelete,
+browserSessionList,
+  browserSessionCreate,
+  browserSessionRename,
+  browserSessionDelete,
+  storeMemory: storeMemoryTool,
+  searchMemory: searchMemoryTool,
 } satisfies ToolSet;
 
 export type AnakinToolSet = typeof anakinToolSet;
