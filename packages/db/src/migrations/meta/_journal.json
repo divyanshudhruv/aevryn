@@ -36,6 +36,13 @@
       "when": 1789452064766,
       "tag": "0004_amazing_lizard",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789543241752,
+      "tag": "0005_lumpy_havok",
+      "breakpoints": true
     }
   ]
 }

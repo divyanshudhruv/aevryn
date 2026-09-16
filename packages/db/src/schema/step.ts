@@ -8,6 +8,7 @@ import {
 	pgTable,
 	text,
 	timestamp,
+	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core";
 import { authenticatedRole, authUsers } from "drizzle-orm/supabase";
@@ -52,6 +53,10 @@ export const steps = pgTable(
 			foreignColumns: [authUsers.id],
 		}).onDelete("cascade"),
 		index("steps_thread_position_idx").on(table.threadId, table.position),
+		uniqueIndex("steps_message_position_unique").on(
+			table.messageId,
+			table.position,
+		),
 		pgPolicy("steps_select", {
 			for: "select",
 			to: authenticatedRole,

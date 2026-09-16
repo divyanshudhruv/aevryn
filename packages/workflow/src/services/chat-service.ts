@@ -1,5 +1,6 @@
 import type { Db, Message, RunStatus, Step, StepToolCall, Workflow } from "@aevryn/db";
-import { db, ids, messages, planSteps, steps, threads, workflows } from "@aevryn/db";
+import { db, ids, messages, planSteps, steps, threads, toolCallLogs, workflows } from "@aevryn/db";
+import type { ToolCallLogInput } from "@aevryn/db";
 import { and, asc, eq } from "drizzle-orm";
 
 export class ChatService {
@@ -152,17 +153,56 @@ export class ChatService {
 			.where(eq(threads.id, input.threadId));
 
 		if (input.steps && input.steps.length > 0) {
-			await this.client.insert(steps).values(
-				input.steps.map((step) => ({
-					id: ids.step(),
-					messageId,
-					threadId: input.threadId,
-					userId: input.userId,
-					position: step.position,
-					text: step.text ?? null,
-					toolCalls: step.toolCalls,
-				})),
-			);
+			const insertedSteps = await this.client
+				.insert(steps)
+				.values(
+					input.steps.map((step) => ({
+						id: ids.step(),
+						messageId,
+						threadId: input.threadId,
+						userId: input.userId,
+						position: step.position,
+						text: step.text ?? null,
+						toolCalls: step.toolCalls,
+					})),
+				)
+				.returning();
+
+			// One audit-log row per server tool call, keyed off the inserted
+			// step rows (real step ids, not the input positions).
+			const logRows: ToolCallLogInput[] = [];
+			for (let stepIndex = 0; stepIndex < insertedSteps.length; stepIndex++) {
+				const stepRow = insertedSteps[stepIndex];
+				const step = input.steps[stepIndex];
+				if (!stepRow || !step) continue;
+				for (const call of step.toolCalls ?? []) {
+					logRows.push({
+						id: ids.toolCallLog(),
+						messageId,
+						threadId: input.threadId,
+						stepId: stepRow.id,
+						userId: input.userId,
+						toolName: call.toolName,
+						toolCallId: call.toolCallId,
+						direction: "server",
+						input: call.input ?? null,
+						output: call.output ?? null,
+						error: call.error ?? null,
+						status: call.status ?? "completed",
+						startedAt: call.startedAt ? new Date(call.startedAt) : new Date(),
+						endedAt: call.endedAt ? new Date(call.endedAt) : null,
+						durationMs:
+							call.startedAt && call.endedAt
+								? new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()
+								: null,
+						tokens: input.usage ?? null,
+						chainStack: null,
+					});
+				}
+			}
+			if (logRows.length > 0) {
+				await this.client.insert(toolCallLogs).values(logRows);
+			}
 		}
 
 		const [row] = await this.client
@@ -172,7 +212,40 @@ export class ChatService {
 		return row!;
 	}
 
-		async loadThread(input: {
+		// Client-tool resumes (askUser answers, plan decisions, approvals) log the
+	// answer on the wire back from the client. The message id is unknown at
+	// that point, so it uses a sentinel; the (message_id, tool_call_id) unique
+	// index still keys each tool call to one row. A follow-up can migrate the
+	// sentinel rows to real message ids.
+	async logClientToolCall(input: {
+		threadId: string;
+		userId: string;
+		toolName: string;
+		toolCallId: string;
+		output: unknown;
+	}): Promise<void> {
+		await this.client.insert(toolCallLogs).values({
+			id: ids.toolCallLog(),
+			messageId: "",
+			threadId: input.threadId,
+			stepId: null,
+			userId: input.userId,
+			toolName: input.toolName,
+			toolCallId: input.toolCallId,
+			direction: "client",
+			input: null,
+			output: input.output ?? null,
+			error: null,
+			status: "completed",
+			startedAt: new Date(),
+			endedAt: new Date(),
+			durationMs: 0,
+			tokens: null,
+			chainStack: null,
+		});
+	}
+
+	async loadThread(input: {
 		threadId: string;
 		userId: string;
 	}): Promise<{
