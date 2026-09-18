@@ -1,6 +1,13 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	"ui": "tui",
+	"globalEnv": [
+		"DATABASE_URL",
+		"VAULT_KEY",
+		"APPROVAL_SECRET",
+		"NEXT_PUBLIC_SUPABASE_URL",
+		"NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+	],
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
