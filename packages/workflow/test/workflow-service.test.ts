@@ -1,7 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
-
 import { db, threads, workspaces } from "@aevryn/db";
 import { eq } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { ChatService } from "../src/services/chat-service";
 import { WorkflowService } from "../src/services/workflow-service";
@@ -24,17 +23,25 @@ beforeEach(async () => {
 		 select '${userId}', '${userId}', '${userId}', 'email', jsonb_build_object('email', 'workflow-service-test-${userId}@test.local'), now(), now(), now()
 		 where not exists (select 1 from auth.identities where user_id = '${userId}')`,
 	);
-	const [ws] = await db.insert(workspaces).values({
-		id: workspaceId,
-		name: `test-ws-${stamp}`,
-		createdBy: userId,
-	}).onConflictDoNothing().returning({ id: workspaces.id });
-	const [th] = await db.insert(threads).values({
-		id: threadId,
-		workspaceId: ws ? workspaceId : workspaceId,
-		userId,
-		title: "t",
-	}).onConflictDoNothing().returning({ id: threads.id });
+	const [ws] = await db
+		.insert(workspaces)
+		.values({
+			id: workspaceId,
+			name: `test-ws-${stamp}`,
+			createdBy: userId,
+		})
+		.onConflictDoNothing()
+		.returning({ id: workspaces.id });
+	const [th] = await db
+		.insert(threads)
+		.values({
+			id: threadId,
+			workspaceId: ws ? workspaceId : workspaceId,
+			userId,
+			title: "t",
+		})
+		.onConflictDoNothing()
+		.returning({ id: threads.id });
 	void th;
 
 	const workflow = await new ChatService().createWorkflowFromPlan({
@@ -67,14 +74,14 @@ describe("WorkflowService.replaceSteps", () => {
 			status: "completed",
 		});
 
-		const b = before!.steps;
+		const b = before?.steps;
 		// Keep B (marked completed, index 1) and A; reorder; add a new step.
 		const replaced = await service.replaceSteps({
 			workflowId,
 			userId,
 			steps: [
-				{ id: b[1]!.id, title: "B edited" },
-				{ id: b[0]!.id, title: "A reordered" },
+				{ id: b[1]?.id, title: "B edited" },
+				{ id: b[0]?.id, title: "A reordered" },
 				{ title: "D new" },
 			],
 		});
@@ -87,9 +94,9 @@ describe("WorkflowService.replaceSteps", () => {
 		expect(replaced.map((s) => s.position)).toEqual([1, 2, 3]);
 
 		const statusById = new Map(replaced.map((s) => [s.id, s.status]));
-		expect(statusById.get(b[1]!.id)).toBe("completed");
-		expect(statusById.get(b[0]!.id)).toBe("idle");
-		expect(replaced[2]!.status).toBe("idle");
+		expect(statusById.get(b[1]?.id)).toBe("completed");
+		expect(statusById.get(b[0]?.id)).toBe("idle");
+		expect(replaced[2]?.status).toBe("idle");
 
 		const dbRows = await db
 			.select()
@@ -111,15 +118,13 @@ describe("WorkflowService.replaceSteps", () => {
 		const replaced = await service.replaceSteps({
 			workflowId,
 			userId,
-			steps: [
-				{ id: before!.steps[0]!.id, title: "only" },
-			],
+			steps: [{ id: before?.steps[0]?.id, title: "only" }],
 		});
 		expect(replaced).toHaveLength(1);
 
 		// Stale ids from before the replace can still be spawned by other writers;
 		// replacing to a smaller list must produce exactly one row.
-		expect(replaced[0]!.title).toBe("only");
+		expect(replaced[0]?.title).toBe("only");
 	});
 
 	it("rejects edits to a workflow owned by another user (service-level gate)", async () => {

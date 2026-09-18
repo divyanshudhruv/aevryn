@@ -1,5 +1,8 @@
 import type { ToolSet } from "ai";
-
+import { aiVisibilityTool } from "./ai-visibility";
+import { aiVisibilityRetryTool } from "./ai-visibility-retry";
+import { aiVisibilitySearchesTool } from "./ai-visibility-searches";
+import { aiVisibilitySourcesTool } from "./ai-visibility-sources";
 import {
 	ANAKIN_BASE_URL,
 	anakinClient,
@@ -8,10 +11,6 @@ import {
 	type ToolError,
 	type ToolResult,
 } from "./anakin-client";
-import { aiVisibilityTool } from "./ai-visibility";
-import { aiVisibilitySearchesTool } from "./ai-visibility-searches";
-import { aiVisibilityRetryTool } from "./ai-visibility-retry";
-import { aiVisibilitySourcesTool } from "./ai-visibility-sources";
 import { beginTaskTool } from "./begin-task";
 import {
 	browserSessionCreate,
@@ -19,11 +18,7 @@ import {
 	browserSessionList,
 	browserSessionRename,
 } from "./browser-sessions";
-import {
-	askUserQuestionSchema,
-	askUserTool,
-	presentPlanTool,
-} from "./client";
+import { askUserQuestionSchema, askUserTool, presentPlanTool } from "./client";
 import { crawlSiteTool } from "./crawl-site";
 import { mapSiteTool } from "./map-site";
 import { searchMemoryTool, storeMemoryTool } from "./memory";
@@ -40,37 +35,43 @@ import { wireDiscoverTool } from "./wire-discover";
 import { wireDownloadTool } from "./wire-download";
 import { updateStepStatusTool } from "./workflow-progress";
 
-export { toolContextSchema, type ToolContext } from "./context";
+export { type ToolContext, toolContextSchema } from "./context";
 export {
 	ANAKIN_BASE_URL,
+	aiVisibilityRetryTool,
+	aiVisibilitySearchesTool,
+	aiVisibilitySourcesTool,
+	aiVisibilityTool,
 	anakinClient,
+	askUserQuestionSchema,
+	askUserTool,
+	beginTaskTool,
+	browserSessionCreate,
+	browserSessionDelete,
+	browserSessionList,
+	browserSessionRename,
+	crawlSiteTool,
+	makeRetryAgentTool,
+	mapSiteTool,
+	presentPlanTool,
 	requireKey,
+	researchTopicTool,
 	resolveAnakinKey,
+	scrapeBatchTool,
+	scrapeUrlTool,
+	searchMemoryTool,
+	searchWebTool,
+	storeMemoryTool,
 	type ToolError,
 	type ToolResult,
+	updateStepStatusTool,
+	wireActionTool,
+	wireBuildRequestsTool,
+	wireBuildRequestTool,
+	wireCatalogTool,
+	wireDiscoverTool,
+	wireDownloadTool,
 };
-export { beginTaskTool };
-export { browserSessionCreate, browserSessionDelete, browserSessionList, browserSessionRename };
-export { askUserQuestionSchema, askUserTool, presentPlanTool };
-export { crawlSiteTool };
-export { mapSiteTool };
-export { searchMemoryTool, storeMemoryTool };
-export { researchTopicTool };
-export { makeRetryAgentTool };
-export { scrapeBatchTool };
-export { scrapeUrlTool };
-export { searchWebTool };
-export { wireActionTool };
-export { wireBuildRequestTool };
-export { wireBuildRequestsTool };
-export { wireCatalogTool };
-export { wireDiscoverTool };
-export { wireDownloadTool };
-export { updateStepStatusTool };
-export { aiVisibilityTool };
-export { aiVisibilitySourcesTool };
-export { aiVisibilitySearchesTool };
-export { aiVisibilityRetryTool };
 
 // Client tools (askUserTool, presentPlanTool) and updateStepStatusTool are
 // intentionally NOT in the default set — AgentService registers them

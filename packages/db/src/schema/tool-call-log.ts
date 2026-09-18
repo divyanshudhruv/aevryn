@@ -8,8 +8,8 @@ import {
 	pgTable,
 	text,
 	timestamp,
-	uuid,
 	uniqueIndex,
+	uuid,
 } from "drizzle-orm/pg-core";
 import { authenticatedRole, authUsers } from "drizzle-orm/supabase";
 import type { ToolCallLogDirection, ToolCallLogStatus } from "../domain";

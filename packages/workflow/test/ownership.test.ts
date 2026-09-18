@@ -1,7 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
-
 import { db, groups, messages, threads, workspaces } from "@aevryn/db";
 import { eq } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "vitest";
 
 /** db.execute accepts SQLWrapper | string — no `as any` needed. */
 const raw = (query: string) => db.execute(query);

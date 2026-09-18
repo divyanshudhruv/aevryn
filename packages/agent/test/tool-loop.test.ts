@@ -1,38 +1,39 @@
+import { InvalidToolInputError, NoSuchToolError } from "ai";
 import { describe, expect, it } from "vitest";
-
+import { repairJsonText, repairToolCall } from "../src/tool-call-repair";
 import {
 	askUserQuestionSchema,
 	askUserTool,
 	presentPlanTool,
 } from "../src/tools/client";
-import { repairJsonText, repairToolCall } from "../src/tool-call-repair";
-import { InvalidToolInputError, NoSuchToolError } from "ai";
 
 // ─── askUser input normalization ────────────────────────────────────────────
 
 describe("askUser schema", () => {
 	it("accepts a bare array of questions", () => {
-		const schema = (askUserTool as unknown as { inputSchema: { _def: unknown } })
-			.inputSchema as never as {
+		const schema = (
+			askUserTool as unknown as { inputSchema: { _def: unknown } }
+		).inputSchema as never as {
 			parse: (v: unknown) => Array<{ title: string }>;
 		};
 		const result = schema.parse([
 			{ title: "Pick one", options: [{ title: "A" }, { title: "B" }] },
 		]);
 		expect(result).toHaveLength(1);
-		expect(result[0]!.title).toBe("Pick one");
+		expect(result[0]?.title).toBe("Pick one");
 	});
 
 	it("accepts a { questions: [...] } wrapper (weaker-model shape)", () => {
-		const schema = (askUserTool as unknown as { inputSchema: { _def: unknown } })
-			.inputSchema as never as {
+		const schema = (
+			askUserTool as unknown as { inputSchema: { _def: unknown } }
+		).inputSchema as never as {
 			parse: (v: unknown) => Array<{ title: string }>;
 		};
 		const result = schema.parse({
 			questions: [{ title: "Q", options: [{ title: "A" }] }],
 		});
 		expect(Array.isArray(result)).toBe(true);
-		expect(result[0]!.title).toBe("Q");
+		expect(result[0]?.title).toBe("Q");
 	});
 
 	it("rejects a question with neither options nor freeText", () => {
@@ -45,9 +46,11 @@ describe("askUser schema", () => {
 
 describe("presentPlan schema", () => {
 	it("requires step descriptions (accordion content)", () => {
-		const inputSchema = (presentPlanTool as unknown as {
-			inputSchema: { parse: (v: unknown) => unknown };
-		}).inputSchema;
+		const inputSchema = (
+			presentPlanTool as unknown as {
+				inputSchema: { parse: (v: unknown) => unknown };
+			}
+		).inputSchema;
 		const ok = inputSchema.parse({
 			title: "T",
 			objective: "O",
@@ -86,7 +89,7 @@ describe("repairJsonText", () => {
 	});
 
 	it("fixes smart quotes", () => {
-		expect(repairJsonText('[{\u201ctitle\u201d:\u201ca\u201d}]')).toEqual([
+		expect(repairJsonText("[{\u201ctitle\u201d:\u201ca\u201d}]")).toEqual([
 			{ title: "a" },
 		]);
 	});

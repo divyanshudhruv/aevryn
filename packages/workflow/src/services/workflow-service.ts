@@ -58,7 +58,10 @@ export class WorkflowService {
 	}
 
 	/** Deletes the workflow, unbinds any threads pointing at it, drops steps. */
-	async delete(input: { workflowId: string; userId: string }): Promise<boolean> {
+	async delete(input: {
+		workflowId: string;
+		userId: string;
+	}): Promise<boolean> {
 		const [row] = await this.client
 			.select({ id: workflows.id })
 			.from(workflows)
@@ -78,9 +81,7 @@ export class WorkflowService {
 			await tx
 				.delete(planSteps)
 				.where(eq(planSteps.workflowId, input.workflowId));
-			await tx
-				.delete(workflows)
-				.where(eq(workflows.id, input.workflowId));
+			await tx.delete(workflows).where(eq(workflows.id, input.workflowId));
 		});
 		return true;
 	}
@@ -111,7 +112,9 @@ export class WorkflowService {
 					),
 				);
 			if (!owned) {
-				throw new Error(`Workflow ${input.workflowId} not found or not owned by user`);
+				throw new Error(
+					`Workflow ${input.workflowId} not found or not owned by user`,
+				);
 			}
 
 			const existing = await tx

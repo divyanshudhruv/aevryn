@@ -2,13 +2,17 @@ import { tool } from "ai";
 import MemoryClient from "mem0ai";
 import { z } from "zod";
 
-import { toolContextSchema, type ToolContext } from "./context";
+import { type ToolContext, toolContextSchema } from "./context";
 
 export const storeMemoryTool = tool({
 	description:
 		"Save a durable fact/preference about user or project to chat long-term memory (Mem0). Use for things worth remembering across sessions: preferences, decisions, credential locations (never secrets), ongoing goals.",
 	inputSchema: z.object({
-		text: z.string().min(1).max(2_000).describe("The fact, 1–2 self-contained sentences."),
+		text: z
+			.string()
+			.min(1)
+			.max(2_000)
+			.describe("The fact, 1–2 self-contained sentences."),
 		category: z
 			.enum(["preference", "decision", "fact", "goal"])
 			.optional()
@@ -18,7 +22,10 @@ export const storeMemoryTool = tool({
 	execute: async (
 		input,
 		{ context }: { context: ToolContext },
-	): Promise<{ ok: true; stored: true } | { ok: false; error: { code: string; message: string } }> => {
+	): Promise<
+		| { ok: true; stored: true }
+		| { ok: false; error: { code: string; message: string } }
+	> => {
 		if (!context.mem0Key) {
 			return {
 				ok: false,
@@ -31,13 +38,10 @@ export const storeMemoryTool = tool({
 		}
 		try {
 			const client = new MemoryClient({ apiKey: context.mem0Key });
-			await client.add(
-				[{ role: "user", content: input.text }],
-				{
-					userId: context.threadId,
-					...(input.category ? { metadata: { category: input.category } } : {}),
-				},
-			);
+			await client.add([{ role: "user", content: input.text }], {
+				userId: context.threadId,
+				...(input.category ? { metadata: { category: input.category } } : {}),
+			});
 			return { ok: true, stored: true };
 		} catch (err) {
 			return {
@@ -56,7 +60,13 @@ export const searchMemoryTool = tool({
 		"Search chat long-term memory (Mem0). Saved facts, preferences, decisions. Use when user references earlier discussion.",
 	inputSchema: z.object({
 		query: z.string().min(1),
-		limit: z.number().int().min(1).max(20).optional().describe("Max memories (default 5)."),
+		limit: z
+			.number()
+			.int()
+			.min(1)
+			.max(20)
+			.optional()
+			.describe("Max memories (default 5)."),
 	}),
 	contextSchema: toolContextSchema,
 	execute: async (

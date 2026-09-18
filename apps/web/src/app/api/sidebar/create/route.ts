@@ -36,7 +36,11 @@ export async function POST(request: Request): Promise<Response> {
 		if (!name || name.trim() === "") {
 			return jsonError(400, "MISSING_NAME", "Group name is required.");
 		}
-		const group = await workspaceService.createGroup(workspaceId, user.id, name);
+		const group = await workspaceService.createGroup(
+			workspaceId,
+			user.id,
+			name,
+		);
 		return Response.json(
 			{ data: group, error: null, meta: {} },
 			{ headers: { "cache-control": "no-store" } },
@@ -47,7 +51,12 @@ export async function POST(request: Request): Promise<Response> {
 		if (!workspaceId) {
 			return jsonError(400, "MISSING_WORKSPACE", "workspaceId is required.");
 		}
-		const thread = await workspaceService.createThread(workspaceId, user.id, groupId ?? null, title ?? "");
+		const thread = await workspaceService.createThread(
+			workspaceId,
+			user.id,
+			groupId ?? null,
+			title ?? "",
+		);
 		return Response.json(
 			{ data: thread, error: null, meta: {} },
 			{ headers: { "cache-control": "no-store" } },

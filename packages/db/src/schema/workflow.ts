@@ -89,7 +89,10 @@ export const planSteps = pgTable(
 			columns: [table.userId],
 			foreignColumns: [authUsers.id],
 		}).onDelete("cascade"),
-		index("plan_steps_workflow_position_idx").on(table.workflowId, table.position),
+		index("plan_steps_workflow_position_idx").on(
+			table.workflowId,
+			table.position,
+		),
 		pgPolicy("plan_steps_select", {
 			for: "select",
 			to: authenticatedRole,

@@ -3,8 +3,8 @@ import { UserDataService } from "@aevryn/workflow";
 import { generateText } from "ai";
 
 import { jsonError } from "@/lib/api";
-import { createServerSupabaseForNext } from "@/lib/supabase-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,7 +78,9 @@ export async function POST(request: Request): Promise<Response> {
 		);
 	} catch (err) {
 		const message =
-			err instanceof Error ? err.message : "Could not reach the model provider.";
+			err instanceof Error
+				? err.message
+				: "Could not reach the model provider.";
 		return Response.json(
 			{
 				data: { ok: false, modelId, reply: null },

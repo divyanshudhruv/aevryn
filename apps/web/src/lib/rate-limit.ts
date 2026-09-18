@@ -39,12 +39,19 @@ export function enforceRateLimit(opts: {
 	return Response.json(
 		{
 			data: null,
-			error: { code: "RATE_LIMITED", message: "Too many requests. Try again shortly.", details: null },
+			error: {
+				code: "RATE_LIMITED",
+				message: "Too many requests. Try again shortly.",
+				details: null,
+			},
 			meta: {},
 		},
 		{
 			status: 429,
-			headers: { "cache-control": "no-store", "retry-after": String(retryAfter) },
+			headers: {
+				"cache-control": "no-store",
+				"retry-after": String(retryAfter),
+			},
 		},
 	);
 }

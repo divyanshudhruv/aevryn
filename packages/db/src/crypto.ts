@@ -7,7 +7,6 @@ import {
 
 import { env } from "@aevryn/env/server";
 
-
 const keyFor = (): Buffer =>
 	createHash("sha256").update(env.VAULT_KEY, "utf8").digest();
 

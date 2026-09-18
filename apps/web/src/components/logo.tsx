@@ -53,7 +53,7 @@ export function Logo({
 
   // Both variants rendered; CSS picks by theme — no hydration flash, no JS.
   return (
-    <>
+    <a href="/">
       <div
         className={cn(
           "inline-flex shrink-0 items-end justify-center gap-1.5 dark:hidden",
@@ -72,6 +72,6 @@ export function Logo({
         <img src="/logo-white.svg" alt="" aria-hidden className={glyph} />
         <img src="/aevryn-white.svg" alt="" aria-hidden className={wordmark} />
       </div>
-    </>
+    </a>
   );
 }

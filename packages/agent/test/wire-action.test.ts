@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { wireActionTool } from "../src/tools/wire-action";
 import { anakinGet, anakinPost } from "../src/tools/anakin-client";
+import { wireActionTool } from "../src/tools/wire-action";
 
 vi.mock("../src/tools/anakin-client", () => {
 	const anakinGet = vi.fn(
-		async (_path: string): Promise<{ status: number; body: Record<string, unknown> }> => ({
+		async (
+			_path: string,
+		): Promise<{ status: number; body: Record<string, unknown> }> => ({
 			status: 200,
 			body: {},
 		}),
 	);
 	const anakinPost = vi.fn(
-		async (_path: string): Promise<{ status: number; body: Record<string, unknown> }> => ({
+		async (
+			_path: string,
+		): Promise<{ status: number; body: Record<string, unknown> }> => ({
 			status: 200,
 			body: {},
 		}),
@@ -42,7 +45,12 @@ const keyedContext = {
 };
 
 function exec(input: unknown, context: object): Promise<unknown> {
-	return (wireActionTool.execute!(input as never, { context } as never as ExecArgs) as Promise<unknown>).then((r) => r);
+	return (
+		wireActionTool.execute?.(
+			input as never,
+			{ context } as never as ExecArgs,
+		) as Promise<unknown>
+	).then((r) => r);
 }
 
 beforeEach(() => {
@@ -73,7 +81,9 @@ describe("wireActionTool keyless inline path", () => {
 
 		expect(result.ok).toBe(true);
 		expect(result.result.status).toBe("completed");
-		expect((result.result.data as { _untrusted?: string })._untrusted).toContain('"x":1');
+		expect(
+			(result.result.data as { _untrusted?: string })._untrusted,
+		).toContain('"x":1');
 		expect(result.result.files).toEqual([
 			{ name: "a.csv", contentType: "text/csv", sizeBytes: 10 },
 			{ name: "b.csv", contentType: "text/csv", sizeBytes: 20 },
@@ -83,7 +93,10 @@ describe("wireActionTool keyless inline path", () => {
 
 describe("wireActionTool keyed async path", () => {
 	it("submits the task and returns the polled terminal result", async () => {
-		vi.mocked(anakinPost).mockResolvedValue({ status: 202, body: { job_id: "job_9" } });
+		vi.mocked(anakinPost).mockResolvedValue({
+			status: 202,
+			body: { job_id: "job_9" },
+		});
 		vi.mocked(anakinGet)
 			.mockResolvedValueOnce({
 				status: 200,
@@ -102,7 +115,9 @@ describe("wireActionTool keyed async path", () => {
 		expect(result.ok).toBe(true);
 		expect(result.result.jobId).toBe("job_9");
 		expect(result.result.status).toBe("completed");
-		expect((result.result.data as { _untrusted?: string })._untrusted).toContain('"y":2');
+		expect(
+			(result.result.data as { _untrusted?: string })._untrusted,
+		).toContain('"y":2');
 		expect(vi.mocked(anakinPost)).toHaveBeenCalledWith(
 			"/wire/task",
 			expect.objectContaining({
@@ -112,15 +127,25 @@ describe("wireActionTool keyed async path", () => {
 			"ak_test",
 			30_000,
 		);
-		expect(vi.mocked(anakinGet)).toHaveBeenCalledWith("/wire/jobs/job_9", undefined, "ak_test");
+		expect(vi.mocked(anakinGet)).toHaveBeenCalledWith(
+			"/wire/jobs/job_9",
+			undefined,
+			"ak_test",
+		);
 		expect(vi.mocked(anakinGet)).toHaveBeenCalledTimes(2);
 	});
 
 	it("surfaces a failed terminal status from the poll loop", async () => {
-		vi.mocked(anakinPost).mockResolvedValue({ status: 202, body: { job_id: "job_8" } });
+		vi.mocked(anakinPost).mockResolvedValue({
+			status: 202,
+			body: { job_id: "job_8" },
+		});
 		vi.mocked(anakinGet).mockResolvedValue({
 			status: 200,
-			body: { status: "failed", error: { code: "execution_failed", message: "boom" } },
+			body: {
+				status: "failed",
+				error: { code: "execution_failed", message: "boom" },
+			},
 		});
 
 		const result = (await exec(
@@ -130,12 +155,18 @@ describe("wireActionTool keyed async path", () => {
 
 		expect(result.ok).toBe(true);
 		expect(result.result.status).toBe("failed");
-		expect(result.result.error).toEqual({ code: "execution_failed", message: "boom" });
+		expect(result.result.error).toEqual({
+			code: "execution_failed",
+			message: "boom",
+		});
 		expect(vi.mocked(anakinGet)).toHaveBeenCalledTimes(1);
 	});
 
 	it("gives up polling after the attempt window and maps the timeout error", async () => {
-		vi.mocked(anakinPost).mockResolvedValue({ status: 202, body: { job_id: "job_7" } });
+		vi.mocked(anakinPost).mockResolvedValue({
+			status: 202,
+			body: { job_id: "job_7" },
+		});
 		vi.mocked(anakinGet).mockResolvedValue({
 			status: 200,
 			body: { status: "processing", retry_after_ms: 1 },
@@ -154,7 +185,10 @@ describe("wireActionTool keyed async path", () => {
 	});
 
 	it("maps a non-202 submit response to a tool error", async () => {
-		vi.mocked(anakinPost).mockResolvedValue({ status: 400, body: { message: "bad creds" } });
+		vi.mocked(anakinPost).mockResolvedValue({
+			status: 400,
+			body: { message: "bad creds" },
+		});
 
 		const result = (await exec(
 			{ actionId: "act_5", credentialId: "cred_1" },
@@ -173,7 +207,10 @@ describe("wireActionTool keyed async path", () => {
 			keylessContext,
 		)) as { ok: false; error: { code: string } };
 
-		expect(result).toMatchObject({ ok: false, error: { code: "ANAKIN_KEY_REQUIRED" } });
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: "ANAKIN_KEY_REQUIRED" },
+		});
 		expect(vi.mocked(anakinPost)).not.toHaveBeenCalled();
 	});
 });

@@ -1,13 +1,12 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
 import {
 	anakinGet,
 	mapAnakinError,
 	requireKey,
 	type ToolResult,
 } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 
 export interface VisibilitySource {
 	slug: string;
@@ -26,11 +25,9 @@ export const aiVisibilitySourcesTool = tool({
 		const key = requireKey(context.anakinKey);
 		if (!key.ok) return key;
 		try {
-			const { body } = await anakinGet<{ sources?: Array<Record<string, unknown>> }>(
-				"/ai-visibility/sources",
-				undefined,
-				key.apiKey,
-			);
+			const { body } = await anakinGet<{
+				sources?: Array<Record<string, unknown>>;
+			}>("/ai-visibility/sources", undefined, key.apiKey);
 			const sources = (body.sources ?? [])
 				.filter(
 					(s): s is Record<string, unknown> & { slug: string } =>

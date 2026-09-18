@@ -221,7 +221,7 @@ export function WorkspaceSidebar() {
 					body: JSON.stringify({ action: "run" }),
 				},
 			).catch(() => undefined);
-			if (!res || !res.ok) return;
+			if (!res?.ok) return;
 			window.dispatchEvent(
 				new CustomEvent("aevryn:run-thread", { detail: { threadId } }),
 			);

@@ -1,5 +1,5 @@
-import { db, groups, ids, threads, userProfiles, workspaces } from "@aevryn/db";
 import type { Db } from "@aevryn/db";
+import { db, groups, ids, threads, userProfiles, workspaces } from "@aevryn/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 
 import { sidebarService } from "./sidebar-service";
@@ -22,7 +22,7 @@ export interface ThreadSummary {
 	title: string;
 	status: string;
 	updatedAt: string;
-		boundWorkflowId: string | null;
+	boundWorkflowId: string | null;
 }
 
 export class WorkspaceService {
@@ -109,10 +109,8 @@ export class WorkspaceService {
 			.where(eq(workspaces.createdBy, userId))
 			.orderBy(desc(workspaces.isDefault), asc(workspaces.createdAt))
 			.limit(1);
-		return winner!.id;
+		return winner?.id;
 	}
-
-	
 
 	async createGroup(
 		workspaceId: string,
@@ -125,7 +123,9 @@ export class WorkspaceService {
 		const [ownedWs] = await this.client
 			.select({ id: workspaces.id })
 			.from(workspaces)
-			.where(and(eq(workspaces.id, workspaceId), eq(workspaces.createdBy, userId)))
+			.where(
+				and(eq(workspaces.id, workspaceId), eq(workspaces.createdBy, userId)),
+			)
 			.limit(1);
 		if (!ownedWs) {
 			throw new Error("WORKSPACE_NOT_FOUND");
@@ -200,7 +200,9 @@ export class WorkspaceService {
 		const [ownedWs] = await this.client
 			.select({ id: workspaces.id })
 			.from(workspaces)
-			.where(and(eq(workspaces.id, workspaceId), eq(workspaces.createdBy, userId)))
+			.where(
+				and(eq(workspaces.id, workspaceId), eq(workspaces.createdBy, userId)),
+			)
 			.limit(1);
 		if (!ownedWs) {
 			throw new Error("WORKSPACE_NOT_FOUND");
@@ -305,11 +307,13 @@ export class WorkspaceService {
 				promoCards: [],
 			};
 		}
-		const workspace = workspaces.find((w) => w.id === requestedWorkspaceId) ?? workspaces[0]!;
+		const workspace =
+			workspaces.find((w) => w.id === requestedWorkspaceId) ?? workspaces[0]!;
 		const [groups, threads, profile, promoCards] = await Promise.all([
 			this.listGroups(workspace.id),
 			this.listThreads(workspace.id),
-			this.client.select({ name: userProfiles.name, avatarUrl: userProfiles.avatarUrl })
+			this.client
+				.select({ name: userProfiles.name, avatarUrl: userProfiles.avatarUrl })
 				.from(userProfiles)
 				.where(eq(userProfiles.userId, userId))
 				.limit(1),

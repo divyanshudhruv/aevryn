@@ -1,8 +1,7 @@
-import { defineConfig } from "vitest/config";
-
 // Real Supabase DB from apps/web/.env — the chat-service tests exercise
 // actual tables (RLS is bypassed by the direct connection string).
 import { readFileSync } from "node:fs";
+import { defineConfig } from "vitest/config";
 
 function envFromWeb(name: string): string {
 	try {
@@ -27,7 +26,7 @@ export default defineConfig({
 			APPROVAL_SECRET:
 				"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
 			DATABASE_URL:
-			envFromWeb("DATABASE_URL") || "postgresql://localhost:5432/test",
+				envFromWeb("DATABASE_URL") || "postgresql://localhost:5432/test",
 			NEXT_PUBLIC_SUPABASE_URL: "https://localhost.supabase.co",
 			NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "test-anon-key",
 			SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",

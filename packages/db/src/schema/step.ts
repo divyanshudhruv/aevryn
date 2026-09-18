@@ -19,7 +19,6 @@ import { threads } from "./thread";
 
 const uuidText = sql`(concat('stp_', gen_random_uuid()::text))`;
 
-
 export interface StepToolCall {
 	toolCallId: string;
 	toolName: string;
@@ -39,13 +38,16 @@ export const steps = pgTable(
 		messageId: text("message_id")
 			.notNull()
 			.references(() => messages.id, { onDelete: "cascade" }),
-				threadId: text("thread_id")
+		threadId: text("thread_id")
 			.notNull()
 			.references(() => threads.id, { onDelete: "cascade" }),
 		userId: uuid("user_id").notNull(),
 		position: integer("position").notNull(),
 		text: text("text"),
-		toolCalls: jsonb("tool_calls").$type<StepToolCall[]>().notNull().default([]),
+		toolCalls: jsonb("tool_calls")
+			.$type<StepToolCall[]>()
+			.notNull()
+			.default([]),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),

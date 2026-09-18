@@ -1,7 +1,6 @@
+import { db, ids, messages, planSteps, steps, workflows } from "@aevryn/db";
+import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-
-import { db, ids, workflows, planSteps, messages, steps } from "@aevryn/db";
-import { eq, asc } from "drizzle-orm";
 
 import { ChatService } from "../src/services/chat-service";
 
@@ -168,7 +167,9 @@ describe("ChatService message persistence helpers", () => {
 			.from(messages)
 			.where(eq(messages.threadId, threadId));
 		expect(msgRows).toHaveLength(2);
-		const savedAssistant = msgRows.find((m: { id: string }) => m.id === assistant.id);
+		const savedAssistant = msgRows.find(
+			(m: { id: string }) => m.id === assistant.id,
+		);
 		expect(savedAssistant?.usage).toEqual({
 			inputTokens: 100,
 			outputTokens: 50,

@@ -1,14 +1,14 @@
 import {
-	db,
-	DEFAULT_USER_SETTINGS,
-	encryptSecret,
-	userKeys,
-	userProviders,
-	userSettings,
 	type Db,
+	DEFAULT_USER_SETTINGS,
+	db,
+	encryptSecret,
 	type ProviderModel,
 	type UserProvider,
 	type UserSettingsData,
+	userKeys,
+	userProviders,
+	userSettings,
 } from "@aevryn/db";
 import { and, eq } from "drizzle-orm";
 
@@ -47,7 +47,10 @@ export class UserDataService {
 	): Promise<UserSettingsData> {
 		const current = await this.getSettings(userId);
 		const merged: UserSettingsData = {
-			notifications: { ...current.notifications, ...(patch.notifications ?? {}) },
+			notifications: {
+				...current.notifications,
+				...(patch.notifications ?? {}),
+			},
 			defaultModel:
 				patch.defaultModel !== undefined
 					? patch.defaultModel
@@ -121,7 +124,10 @@ export class UserDataService {
 	}
 
 	/** Full row (incl. encrypted key) for outbound calls like a test ping. */
-	async getProvider(userId: string, slug: string): Promise<UserProvider | null> {
+	async getProvider(
+		userId: string,
+		slug: string,
+	): Promise<UserProvider | null> {
 		const [row] = await this.client
 			.select()
 			.from(userProviders)
@@ -146,7 +152,7 @@ export class UserDataService {
 		const models =
 			input.models.length > 0
 				? input.models
-				: (await this.#getProviderModels(input.userId, input.slug)) ?? [];
+				: ((await this.#getProviderModels(input.userId, input.slug)) ?? []);
 
 		const encrypted = encryptSecret(input.apiKey);
 		const [row] = await this.client

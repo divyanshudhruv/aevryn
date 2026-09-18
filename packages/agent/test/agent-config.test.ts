@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { createAevrynAgent, costGuardStop } from "../src/agent";
+import { costGuardStop, createAevrynAgent } from "../src/agent";
 import { buildSystemPrompt } from "../src/prompt";
 
 const usageOf = (input: number, output: number) => ({
 	inputTokens: input,
-	inputTokenDetails: { noCacheTokens: input, cacheReadTokens: undefined, cacheWriteTokens: undefined },
+	inputTokenDetails: {
+		noCacheTokens: input,
+		cacheReadTokens: undefined,
+		cacheWriteTokens: undefined,
+	},
 	outputTokens: output,
 	outputTokenDetails: {},
 	totalTokens: input + output,
@@ -16,7 +20,9 @@ const stepOf = (input: number, output: number) =>
 	({
 		stepNumber: 0,
 		usage: usageOf(input, output),
-	}) as unknown as Parameters<ReturnType<typeof costGuardStop>>[0]["steps"][number];
+	}) as unknown as Parameters<
+		ReturnType<typeof costGuardStop>
+	>[0]["steps"][number];
 
 describe("costGuardStop", () => {
 	it("does not stop while usage is under the budget", () => {

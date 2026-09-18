@@ -1,8 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema } from "./context";
 import { anakinGet, type ToolResult } from "./anakin-client";
+import { toolContextSchema } from "./context";
 
 export interface DiscoveredAction {
 	action_id: string;

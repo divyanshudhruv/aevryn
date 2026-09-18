@@ -2,7 +2,9 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-export function relativeTime(date: Date | string | null | undefined): string | undefined {
+export function relativeTime(
+	date: Date | string | null | undefined,
+): string | undefined {
 	if (!date) return undefined;
 	const d = typeof date === "string" ? new Date(date) : date;
 	const ms = d.getTime();

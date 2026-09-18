@@ -65,16 +65,24 @@ describe("subscribeToRealtime", () => {
 
 		const ch = channels[0]!;
 		expect(ch.name).toBe("ch_1");
-		expect(ch.on).toHaveBeenCalledWith("postgres_changes", cfg, expect.any(Function));
+		expect(ch.on).toHaveBeenCalledWith(
+			"postgres_changes",
+			cfg,
+			expect.any(Function),
+		);
 		expect(ch.subscribe).toHaveBeenCalledWith(expect.any(Function));
 
-		const statusCb = ch.subscribe.mock.calls[0]![0];
+		const statusCb = ch.subscribe.mock.calls[0]?.[0];
 		statusCb("SUBSCRIBED");
 		expect(onStatus).toHaveBeenCalledWith("SUBSCRIBED");
 
-		const eventCb = ch.on.mock.calls[0]![2];
+		const eventCb = ch.on.mock.calls[0]?.[2];
 		eventCb({ eventType: "INSERT", new: { id: 1 }, old: null });
-		expect(onEvent).toHaveBeenCalledWith({ eventType: "INSERT", new: { id: 1 }, old: null });
+		expect(onEvent).toHaveBeenCalledWith({
+			eventType: "INSERT",
+			new: { id: 1 },
+			old: null,
+		});
 
 		unsubscribe();
 	});
@@ -95,7 +103,7 @@ describe("subscribeToRealtime", () => {
 		});
 
 		let ch = channels[0]!;
-		let statusCb = ch.subscribe.mock.calls[0]![0];
+		let statusCb = ch.subscribe.mock.calls[0]?.[0];
 		statusCb("SUBSCRIBE_ERROR");
 		expect(removeChannel).toHaveBeenCalledTimes(1);
 		expect(channels).toHaveLength(1);
@@ -105,7 +113,7 @@ describe("subscribeToRealtime", () => {
 		expect(removeChannel).toHaveBeenCalledTimes(1);
 
 		ch = channels[1]!;
-		statusCb = ch.subscribe.mock.calls[0]![0];
+		statusCb = ch.subscribe.mock.calls[0]?.[0];
 		statusCb("SUBSCRIBED");
 		expect(onReconnected).toHaveBeenCalledTimes(1);
 
@@ -129,7 +137,7 @@ describe("subscribeToRealtime", () => {
 		});
 
 		// First failure is within budget: reconnect is scheduled.
-		const statusCb1 = channels[0]!.subscribe.mock.calls[0]![0];
+		const statusCb1 = channels[0]?.subscribe.mock.calls[0]?.[0];
 		statusCb1("SUBSCRIBE_ERROR");
 		expect(removeChannel).toHaveBeenCalledTimes(1);
 
@@ -137,7 +145,7 @@ describe("subscribeToRealtime", () => {
 		expect(channels).toHaveLength(2);
 
 		// Second failure exhausts the budget: no retry, channel left alone.
-		const statusCb2 = channels[1]!.subscribe.mock.calls[0]![0];
+		const statusCb2 = channels[1]?.subscribe.mock.calls[0]?.[0];
 		statusCb2("CHANNEL_ERROR");
 		await vi.advanceTimersByTimeAsync(10_000);
 		expect(channels).toHaveLength(2);
@@ -167,7 +175,7 @@ describe("subscribeToRealtime", () => {
 		await vi.advanceTimersByTimeAsync(100);
 		expect(channels).toHaveLength(2);
 
-		const statusCb = channels[1]!.subscribe.mock.calls[0]![0];
+		const statusCb = channels[1]?.subscribe.mock.calls[0]?.[0];
 		statusCb("SUBSCRIBED");
 		expect(onReconnected).toHaveBeenCalledTimes(1);
 	});
@@ -188,7 +196,7 @@ describe("subscribeToRealtime", () => {
 		expect(channels).toHaveLength(1);
 		expect(removeChannel).not.toHaveBeenCalled();
 
-		const statusCb = channels[0]!.subscribe.mock.calls[0]![0];
+		const statusCb = channels[0]?.subscribe.mock.calls[0]?.[0];
 		statusCb("SUBSCRIBE_ERROR");
 		await vi.advanceTimersByTimeAsync(45);
 		expect(channels).toHaveLength(1);
@@ -208,7 +216,7 @@ describe("subscribeToRealtime", () => {
 			heartbeatMs: 50,
 		});
 
-		const statusCb = channels[0]!.subscribe.mock.calls[0]![0];
+		const statusCb = channels[0]?.subscribe.mock.calls[0]?.[0];
 		statusCb("SUBSCRIBE_ERROR");
 		expect(removeChannel).toHaveBeenCalledTimes(1);
 		await vi.advanceTimersByTimeAsync(45);

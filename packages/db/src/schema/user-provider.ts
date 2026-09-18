@@ -18,7 +18,6 @@ export interface ProviderModel {
 	displayName?: string;
 }
 
-
 export const userProviders = pgTable(
 	"user_providers",
 	{

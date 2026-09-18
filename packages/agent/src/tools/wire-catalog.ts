@@ -1,13 +1,12 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
 import {
 	anakinGet,
 	mapAnakinError,
 	requireKey,
 	type ToolResult,
 } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 
 export interface CatalogEntry {
 	id?: string;
@@ -72,37 +71,51 @@ function mapEntry(entry: ApiCatalogEntry): CatalogEntry {
 		name: typeof entry.name === "string" ? entry.name : undefined,
 		domain: typeof entry.domain === "string" ? entry.domain : undefined,
 		category: typeof entry.category === "string" ? entry.category : undefined,
-		description: typeof entry.description === "string" ? entry.description : undefined,
-		authRequired: typeof entry.auth_required === "boolean" ? entry.auth_required : undefined,
+		description:
+			typeof entry.description === "string" ? entry.description : undefined,
+		authRequired:
+			typeof entry.auth_required === "boolean"
+				? entry.auth_required
+				: undefined,
 		authTypes: Array.isArray(entry.auth_types)
 			? entry.auth_types.filter((t): t is string => typeof t === "string")
 			: undefined,
 		status: typeof entry.status === "string" ? entry.status : undefined,
-		actionCount: typeof entry.action_count === "number" ? entry.action_count : undefined,
+		actionCount:
+			typeof entry.action_count === "number" ? entry.action_count : undefined,
 	};
 }
 
 function mapAction(action: ApiCatalogAction): CatalogAction {
 	return {
-		actionId: typeof action.action_id === "string" ? action.action_id : undefined,
+		actionId:
+			typeof action.action_id === "string" ? action.action_id : undefined,
 		name: typeof action.name === "string" ? action.name : undefined,
-		description: typeof action.description === "string" ? action.description : undefined,
+		description:
+			typeof action.description === "string" ? action.description : undefined,
 		type: typeof action.type === "string" ? action.type : undefined,
 		mode: typeof action.mode === "string" ? action.mode : undefined,
-		authMode: typeof action.auth_mode === "string" ? action.auth_mode : undefined,
+		authMode:
+			typeof action.auth_mode === "string" ? action.auth_mode : undefined,
 		parameters: Array.isArray(action.parameters)
 			? (action.parameters as Array<Record<string, unknown>>)
-					.filter((p) => p != null && typeof p === "object" && typeof p.name === "string")
+					.filter(
+						(p) =>
+							p != null && typeof p === "object" && typeof p.name === "string",
+					)
 					.map((p) => ({
 						name: p.name as string,
 						type: typeof p.type === "string" ? p.type : undefined,
 						required: typeof p.required === "boolean" ? p.required : undefined,
 						default: p.default,
-						description: typeof p.description === "string" ? p.description : undefined,
+						description:
+							typeof p.description === "string" ? p.description : undefined,
 					}))
 			: undefined,
 		creditsPerCall:
-			typeof action.credits_per_call === "number" ? action.credits_per_call : undefined,
+			typeof action.credits_per_call === "number"
+				? action.credits_per_call
+				: undefined,
 		status: typeof action.status === "string" ? action.status : undefined,
 	};
 }
@@ -117,7 +130,9 @@ const inputSchema = z.object({
 	scope: z
 		.enum(["all", "my", "global"])
 		.optional()
-		.describe("List filter: my catalogs (with your actions), global public ones, or all (default)."),
+		.describe(
+			"List filter: my catalogs (with your actions), global public ones, or all (default).",
+		),
 });
 
 export const wireCatalogTool = tool({
@@ -141,7 +156,11 @@ export const wireCatalogTool = tool({
 				const { body } = await anakinGet<{
 					catalog?: ApiCatalogEntry;
 					actions?: ApiCatalogAction[];
-				}>(`/wire/catalog/${encodeURIComponent(input.slug)}`, undefined, key.apiKey);
+				}>(
+					`/wire/catalog/${encodeURIComponent(input.slug)}`,
+					undefined,
+					key.apiKey,
+				);
 				if (!body.catalog || typeof body.catalog.slug !== "string") {
 					return {
 						ok: false,
@@ -158,10 +177,10 @@ export const wireCatalogTool = tool({
 				};
 			}
 
-			const params: Record<string, string> | undefined = input.scope &&
-				input.scope !== "all"
-				? { scope: input.scope }
-				: undefined;
+			const params: Record<string, string> | undefined =
+				input.scope && input.scope !== "all"
+					? { scope: input.scope }
+					: undefined;
 			const { body } = await anakinGet<{ catalog?: ApiCatalogEntry[] }>(
 				"/wire/catalog",
 				params,

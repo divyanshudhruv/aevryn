@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import type { UserProvider } from "@aevryn/db";
 
 import { encryptSecret } from "@aevryn/db";
-import type { UserProvider } from "@aevryn/db";
+import { describe, expect, it } from "vitest";
 
 import { ModelRegistry } from "../src/models/registry";
 

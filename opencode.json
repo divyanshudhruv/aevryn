@@ -1,28 +1,28 @@
 {
-  "$schema": "https://opencode.ai/config.json",
-  "model": "omniroute/best-coding",
+	"$schema": "https://opencode.ai/config.json",
+	"model": "omniroute/best-coding",
 
-  "providers": {
-    "omniroute": {
-      "name": "OmniRoute",
-      "env": ["OMNIROUTE_API_KEY"],
-      "package": "@opencode/ai/providers/openai-compatible",
+	"providers": {
+		"omniroute": {
+			"name": "OmniRoute",
+			"env": ["OMNIROUTE_API_KEY"],
+			"package": "@opencode/ai/providers/openai-compatible",
 
-      "settings": {
-        "baseURL": "http://localhost:20128/v1"
-      },
+			"settings": {
+				"baseURL": "http://localhost:20128/v1"
+			},
 
-      "models": {
-        "best-coding": {
-          "name": "OmniRoute Best Coding",
-          "modelID": "auto/best-coding",
-          "capabilities": {
-            "tools": true,
-            "input": ["text"],
-            "output": ["text"]
-          }
-        }
-      }
-    }
-  }
+			"models": {
+				"best-coding": {
+					"name": "OmniRoute Best Coding",
+					"modelID": "auto/best-coding",
+					"capabilities": {
+						"tools": true,
+						"input": ["text"],
+						"output": ["text"]
+					}
+				}
+			}
+		}
+	}
 }

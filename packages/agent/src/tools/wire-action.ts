@@ -1,15 +1,14 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
+import { wrapUntrustedJson } from "../untrusted";
 import {
 	anakinGet,
 	anakinPost,
 	mapAnakinError,
 	type ToolResult,
 } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 import type { DiscoveredAction } from "./wire-discover";
-import { wrapUntrustedJson } from "../untrusted";
 
 const inputSchema = z.object({
 	actionId: z.string().min(1).describe("action_id from wireDiscover."),
@@ -20,7 +19,9 @@ const inputSchema = z.object({
 	credentialId: z
 		.string()
 		.optional()
-		.describe("Credential id for auth-required actions (from the Wire dashboard)."),
+		.describe(
+			"Credential id for auth-required actions (from the Wire dashboard).",
+		),
 });
 
 export interface WireFile {
@@ -55,11 +56,14 @@ function mapFiles(raw: unknown): WireFile[] | undefined {
 	const files = raw
 		.filter(
 			(f): f is Record<string, unknown> =>
-				f != null && typeof f === "object" && typeof (f as Record<string, unknown>).name === "string",
+				f != null &&
+				typeof f === "object" &&
+				typeof (f as Record<string, unknown>).name === "string",
 		)
 		.map((f) => ({
 			name: f.name as string,
-			contentType: typeof f.content_type === "string" ? f.content_type : undefined,
+			contentType:
+				typeof f.content_type === "string" ? f.content_type : undefined,
 			sizeBytes: typeof f.size_bytes === "number" ? f.size_bytes : undefined,
 		}));
 	return files.length > 0 ? files : undefined;
@@ -74,12 +78,16 @@ function mapJobBody(body: WireJobBody, jobId: string): WireRunResult {
 		jobId: jobId,
 		status: body.status ?? "failed",
 		data:
-			body.data != null && typeof body.data === "object" && !Array.isArray(body.data)
+			body.data != null &&
+			typeof body.data === "object" &&
+			!Array.isArray(body.data)
 				? { _untrusted: wrapUntrustedJson(body.data) }
 				: null,
 		files: mapFiles(body.files),
-		creditsUsed: typeof body.credits_used === "number" ? body.credits_used : undefined,
-		executionMs: typeof body.execution_ms === "number" ? body.execution_ms : undefined,
+		creditsUsed:
+			typeof body.credits_used === "number" ? body.credits_used : undefined,
+		executionMs:
+			typeof body.execution_ms === "number" ? body.execution_ms : undefined,
 		error:
 			body.error != null && typeof body.error === "object"
 				? (body.error as { code?: string; message?: string })
@@ -175,7 +183,10 @@ export const wireActionTool = tool({
 	},
 });
 
-async function pollWireJob(jobId: string, apiKey: string): Promise<WireJobBody> {
+async function pollWireJob(
+	jobId: string,
+	apiKey: string,
+): Promise<WireJobBody> {
 	const maxAttempts = 60;
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
 		const { body } = await anakinGet<WireJobBody>(

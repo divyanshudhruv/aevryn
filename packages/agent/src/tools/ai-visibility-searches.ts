@@ -1,14 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
+import type { VisibilitySourceStatus } from "./ai-visibility";
 import {
 	anakinGet,
 	mapAnakinError,
 	requireKey,
 	type ToolResult,
 } from "./anakin-client";
-import type { VisibilitySourceStatus } from "./ai-visibility";
+import { type ToolContext, toolContextSchema } from "./context";
 
 export interface VisibilitySearchSummary {
 	searchId: string;
@@ -56,7 +55,8 @@ export const aiVisibilitySearchesTool = tool({
 					searchId: s.search_id,
 					query: typeof s.query === "string" ? s.query : undefined,
 					status: typeof s.status === "string" ? s.status : undefined,
-					createdAt: typeof s.created_at === "string" ? s.created_at : undefined,
+					createdAt:
+						typeof s.created_at === "string" ? s.created_at : undefined,
 					creditsUsed:
 						typeof s.credits_used === "number" ? s.credits_used : undefined,
 					sources: (s.sources ?? [])
@@ -68,8 +68,7 @@ export const aiVisibilitySearchesTool = tool({
 						)
 						.map((r) => ({
 							source: r.source,
-							status:
-								typeof r.status === "string" ? r.status : "failed",
+							status: typeof r.status === "string" ? r.status : "failed",
 						})),
 				}));
 			return { ok: true, searches };

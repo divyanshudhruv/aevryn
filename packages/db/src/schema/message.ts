@@ -46,17 +46,17 @@ export const messages = pgTable(
 			.defaultNow()
 			.notNull(),
 	},
-(table) => [
-			foreignKey({
-				columns: [table.userId],
-				foreignColumns: [authUsers.id],
-			}).onDelete("cascade"),
-			index("messages_thread_created_idx").on(table.threadId, table.createdAt),
-			uniqueIndex("messages_client_message_id_idx").on(
-				table.threadId,
-				table.userId,
-				table.clientMessageId,
-			),
+	(table) => [
+		foreignKey({
+			columns: [table.userId],
+			foreignColumns: [authUsers.id],
+		}).onDelete("cascade"),
+		index("messages_thread_created_idx").on(table.threadId, table.createdAt),
+		uniqueIndex("messages_client_message_id_idx").on(
+			table.threadId,
+			table.userId,
+			table.clientMessageId,
+		),
 		pgPolicy("messages_select", {
 			for: "select",
 			to: authenticatedRole,

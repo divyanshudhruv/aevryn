@@ -1,26 +1,9 @@
-import { Suspense } from "react";
-
+import { CardSection } from "@aevryn/ui/components/card-section";
+import { Button } from "@aevryn/ui/components/ui/button";
+import { TabPanel, Tabs, TabsList } from "@aevryn/ui/components/ui/tabs";
+import { BellElectric, Bubbles, Sparkle, Volleyball } from "lucide-react";
 import Link from "next/link";
 import { LoginScreen } from "@/components/login-screen";
-import { Button } from "@aevryn/ui/components/ui/button";
-import { CardSection } from "@aevryn/ui/components/card-section";
-import {
-  SquareLibrary,
-  Clock,
-  Star,
-  Settings,
-  LogIn,
-  Volleyball,
-  Sparkle,
-  Bubbles,
-  BellElectric,
-} from "lucide-react";
-import {
-  Tabs,
-  TabsList,
-  TabItem,
-  TabPanel,
-} from "@aevryn/ui/components/ui/tabs";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -31,7 +14,8 @@ export const metadata = {
   description:
     "Search, scrape, and research the live web with your own API key. See every step your agent takes.",
 };
-import { useIcons, type IconName } from "@aevryn/ui/lib/icon-context";
+
+import type { IconName } from "@aevryn/ui/lib/icon-context";
 
 export default function Home() {
   // Seed content for the generated card group — replace with your own.
@@ -72,10 +56,10 @@ export default function Home() {
   ];
 
   return (
-    <main className="container mx-auto flex h-full flex-col w-full max-w-7xl items-center justify-center border-l-2 border-r-2  border-dashed">
-      <header className="border-b-2 border-dashed flex flex-row items-center justify-between w-full px-4 py-4 sm:px-8 lg:px-12">
-        <div className="flex flex-row gap-1 items-center justify-center">
-          <Logo className="scale-80 -ml-3.5 sm:ml-0 sm:scale-100" />
+    <main className="container mx-auto flex h-full w-full max-w-7xl flex-col items-center justify-center border-r-2 border-l-2 border-dashed">
+      <header className="flex w-full flex-row items-center justify-between border-b-2 border-dashed px-4 py-4 sm:px-8 lg:px-12">
+        <div className="flex flex-row items-center justify-center gap-1">
+          <Logo className="-ml-3.5 scale-80 sm:ml-0 sm:scale-100" />
         </div>
         <div className="flex flex-row items-center gap-4">
           <ThemeToggle />
@@ -85,22 +69,22 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="border-b-2 border-dashed flex flex-col items-start w-full gap-8 p-4 sm:p-8 lg:p-12">
-        <div className="flex flex-col gap-4 w-full">
-          <div className="text-foreground/90 text-left text-[50px] leading-13.5 hidden sm:block">
-            Just ask <Logo size="xl" className="align-baseline " />
+      <section className="flex w-full flex-col items-start gap-8 border-b-2 border-dashed p-4 sm:p-8 lg:p-12">
+        <div className="flex w-full flex-col gap-4">
+          <div className="hidden text-left text-[50px] text-foreground/90 leading-13.5 sm:block">
+            Just ask <Logo size="xl" className="align-baseline" />
             <br />
             It handles your <span className="inline font-bold">questions</span>,
             and <span className="inline font-bold">busywork</span>.
           </div>
-          <div className="text-muted-foreground text-[15px] leading-6">
+          <div className="text-[15px] text-muted-foreground leading-6">
             An agent that searches, scrapes, and researches the live web and
             shows <br />
             every step it took. Bring your own key. Keep your data.
           </div>
         </div>
-        <div className="flex flex-col gap-4 w-full">
-          <div className="flex flex-col gap-2 sm:flex-row w-full">
+        <div className="flex w-full flex-col gap-4">
+          <div className="flex w-full flex-col gap-2 sm:flex-row">
             <Button asChild className="">
               <Link href="/signup">Try it now</Link>
             </Button>
@@ -109,20 +93,23 @@ export default function Home() {
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 w-full justify-center md:justify-start">
-            <span className="text-[12px] flex flex-row gap-1 items-center text-muted-foreground">
+          <div className="flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2 md:justify-start">
+            <span className="flex flex-row items-center gap-1 text-[12px] text-muted-foreground">
+              Use your keys:
+            </span>
+            <span className="flex flex-row items-center gap-1 text-[12px] text-muted-foreground">
               <Volleyball className="size-4 text-muted-foreground" />
               OpenAI
             </span>
-            <span className="text-[12px] flex flex-row gap-1 items-center text-muted-foreground">
+            <span className="flex flex-row items-center gap-1 text-[12px] text-muted-foreground">
               <Bubbles className="size-4 text-muted-foreground" />
               Anthropic
             </span>
-            <span className="text-[12px] flex flex-row gap-1 items-center text-muted-foreground">
+            <span className="flex flex-row items-center gap-1 text-[12px] text-muted-foreground">
               <Sparkle className="size-4 text-muted-foreground" />
               Google
             </span>
-            <span className="text-[12px] flex flex-row gap-1 items-center text-muted-foreground">
+            <span className="flex flex-row items-center gap-1 text-[12px] text-muted-foreground">
               <BellElectric className="size-4 text-muted-foreground" /> And more
             </span>
           </div>
@@ -156,34 +143,34 @@ export default function Home() {
         {/* <div className="text-[13px] font-mono">Free launch generous usage, no card to sign up</div> */}
       </section>
 
-      <section className="border-b-2 border-dashed flex flex-row items-center justify-center w-full px-4 py-4 sm:px-8 lg:px-12">
+      <section className="flex w-full flex-row items-center justify-center border-b-2 border-dashed px-4 py-4 sm:px-8 lg:px-12">
         <CardSection items={ITEMS} />
       </section>
-      <section className="border-b-2 border-dashed flex flex-col items-center justify-between w-full px-4 py-8 gap-8 sm:px-8 lg:flex-row lg:px-12">
-        <div className="flex flex-col gap-4 w-full min-w-0 hidden sm:flex">
-          <div className="text-foreground text-[28px] leading-6">
+      <section className="flex w-full flex-col items-center justify-between gap-8 border-b-2 border-dashed px-4 py-8 sm:px-8 lg:flex-row lg:px-12">
+        <div className="flex hidden w-full min-w-0 flex-col gap-4 sm:flex">
+          <div className="text-[28px] text-foreground leading-6">
             Two minutes, tops
           </div>
-          <div className="text-muted-foreground text-[15px] leading-6">
+          <div className="text-[15px] text-muted-foreground leading-6">
             Sign in, drop in an API key, and type what you need the workflow
             you'd <br />
             have done by hand.
           </div>
-          <div className="text-muted-foreground text-[12px] leading-6">
+          <div className="text-[12px] text-muted-foreground leading-6">
             *No subscription. Your key, your provider, your data.
           </div>
         </div>
-        <div className="flex flex-col w-full items-center h-fit min-w-0 justify-between">
+        <div className="flex h-fit w-full min-w-0 flex-col items-center justify-between">
           {" "}
           <CardSection items={ITEMS2} className="-mt-2" />
           <LoginScreen />
         </div>
       </section>
-      <section className=" border-b-2 border-dashed flex flex-row items-center justify-between w-full px-4 pb-4 pt-4 gap-4 sm:flex-row sm:px-8 lg:px-12">
+      <section className="flex w-full flex-row items-center justify-between gap-4 border-b-2 border-dashed px-4 pt-4 pb-4 sm:flex-row sm:px-8 lg:px-12">
         <div className="hidden scale-[0.95] sm:block">
           <Logo size="sm" />
         </div>{" "}
-        <div className=" text-[15px] gap-4 flex flex-row">
+        <div className="flex flex-row gap-4 text-[15px]">
           <a href="/privacy" className="text-muted-foreground underline">
             Privacy
           </a>
@@ -192,12 +179,12 @@ export default function Home() {
           </a>
         </div>{" "}
         <div className=" ">
-          <p className="text-muted-foreground text-[15px] leading-6 font-mono">
+          <p className="font-mono text-[15px] text-muted-foreground leading-6">
             &copy;2026 Aevryn
           </p>
         </div>
       </section>
-      <section className=" flex w-full flex-row py-2 items-center justify-center gap-4 px-4 sm:px-8 lg:px-12">
+      <section className="flex w-full flex-row items-center justify-center gap-4 p-8 pb-6">
         <img
           src="/aevryn-white.svg"
           alt=""

@@ -29,10 +29,9 @@ export class MemoryService {
 	}): Promise<MemoryItem[]> {
 		const key = await this.mem0KeyFor(input.userId);
 		if (!key) {
-			throw Object.assign(
-				new Error("Add a Mem0 key in Settings → API keys."),
-				{ code: "NO_MEM0_KEY" },
-			);
+			throw Object.assign(new Error("Add a Mem0 key in Settings → API keys."), {
+				code: "NO_MEM0_KEY",
+			});
 		}
 		const client = new MemoryClient({ apiKey: key });
 		const { results } = await client.search("*", {
@@ -51,10 +50,9 @@ export class MemoryService {
 	async delete(input: { userId: string; memoryId: string }): Promise<void> {
 		const key = await this.mem0KeyFor(input.userId);
 		if (!key) {
-			throw Object.assign(
-				new Error("Add a Mem0 key in Settings → API keys."),
-				{ code: "NO_MEM0_KEY" },
-			);
+			throw Object.assign(new Error("Add a Mem0 key in Settings → API keys."), {
+				code: "NO_MEM0_KEY",
+			});
 		}
 		const client = new MemoryClient({ apiKey: key });
 		await client.delete(input.memoryId);

@@ -12,7 +12,6 @@ import { authenticatedRole, authUsers } from "drizzle-orm/supabase";
 
 const uuidText = sql`(concat('key_', gen_random_uuid()::text))`;
 
-
 export const userKeys = pgTable(
 	"user_keys",
 	{

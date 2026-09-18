@@ -30,7 +30,11 @@ export async function GET(
 
 	const apiKey = await resolveAnakinKey(user.id);
 	if (!apiKey) {
-		return jsonError(401, "ANAKIN_KEY_REQUIRED", "Add your Anakin key in Settings → BYOK.");
+		return jsonError(
+			401,
+			"ANAKIN_KEY_REQUIRED",
+			"Add your Anakin key in Settings → BYOK.",
+		);
 	}
 
 	const upstream = await fetch(
@@ -39,16 +43,28 @@ export async function GET(
 	);
 
 	if (upstream.status === 400) {
-		return jsonError(400, "NO_DOWNLOAD", "This job has no downloadable result for that file name.");
+		return jsonError(
+			400,
+			"NO_DOWNLOAD",
+			"This job has no downloadable result for that file name.",
+		);
 	}
 	if (upstream.status === 401 || upstream.status === 403) {
-		return jsonError(upstream.status, "ANAKIN_FORBIDDEN", "Anakin rejected the key for this job.");
+		return jsonError(
+			upstream.status,
+			"ANAKIN_FORBIDDEN",
+			"Anakin rejected the key for this job.",
+		);
 	}
 	if (upstream.status === 404) {
 		return jsonError(404, "NOT_FOUND", "No such Wire job.");
 	}
 	if (!upstream.ok) {
-		return jsonError(502, "ANAKIN_UPSTREAM_ERROR", `Anakin returned ${upstream.status}.`);
+		return jsonError(
+			502,
+			"ANAKIN_UPSTREAM_ERROR",
+			`Anakin returned ${upstream.status}.`,
+		);
 	}
 
 	const bytes = await upstream.arrayBuffer();

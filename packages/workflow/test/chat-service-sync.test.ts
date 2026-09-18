@@ -90,8 +90,8 @@ describe("ChatService.saveMessage transactional persistence", () => {
 			.from(stepsTable)
 			.where(eq(stepsTable.messageId, saved.id));
 		expect(stepRows).toHaveLength(1);
-		expect(stepRows[0]!.position).toBe(1);
-		expect(stepRows[0]!.toolCalls).toHaveLength(1);
+		expect(stepRows[0]?.position).toBe(1);
+		expect(stepRows[0]?.toolCalls).toHaveLength(1);
 
 		const logs = await db
 			.select()
@@ -99,26 +99,27 @@ describe("ChatService.saveMessage transactional persistence", () => {
 			.where(
 				and(
 					eq(toolCallLogs.messageId, saved.id),
-					eq(toolCallLogs.stepId, stepRows[0]!.id),
+					eq(toolCallLogs.stepId, stepRows[0]?.id),
 				),
 			);
 		expect(logs).toHaveLength(1);
-		expect(logs[0]!.toolName).toBe("query");
-		expect(logs[0]!.direction).toBe("server");
+		expect(logs[0]?.toolName).toBe("query");
+		expect(logs[0]?.direction).toBe("server");
 
 		const [afterThread] = await db
 			.select({ lastMessageAt: threads.lastMessageAt })
 			.from(threads)
 			.where(eq(threads.id, threadId));
-		expect(afterThread!.lastMessageAt).not.toBeNull();
-		expect(afterThread!.lastMessageAt!.getTime()).toBeGreaterThanOrEqual(
-			beforeThread!.lastMessageAt?.getTime() ?? 0,
+		expect(afterThread?.lastMessageAt).not.toBeNull();
+		expect(afterThread?.lastMessageAt?.getTime()).toBeGreaterThanOrEqual(
+			beforeThread?.lastMessageAt?.getTime() ?? 0,
 		);
 	});
 
 	it("rejects writes to a thread owned by another user (ownership check)", async () => {
 		const service = new ChatService();
-		const otherId = "00000000-0000-0000-0000-000000000099";		await raw(
+		const otherId = "00000000-0000-0000-0000-000000000099";
+		await raw(
 			`insert into auth.users (id, email, encrypted_password, aud, role, email_confirmed_at, instance_id, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, email_change_token_current, reauthentication_token, phone_change_token)
 			 values ('${otherId}', 'other-user-${stamp}@test.local', '', 'authenticated', 'authenticated', now(), '00000000-0000-0000-0000-000000000000', '{}', '{}', now(), now(), '', '', '', '', '', '', '')
 			 on conflict (id) do nothing`,
@@ -191,7 +192,7 @@ describe("ChatService.syncClientMessages dedup", () => {
 		// draft_a returned the prior persisted row under the echoed id; draft_b
 		// is genuinely new.
 		expect(existing).toHaveLength(2);
-		expect(existing[0]!.id).not.toBe("draft_a");
+		expect(existing[0]?.id).not.toBe("draft_a");
 
 		const rows = await db
 			.select()
@@ -232,7 +233,7 @@ describe("ChatService.syncClientMessages dedup", () => {
 			.from(messages)
 			.where(and(eq(messages.threadId, threadId), eq(messages.userId, userId)));
 		expect(rows).toHaveLength(1);
-		expect(rows[0]!.content).toBe("once");
+		expect(rows[0]?.content).toBe("once");
 	});
 
 	it("never persists persisted ids (msg_) or local sentinel ids (local_)", async () => {
@@ -296,7 +297,7 @@ describe("ChatService.syncClientMessages dedup", () => {
 		});
 		expect(out.map((m) => m.id)).toEqual(["asst_a", "local_tmp", "asst_b"]);
 		// First occurrence survives, not the later duplicate.
-		expect((out[0]!.parts as Array<{ text?: string }>)[0]!.text).toBe(
+		expect((out[0]?.parts as Array<{ text?: string }>)[0]?.text).toBe(
 			"first copy",
 		);
 	});
@@ -317,7 +318,7 @@ describe("ChatService.syncClientMessages dedup", () => {
 		// The claimed-but-unknown id is demoted to an anonymous draft — it can
 		// never be mistaken for (or collide with) a real persisted row.
 		expect(out).toHaveLength(1);
-		expect(out[0]!.id.startsWith("msg_")).toBe(false);
+		expect(out[0]?.id.startsWith("msg_")).toBe(false);
 	});
 
 	it("keeps msg_ ids that ARE in this thread's DB history", async () => {
@@ -340,7 +341,7 @@ describe("ChatService.syncClientMessages dedup", () => {
 			],
 		});
 		expect(out).toHaveLength(1);
-		expect(out[0]!.id).toBe(saved.id);
+		expect(out[0]?.id).toBe(saved.id);
 	});
 
 	it("suffixes same-millisecond synthetic ids so they cannot collide", async () => {
@@ -354,7 +355,7 @@ describe("ChatService.syncClientMessages dedup", () => {
 			],
 		});
 		expect(out).toHaveLength(2);
-		expect(out[0]!.id).not.toBe(out[1]!.id);
+		expect(out[0]?.id).not.toBe(out[1]?.id);
 	});
 
 	it("strips reasoning parts and ignores non-user turns", async () => {
@@ -384,7 +385,7 @@ describe("ChatService.syncClientMessages dedup", () => {
 			.from(messages)
 			.where(eq(messages.threadId, threadId));
 		expect(rows).toHaveLength(1);
-		const userPart = (out[0]!.parts as Array<{ type?: string }>).map(
+		const userPart = (out[0]?.parts as Array<{ type?: string }>).map(
 			(p) => p.type,
 		);
 		expect(userPart).toEqual(["text"]);

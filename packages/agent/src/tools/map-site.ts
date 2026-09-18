@@ -2,12 +2,8 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { checkExternalUrl } from "../ssrf-guard";
-import { toolContextSchema, type ToolContext } from "./context";
-import {
-	anakinClient,
-	mapAnakinError,
-	type ToolResult,
-} from "./anakin-client";
+import { anakinClient, mapAnakinError, type ToolResult } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 
 const inputSchema = z.object({
 	url: z.string().url(),
@@ -15,7 +11,10 @@ const inputSchema = z.object({
 		.string()
 		.optional()
 		.describe("Filter mapped URLs by a search term (maps to `search`)."),
-	includeSubdomains: z.boolean().optional().describe("Include subdomains (default false)."),
+	includeSubdomains: z
+		.boolean()
+		.optional()
+		.describe("Include subdomains (default false)."),
 	includeExternalLinks: z
 		.boolean()
 		.optional()
@@ -33,7 +32,9 @@ const inputSchema = z.object({
 		.min(1)
 		.max(500)
 		.optional()
-		.describe("Max pages fetched per depth level beyond the seed (default 100, max 500)."),
+		.describe(
+			"Max pages fetched per depth level beyond the seed (default 100, max 500).",
+		),
 	limit: z
 		.number()
 		.int()
@@ -44,7 +45,9 @@ const inputSchema = z.object({
 	useBrowser: z
 		.boolean()
 		.optional()
-		.describe("Render the page in headless Chrome before extracting links (default false)."),
+		.describe(
+			"Render the page in headless Chrome before extracting links (default false).",
+		),
 	sessionId: z.string().optional().describe("Browser session id."),
 });
 

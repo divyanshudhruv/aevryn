@@ -1,15 +1,13 @@
+import type { BrowserSession } from "@anakin-io/sdk";
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
 import {
 	anakinClient,
 	mapAnakinError,
 	requireKey,
 	type ToolResult,
 } from "./anakin-client";
-import type { BrowserSession } from "@anakin-io/sdk";
-
+import { type ToolContext, toolContextSchema } from "./context";
 
 export const browserSessionList = tool({
 	description:
@@ -60,7 +58,10 @@ export const browserSessionCreate = tool({
 		"Start browser session for a site. User logs in via Anakin dashboard (noVNC). Reuse sessionId in scrapeUrl/scrapeBatch/crawlSite. Needs API key.",
 	inputSchema: z.object({
 		websiteUrl: z.string().url(),
-		name: z.string().min(1).describe("A recognizable name, e.g. 'My LinkedIn'."),
+		name: z
+			.string()
+			.min(1)
+			.describe("A recognizable name, e.g. 'My LinkedIn'."),
 	}),
 	contextSchema: toolContextSchema,
 	execute: async (
@@ -94,8 +95,7 @@ export const browserSessionCreate = tool({
 });
 
 export const browserSessionRename = tool({
-	description:
-		"Rename a saved browser session. Needs API key. Free.",
+	description: "Rename a saved browser session. Needs API key. Free.",
 	inputSchema: z.object({
 		id: z.string().min(1),
 		name: z.string().min(1),

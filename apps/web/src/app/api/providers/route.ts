@@ -1,5 +1,5 @@
-import { requireUser } from "@aevryn/auth";
 import { checkExternalUrl } from "@aevryn/agent";
+import { requireUser } from "@aevryn/auth";
 import { UserDataService } from "@aevryn/workflow";
 import { z } from "zod";
 
@@ -57,13 +57,21 @@ export async function POST(request: Request): Promise<Response> {
 	try {
 		body = providerInputSchema.parse(await request.json());
 	} catch (err) {
-		return jsonError(400, "BAD_REQUEST", `Invalid provider: ${err instanceof Error ? err.message : String(err)}`);
+		return jsonError(
+			400,
+			"BAD_REQUEST",
+			`Invalid provider: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
 	// Reject base URLs that point at private/metadata endpoints (SSRF guard).
 	const urlVerdict = checkExternalUrl(body.baseUrl);
 	if (urlVerdict.blocked) {
-		return jsonError(400, "INVALID_BASE_URL", `Provider base URL rejected: ${urlVerdict.reason}`);
+		return jsonError(
+			400,
+			"INVALID_BASE_URL",
+			`Provider base URL rejected: ${urlVerdict.reason}`,
+		);
 	}
 
 	const row = await userDataService.upsertProvider({
@@ -111,7 +119,11 @@ export async function PATCH(request: Request): Promise<Response> {
 	try {
 		body = modelAppendSchema.parse(await request.json());
 	} catch (err) {
-		return jsonError(400, "BAD_REQUEST", `Invalid model: ${err instanceof Error ? err.message : String(err)}`);
+		return jsonError(
+			400,
+			"BAD_REQUEST",
+			`Invalid model: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
 	let row: { id: string; slug: string };
@@ -123,10 +135,18 @@ export async function PATCH(request: Request): Promise<Response> {
 		});
 	} catch (err) {
 		if ((err as { code?: string }).code === "PROVIDER_NOT_FOUND") {
-			return jsonError(404, "NOT_FOUND", "Provider not found. Save its API key first (Settings → API Keys).");
+			return jsonError(
+				404,
+				"NOT_FOUND",
+				"Provider not found. Save its API key first (Settings → API Keys).",
+			);
 		}
 		if ((err as { code?: string }).code === "MODEL_EXISTS") {
-			return jsonError(409, "MODEL_EXISTS", `Model '${body.modelId}' already exists on this provider.`);
+			return jsonError(
+				409,
+				"MODEL_EXISTS",
+				`Model '${body.modelId}' already exists on this provider.`,
+			);
 		}
 		throw err;
 	}

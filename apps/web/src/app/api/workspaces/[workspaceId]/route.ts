@@ -38,7 +38,11 @@ export async function PATCH(
 	}
 	const parsed = patchSchema.safeParse(body);
 	if (!parsed.success) {
-		return jsonError(400, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid input.");
+		return jsonError(
+			400,
+			"VALIDATION_ERROR",
+			parsed.error.issues[0]?.message ?? "Invalid input.",
+		);
 	}
 	if (Object.keys(parsed.data).length === 0) {
 		return jsonError(400, "VALIDATION_ERROR", "Nothing to update.");
@@ -77,7 +81,11 @@ export async function DELETE(
 	});
 	if (!result.deleted) {
 		if (result.reason === "LAST_WORKSPACE") {
-			return jsonError(409, "LAST_WORKSPACE", "You need at least one workspace.");
+			return jsonError(
+				409,
+				"LAST_WORKSPACE",
+				"You need at least one workspace.",
+			);
 		}
 		return jsonError(404, "NOT_FOUND", "Workspace not found.");
 	}

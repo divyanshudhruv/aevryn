@@ -64,7 +64,11 @@ export async function PATCH(
 	}
 	const parsed = patchSchema.safeParse(body);
 	if (!parsed.success) {
-		return jsonError(400, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid input.");
+		return jsonError(
+			400,
+			"VALIDATION_ERROR",
+			parsed.error.issues[0]?.message ?? "Invalid input.",
+		);
 	}
 
 	const row = await workflowService.update({

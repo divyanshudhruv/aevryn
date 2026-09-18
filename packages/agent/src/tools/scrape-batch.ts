@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import { checkExternalUrl } from "../ssrf-guard";
 import { wrapUntrustedJson, wrapUntrustedMaybe } from "../untrusted";
-import { toolContextSchema, type ToolContext } from "./context";
 import {
 	anakinGet,
 	anakinPost,
@@ -11,6 +10,7 @@ import {
 	mapAnakinError,
 	type ToolResult,
 } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 import type { BatchDocument } from "./scrape-url";
 
 const inputSchema = z.object({
@@ -20,9 +20,15 @@ const inputSchema = z.object({
 		.max(10)
 		.describe("1–10 URLs, scraped in parallel."),
 	country: z.string().length(2).optional().describe("ISO-2 proxy country."),
-	useBrowser: z.boolean().optional().describe("Headless Chrome for JS-heavy sites."),
+	useBrowser: z
+		.boolean()
+		.optional()
+		.describe("Headless Chrome for JS-heavy sites."),
 	generateJson: z.boolean().optional().describe("AI-extract structured JSON."),
-	sessionId: z.string().optional().describe("Browser session id for authenticated pages."),
+	sessionId: z
+		.string()
+		.optional()
+		.describe("Browser session id for authenticated pages."),
 });
 
 export const scrapeBatchTool = tool({
@@ -58,7 +64,10 @@ export const scrapeBatchTool = tool({
 				}
 			}
 
-			if (input.country && !(await isValidCountry(input.country, context.anakinKey))) {
+			if (
+				input.country &&
+				!(await isValidCountry(input.country, context.anakinKey))
+			) {
 				return {
 					ok: false,
 					error: {
@@ -72,7 +81,10 @@ export const scrapeBatchTool = tool({
 			// POST /v1/url-scraper/batch polled at /v1/url-scraper/{id} (same
 			// job-status shape). Batch in ONE rate-limit slot is the whole point,
 			// so submit raw rather than fanning out client.scrape() per URL.
-			const { status, body: submitted } = await anakinPost<{ jobId?: string; status?: string }>(
+			const { status, body: submitted } = await anakinPost<{
+				jobId?: string;
+				status?: string;
+			}>(
 				"/url-scraper/batch",
 				{
 					urls: input.urls,
@@ -102,10 +114,9 @@ export const scrapeBatchTool = tool({
 
 			// Poll the shared job endpoint until terminal (batch parent settles
 			// when every child settles; partial failures don't fail the parent).
-			const result = await pollBatchJob<BatchDocument & { results?: BatchDocument[] }>(
-				`/url-scraper/${jobId}`,
-				context.anakinKey,
-			);
+			const result = await pollBatchJob<
+				BatchDocument & { results?: BatchDocument[] }
+			>(`/url-scraper/${jobId}`, context.anakinKey);
 
 			const documents = result.results ?? [{ ...result, index: 0 }];
 			return {
@@ -137,5 +148,5 @@ async function pollBatchJob<T extends { status?: string }>(
 		if (body.status === "completed" || body.status === "failed") return body;
 		await new Promise((resolve) => setTimeout(resolve, 2_500));
 	}
-	throw new Error(`Batch job did not settle within the poll window.`);
+	throw new Error("Batch job did not settle within the poll window.");
 }

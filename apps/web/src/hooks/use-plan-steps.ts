@@ -48,9 +48,7 @@ export function usePlanSteps(workflowId: string | null) {
 	 *  back to step 1 the moment a new run starts, before the agent's
 	 *  updateStepStatus writes arrive over realtime. */
 	const reset = useCallback(() => {
-		setSteps((prev) =>
-			prev.map((s) => ({ ...s, status: "idle" })),
-		);
+		setSteps((prev) => prev.map((s) => ({ ...s, status: "idle" })));
 	}, []);
 
 	useEffect(() => {
@@ -88,7 +86,8 @@ export function usePlanSteps(workflowId: string | null) {
 								: (prev[idx]?.title ?? ""),
 						description:
 							(row.description as string | null) ??
-							(prev[idx]?.description ?? null),
+							prev[idx]?.description ??
+							null,
 						status: String(row.status ?? prev[idx]?.status ?? "idle"),
 					};
 					if (idx === -1) {

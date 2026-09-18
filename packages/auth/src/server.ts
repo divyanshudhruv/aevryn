@@ -1,7 +1,6 @@
-import { createServerClient } from "@supabase/ssr";
-import type { CookieMethodsServer } from "@supabase/ssr";
-
 import { env } from "@aevryn/env/server";
+import type { CookieMethodsServer } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 
 export function createServerSupabase(cookies: CookieMethodsServer) {
 	return createServerClient(

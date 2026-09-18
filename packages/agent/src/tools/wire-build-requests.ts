@@ -1,13 +1,12 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
 import {
 	anakinGet,
 	mapAnakinError,
 	requireKey,
 	type ToolResult,
 } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 import type { BuildRequestResult } from "./wire-build-request";
 
 interface ApiBuildRequest extends Record<string, unknown> {
@@ -49,11 +48,15 @@ export const wireBuildRequestsTool = tool({
 					status: typeof br.status === "string" ? br.status : "pending",
 					domain: typeof br.domain === "string" ? br.domain : undefined,
 					creditsCharged:
-						typeof br.credits_charged === "number" ? br.credits_charged : undefined,
+						typeof br.credits_charged === "number"
+							? br.credits_charged
+							: undefined,
 					actionId: typeof br.action_id === "string" ? br.action_id : undefined,
 					error: typeof br.error === "string" ? br.error : undefined,
-					createdAt: typeof br.created_at === "string" ? br.created_at : undefined,
-					updatedAt: typeof br.updated_at === "string" ? br.updated_at : undefined,
+					createdAt:
+						typeof br.created_at === "string" ? br.created_at : undefined,
+					updatedAt:
+						typeof br.updated_at === "string" ? br.updated_at : undefined,
 				}));
 			return { ok: true, buildRequests };
 		} catch (err) {

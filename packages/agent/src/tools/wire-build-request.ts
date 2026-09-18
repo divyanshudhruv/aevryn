@@ -1,12 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
-import {
-	requireKey,
-	anakinPost,
-	type ToolResult,
-} from "./anakin-client";
+import { anakinPost, requireKey, type ToolResult } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 
 const inputSchema = z.object({
 	siteUrl: z.string().url().describe("The site that has no Wire action yet."),
@@ -14,12 +9,16 @@ const inputSchema = z.object({
 		.string()
 		.min(1)
 		.max(2_000)
-		.describe("What the new action should do or extract — be specific; Anakin's builder synthesizes the scraper from this."),
+		.describe(
+			"What the new action should do or extract — be specific; Anakin's builder synthesizes the scraper from this.",
+		),
 	catalogId: z
 		.string()
 		.uuid()
 		.optional()
-		.describe("Attach the action to an existing catalog (id from wireCatalog) instead of creating one."),
+		.describe(
+			"Attach the action to an existing catalog (id from wireCatalog) instead of creating one.",
+		),
 	visibility: z
 		.enum(["private", "public"])
 		.optional()
@@ -27,7 +26,9 @@ const inputSchema = z.object({
 	force: z
 		.boolean()
 		.optional()
-		.describe("Build even if similar actions exist for the domain (default false → 409 ACTION_EXISTS)."),
+		.describe(
+			"Build even if similar actions exist for the domain (default false → 409 ACTION_EXISTS).",
+		),
 });
 
 export interface BuildRequestResult {
@@ -75,11 +76,15 @@ export const wireBuildRequestTool = tool({
 					status: typeof br.status === "string" ? br.status : "pending",
 					domain: typeof br.domain === "string" ? br.domain : undefined,
 					creditsCharged:
-						typeof br.credits_charged === "number" ? br.credits_charged : undefined,
+						typeof br.credits_charged === "number"
+							? br.credits_charged
+							: undefined,
 					actionId: typeof br.action_id === "string" ? br.action_id : undefined,
 					error: typeof br.error === "string" ? br.error : undefined,
-					createdAt: typeof br.created_at === "string" ? br.created_at : undefined,
-					updatedAt: typeof br.updated_at === "string" ? br.updated_at : undefined,
+					createdAt:
+						typeof br.created_at === "string" ? br.created_at : undefined,
+					updatedAt:
+						typeof br.updated_at === "string" ? br.updated_at : undefined,
 				},
 			};
 		} catch (err) {

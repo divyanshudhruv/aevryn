@@ -1,5 +1,5 @@
 import type { LanguageModelV4ToolCall as V4ToolCall } from "@ai-sdk/provider";
-import { InvalidToolInputError, NoSuchToolError, type ToolSet } from "ai";
+import { type InvalidToolInputError, NoSuchToolError, type ToolSet } from "ai";
 
 /**
  * Lenient repair for malformed model-generated tool arguments.
@@ -14,11 +14,13 @@ const REPAIRS: Array<(text: string) => string> = [
 	// 2. Trailing commas before } or ].
 	(text) => text.replace(/,\s*([}\]])/g, "$1"),
 	// 3. Smart quotes → straight quotes.
-	(text) => text.replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'"),
+	(text) =>
+		text.replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'"),
 	// 4. Single-quoted strings → double-quoted (best-effort; keys first).
 	(text) => text.replace(/'([^'\\]*)'/g, '"$1"'),
 	// 5. Unquoted object keys → quoted.
-	(text) => text.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)/g, '$1"$2"$3'),
+	(text) =>
+		text.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)/g, '$1"$2"$3'),
 	// 6. All cheap fixes combined (single quotes + unquoted keys, etc.).
 	(text) =>
 		text
@@ -58,9 +60,7 @@ const REPAIRS: Array<(text: string) => string> = [
 			try {
 				JSON.parse(candidate);
 				return candidate;
-			} catch {
-				continue;
-			}
+			} catch {}
 		}
 		return text;
 	},
@@ -71,9 +71,7 @@ export function repairJsonText(text: string): unknown | undefined {
 	for (const fix of REPAIRS) {
 		try {
 			return JSON.parse(fix(text));
-		} catch {
-			continue;
-		}
+		} catch {}
 	}
 	return undefined;
 }

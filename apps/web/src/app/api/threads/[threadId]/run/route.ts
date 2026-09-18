@@ -42,7 +42,10 @@ export async function POST(
 			action: body.action === "stop" ? "stop" : "run",
 		});
 	} catch (err) {
-		if (err instanceof Error && (err as { code?: string }).code === "THREAD_NOT_FOUND") {
+		if (
+			err instanceof Error &&
+			(err as { code?: string }).code === "THREAD_NOT_FOUND"
+		) {
 			return jsonError(404, "NOT_FOUND", "Thread not found.");
 		}
 		throw err;

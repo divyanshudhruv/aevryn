@@ -18,9 +18,15 @@ import {
 
 describe("new schema tables", () => {
 	it("exposes all seven tables", () => {
-		[messages, steps, workflows, planSteps, userProviders, userKeys, userSettings].forEach(
-			(table) => expect(table).toBeTruthy(),
-		);
+		[
+			messages,
+			steps,
+			workflows,
+			planSteps,
+			userProviders,
+			userKeys,
+			userSettings,
+		].forEach((table) => expect(table).toBeTruthy());
 	});
 
 	it("keeps messages on the small role vocabulary", () => {

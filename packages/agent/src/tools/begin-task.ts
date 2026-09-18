@@ -18,7 +18,9 @@ export const beginTaskTool = tool({
 			.string()
 			.min(1)
 			.max(80)
-			.describe("Short task label for the step card header, e.g. 'Searching flights'."),
+			.describe(
+				"Short task label for the step card header, e.g. 'Searching flights'.",
+			),
 		description: z
 			.string()
 			.max(300)

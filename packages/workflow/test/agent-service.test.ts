@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
 import { CHAT_BUDGET_USD } from "@aevryn/agent";
 import { costGuardStop } from "@aevryn/agent/loop-control";
+import type { RunStatus } from "@aevryn/db";
 import {
+	DEFAULT_USER_SETTINGS,
 	db,
 	encryptSecret,
 	messages,
@@ -11,11 +11,10 @@ import {
 	userProviders,
 	userSettings,
 	workspaces,
-	DEFAULT_USER_SETTINGS,
 } from "@aevryn/db";
-import type { RunStatus } from "@aevryn/db";
 import type { UIMessage } from "ai";
 import { eq } from "drizzle-orm";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentService } from "../src/services/agent-service";
 import { ChatService } from "../src/services/chat-service";
@@ -119,7 +118,10 @@ function fakeAgent(config: FakeConfig) {
 	};
 }
 
-async function runRespond(): Promise<{ res: Response; statusLog: RunStatus[] }> {
+async function runRespond(): Promise<{
+	res: Response;
+	statusLog: RunStatus[];
+}> {
 	const chat = new ChatService();
 	const statusLog: RunStatus[] = [];
 	const realSetStatus = chat.setThreadStatus.bind(chat);
@@ -153,11 +155,14 @@ beforeEach(async () => {
 		 select '${userId}', '${userId}', '${userId}', 'email', jsonb_build_object('email', 'agent-service-test-${userId}@test.local'), now(), now(), now()
 		 where not exists (select 1 from auth.identities where user_id = '${userId}')`,
 	);
-	await db.insert(workspaces).values({
-		id: workspaceId,
-		name: `test-ws-${stamp}`,
-		createdBy: userId,
-	}).onConflictDoNothing();
+	await db
+		.insert(workspaces)
+		.values({
+			id: workspaceId,
+			name: `test-ws-${stamp}`,
+			createdBy: userId,
+		})
+		.onConflictDoNothing();
 	await db.delete(threads).where(eq(threads.id, threadId));
 	await db.insert(threads).values({
 		id: threadId,
@@ -166,14 +171,17 @@ beforeEach(async () => {
 		title: "t",
 	});
 	await db.delete(userProviders).where(eq(userProviders.userId, userId));
-	await db.insert(userProviders).values({
-		userId,
-		slug: "test-provider",
-		displayName: "Test Provider",
-		baseUrl: "https://api.example.org/v1",
-		apiKeyEncrypted: encryptSecret("sk-test"),
-		models: [{ id: "gn-1" }],
-	}).onConflictDoNothing();
+	await db
+		.insert(userProviders)
+		.values({
+			userId,
+			slug: "test-provider",
+			displayName: "Test Provider",
+			baseUrl: "https://api.example.org/v1",
+			apiKeyEncrypted: encryptSecret("sk-test"),
+			models: [{ id: "gn-1" }],
+		})
+		.onConflictDoNothing();
 	await db.delete(userSettings).where(eq(userSettings.userId, userId));
 	await db.insert(userSettings).values({
 		userId,
@@ -232,10 +240,10 @@ describe("AgentService.respond", () => {
 		const stepRows = await db
 			.select()
 			.from(stepsTable)
-			.where(eq(stepsTable.messageId, assistant!.id));
+			.where(eq(stepsTable.messageId, assistant?.id));
 		expect(stepRows).toHaveLength(1);
-		expect(stepRows[0]!.text).toBe("step one");
-		const calls = stepRows[0]!.toolCalls as Array<{
+		expect(stepRows[0]?.text).toBe("step one");
+		const calls = stepRows[0]?.toolCalls as Array<{
 			toolName: string;
 			status: string;
 		}>;
@@ -287,10 +295,14 @@ describe("AgentService.respond", () => {
 		const stop = costGuardStop(CHAT_BUDGET_USD);
 
 		expect(
-			stop({ steps: [{ usage: { inputTokens: 0, outputTokens: 1_000_000 } }] } as never),
+			stop({
+				steps: [{ usage: { inputTokens: 0, outputTokens: 1_000_000 } }],
+			} as never),
 		).toBe(true);
 		expect(
-			stop({ steps: [{ usage: { inputTokens: 1000, outputTokens: 200 } }] } as never),
+			stop({
+				steps: [{ usage: { inputTokens: 1000, outputTokens: 200 } }],
+			} as never),
 		).toBe(false);
 		expect(
 			stop({

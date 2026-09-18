@@ -63,7 +63,11 @@ export async function PUT(request: Request): Promise<Response> {
 	try {
 		body = settingsInputSchema.parse(await request.json());
 	} catch (err) {
-		return jsonError(400, "BAD_REQUEST", `Invalid settings: ${err instanceof Error ? err.message : String(err)}`);
+		return jsonError(
+			400,
+			"BAD_REQUEST",
+			`Invalid settings: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
 	const userDataService = new UserDataService();

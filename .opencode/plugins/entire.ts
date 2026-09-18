@@ -43,7 +43,7 @@ export const EntirePlugin: Plugin = async ({ directory }) => {
 			const json = JSON.stringify(payload);
 			const proc = Bun.spawn(hookCmd(hookName), {
 				cwd: directory,
-				stdin: new Blob([json + "\n"]),
+				stdin: new Blob([`${json}\n`]),
 				stdout: "ignore",
 				stderr: "ignore",
 			});
@@ -64,7 +64,7 @@ export const EntirePlugin: Plugin = async ({ directory }) => {
 			const json = JSON.stringify(payload);
 			Bun.spawnSync(hookCmd(hookName), {
 				cwd: directory,
-				stdin: new TextEncoder().encode(json + "\n"),
+				stdin: new TextEncoder().encode(`${json}\n`),
 				stdout: "ignore",
 				stderr: "ignore",
 			});
@@ -104,7 +104,7 @@ export const EntirePlugin: Plugin = async ({ directory }) => {
 			const json = JSON.stringify(payload);
 			const proc = Bun.spawnSync(hookCmd("turn-start"), {
 				cwd: directory,
-				stdin: new TextEncoder().encode(json + "\n"),
+				stdin: new TextEncoder().encode(`${json}\n`),
 				stdout: "pipe",
 				stderr: "ignore",
 			});
@@ -152,7 +152,7 @@ export const EntirePlugin: Plugin = async ({ directory }) => {
 							});
 							const proc = Bun.spawn(hookCmd("session-start"), {
 								cwd: directory,
-								stdin: new Blob([json + "\n"]),
+								stdin: new Blob([`${json}\n`]),
 								stdout: "ignore",
 								stderr: "ignore",
 							});

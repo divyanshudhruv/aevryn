@@ -3,13 +3,13 @@ import { z } from "zod";
 
 import { checkExternalUrl } from "../ssrf-guard";
 import { wrapUntrustedMaybe } from "../untrusted";
-import { toolContextSchema, type ToolContext } from "./context";
 import {
 	anakinClient,
 	isValidCountry,
 	mapAnakinError,
 	type ToolResult,
 } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 
 const inputSchema = z.object({
 	url: z.string().url(),
@@ -90,7 +90,10 @@ export const crawlSiteTool = tool({
 				};
 			}
 
-			if (input.country && !(await isValidCountry(input.country, context.anakinKey))) {
+			if (
+				input.country &&
+				!(await isValidCountry(input.country, context.anakinKey))
+			) {
 				return {
 					ok: false,
 					error: {

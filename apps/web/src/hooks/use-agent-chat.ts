@@ -60,7 +60,7 @@ export function useAgentChat({
 				return true;
 			}
 			const last = current[current.length - 1];
-			if (!last || last.role !== "assistant") return false;
+			if (last?.role !== "assistant") return false;
 			// Only the model's FINAL step matters: if the model already
 			// produced a later step, the answered card was consumed.
 			const lastStepStart = last.parts.reduce(
@@ -96,7 +96,7 @@ export function useAgentChat({
 		if (!enabled || !initialMessages?.length) return;
 		setMessages((current) => (current.length > 0 ? current : initialMessages));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [enabled, initialMessages]);
+	}, [enabled, initialMessages, setMessages]);
 
 	const sendText = useCallback(
 		(text: string) => {

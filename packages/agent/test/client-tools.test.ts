@@ -10,9 +10,11 @@ describe("askUser (client tool)", () => {
 	it("accepts old-workspace question shapes", () => {
 		// Mirrors @aevryn/ui AskUserQuestion minus view-only fields
 		// (chipPosition, nextLabel, freeTextValidate are render-side only).
-		const parsed = (askUserTool.inputSchema as unknown as {
-			parse: (v: unknown) => unknown;
-		}).parse([
+		const parsed = (
+			askUserTool.inputSchema as unknown as {
+				parse: (v: unknown) => unknown;
+			}
+		).parse([
 			{
 				id: "q1",
 				title: "Which provider should I scrape with?",
@@ -39,9 +41,11 @@ describe("askUser (client tool)", () => {
 
 	it("rejects an options question with no options", () => {
 		expect(() =>
-			(askUserTool.inputSchema as unknown as {
-				parse: (v: unknown) => unknown;
-			}).parse([{ id: "q1", title: "Pick one" }]),
+			(
+				askUserTool.inputSchema as unknown as {
+					parse: (v: unknown) => unknown;
+				}
+			).parse([{ id: "q1", title: "Pick one" }]),
 		).toThrow();
 	});
 });
@@ -52,9 +56,11 @@ describe("presentPlan (client tool)", () => {
 	});
 
 	it("accepts a full plan shape", () => {
-		const parsed = (presentPlanTool.inputSchema as unknown as {
-			parse: (v: unknown) => unknown;
-		}).parse({
+		const parsed = (
+			presentPlanTool.inputSchema as unknown as {
+				parse: (v: unknown) => unknown;
+			}
+		).parse({
 			title: "Track GPU prices",
 			objective: "Daily price watch across 3 retailers",
 			summary: "Scrape → compare → report",
@@ -68,9 +74,11 @@ describe("presentPlan (client tool)", () => {
 
 	it("requires at least one step", () => {
 		expect(() =>
-			(presentPlanTool.inputSchema as unknown as {
-				parse: (v: unknown) => unknown;
-			}).parse({ title: "Empty plan", objective: "x", steps: [] }),
+			(
+				presentPlanTool.inputSchema as unknown as {
+					parse: (v: unknown) => unknown;
+				}
+			).parse({ title: "Empty plan", objective: "x", steps: [] }),
 		).toThrow();
 	});
 });

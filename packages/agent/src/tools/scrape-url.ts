@@ -3,13 +3,13 @@ import { z } from "zod";
 
 import { checkExternalUrl } from "../ssrf-guard";
 import { wrapUntrustedJson, wrapUntrustedMaybe } from "../untrusted";
-import { toolContextSchema } from "./context";
 import {
 	anakinGet,
 	anakinPost,
 	isValidCountry,
 	type ToolResult,
 } from "./anakin-client";
+import { toolContextSchema } from "./context";
 
 export type { ToolContext } from "./context";
 
@@ -84,7 +84,9 @@ const inputSchema = z.object({
 	outputSchema: z
 		.record(z.string(), z.unknown())
 		.optional()
-		.describe("JSON Schema of fields to AI-extract (+2 credits, implies generateJson)."),
+		.describe(
+			"JSON Schema of fields to AI-extract (+2 credits, implies generateJson).",
+		),
 	country: z
 		.string()
 		.length(2)
@@ -127,7 +129,10 @@ export const scrapeUrlTool = tool({
 	inputSchema,
 	// Zero Touch: no context key required.
 	contextSchema: toolContextSchema,
-	execute: async (input, { context }): Promise<ToolResult<{ document: InlineDocument }>> => {
+	execute: async (
+		input,
+		{ context },
+	): Promise<ToolResult<{ document: InlineDocument }>> => {
 		try {
 			const urlVerdict = checkExternalUrl(input.url);
 			if (urlVerdict.blocked) {
@@ -140,7 +145,10 @@ export const scrapeUrlTool = tool({
 				};
 			}
 
-			if (input.country && !(await isValidCountry(input.country, context.anakinKey))) {
+			if (
+				input.country &&
+				!(await isValidCountry(input.country, context.anakinKey))
+			) {
 				return {
 					ok: false,
 					error: {

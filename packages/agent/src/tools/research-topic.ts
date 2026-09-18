@@ -1,13 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
 import { wrapUntrusted, wrapUntrustedJson } from "../untrusted";
-import {
-	anakinClient,
-	mapAnakinError,
-	type ToolResult,
-} from "./anakin-client";
+import { anakinClient, mapAnakinError, type ToolResult } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 
 const inputSchema = z.object({
 	prompt: z.string().min(1).max(8_192),
@@ -49,7 +44,8 @@ export const researchTopicTool = tool({
 					ok: false,
 					error: {
 						code: "RESEARCH_FAILED",
-						message: result.error ?? "The research job failed on Anakin's side.",
+						message:
+							result.error ?? "The research job failed on Anakin's side.",
 					},
 				};
 			}
@@ -60,7 +56,11 @@ export const researchTopicTool = tool({
 					? wrapUntrusted(String(result.generatedJson.summary))
 					: result.generatedJson?.summary,
 				structuredData: result.generatedJson?.structured_data
-					? { _untrusted: wrapUntrustedJson(result.generatedJson.structured_data) }
+					? {
+							_untrusted: wrapUntrustedJson(
+								result.generatedJson.structured_data,
+							),
+						}
 					: result.generatedJson?.structured_data,
 				dataSchema: result.generatedJson?.data_schema
 					? { _untrusted: wrapUntrustedJson(result.generatedJson.data_schema) }

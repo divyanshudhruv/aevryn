@@ -71,14 +71,14 @@ const IPV6_PRIVATE_PREFIXES = [
 ] as const;
 
 function ipv6IsPrivate(hostname: string): boolean {
-	const stripped = hostname.split("%")[0]!.toLowerCase();
+	const stripped = hostname.split("%")[0]?.toLowerCase();
 	for (const p of IPV6_PRIVATE_PREFIXES) {
 		if (stripped.startsWith(p)) return true;
 	}
 	// v4-mapped (`::ffff:127.0.0.1`) — classify by the embedded address.
 	const v4 = /::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(stripped);
 	if (v4) {
-		const octets = v4[1]!.split(".").map(Number);
+		const octets = v4[1]?.split(".").map(Number);
 		return ipv4IsPrivate(octets);
 	}
 	return false;
@@ -123,22 +123,34 @@ export function checkExternalUrl(raw: string): SsrfVerdict {
 
 	const userinfo = url.username || url.password;
 	if (userinfo) {
-		return { blocked: true, reason: "Embedded credentials in the URL are not allowed." };
+		return {
+			blocked: true,
+			reason: "Embedded credentials in the URL are not allowed.",
+		};
 	}
 
 	const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
 
 	if (RESERVED_HOSTS.has(hostname) || hasReservedSuffix(hostname)) {
-		return { blocked: true, reason: `Host '${hostname}' is not reachable from the server.` };
+		return {
+			blocked: true,
+			reason: `Host '${hostname}' is not reachable from the server.`,
+		};
 	}
 
 	const v4 = isIpv4Literal(hostname);
 	if (v4 && ipv4IsPrivate(v4)) {
-		return { blocked: true, reason: `IP '${hostname}' is a private/reserved address.` };
+		return {
+			blocked: true,
+			reason: `IP '${hostname}' is a private/reserved address.`,
+		};
 	}
 
 	if (!v4 && isIpv6Literal(hostname) && ipv6IsPrivate(hostname)) {
-		return { blocked: true, reason: `IP '${hostname}' is a private/reserved address.` };
+		return {
+			blocked: true,
+			reason: `IP '${hostname}' is a private/reserved address.`,
+		};
 	}
 
 	return { blocked: false };

@@ -309,7 +309,7 @@ export function ThreadClient() {
 						modelId: selectedModel.modelId,
 					}
 				: undefined,
-		[selectedModel?.providerSlug, selectedModel?.modelId],
+		[selectedModel?.providerSlug, selectedModel?.modelId, selectedModel],
 	);
 
 	const chat = useAgentChat({

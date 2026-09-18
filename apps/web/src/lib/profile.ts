@@ -24,7 +24,8 @@ export function identityFromAuthUser(user: {
 		avatarUrl:
 			(typeof meta.avatar_url === "string" && meta.avatar_url) ||
 			(typeof meta.picture === "string" && meta.picture) ||
-			(typeof identityData.avatar_url === "string" && identityData.avatar_url) ||
+			(typeof identityData.avatar_url === "string" &&
+				identityData.avatar_url) ||
 			(typeof identityData.picture === "string" && identityData.picture) ||
 			null,
 	};

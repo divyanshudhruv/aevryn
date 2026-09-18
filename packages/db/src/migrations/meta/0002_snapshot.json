@@ -1,736 +1,671 @@
 {
-  "id": "bef683e8-90c2-4a92-a2f7-0ab870903b01",
-  "prevId": "b17d629c-381e-4c34-901e-e16c9ede41ff",
-  "version": "7",
-  "dialect": "postgresql",
-  "tables": {
-    "public.callouts": {
-      "name": "callouts",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "(concat('cal_', gen_random_uuid()::text))"
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "image_url": {
-          "name": "image_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "visible": {
-          "name": "visible",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.groups": {
-      "name": "groups",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "(concat('grp_', gen_random_uuid()::text))"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "groups_workspace_name_idx": {
-          "name": "groups_workspace_name_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "groups_workspace_position_idx": {
-          "name": "groups_workspace_position_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "position",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "groups_workspace_id_workspaces_id_fk": {
-          "name": "groups_workspace_id_workspaces_id_fk",
-          "tableFrom": "groups",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "groups_user_id_users_id_fk": {
-          "name": "groups_user_id_users_id_fk",
-          "tableFrom": "groups",
-          "tableTo": "users",
-          "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "groups_select": {
-          "name": "groups_select",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"groups\".\"user_id\" = auth.uid()"
-        },
-        "groups_insert": {
-          "name": "groups_insert",
-          "as": "PERMISSIVE",
-          "for": "INSERT",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "\"groups\".\"user_id\" = auth.uid()"
-        },
-        "groups_update": {
-          "name": "groups_update",
-          "as": "PERMISSIVE",
-          "for": "UPDATE",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"groups\".\"user_id\" = auth.uid()"
-        },
-        "groups_delete": {
-          "name": "groups_delete",
-          "as": "PERMISSIVE",
-          "for": "DELETE",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"groups\".\"user_id\" = auth.uid()"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.threads": {
-      "name": "threads",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "(concat('thd_', gen_random_uuid()::text))"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "group_id": {
-          "name": "group_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'New thread'"
-        },
-        "bound_workflow_id": {
-          "name": "bound_workflow_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "run_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'idle'"
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "last_message_at": {
-          "name": "last_message_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "threads_user_workspace_last_msg_idx": {
-          "name": "threads_user_workspace_last_msg_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "last_message_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "threads_group_idx": {
-          "name": "threads_group_idx",
-          "columns": [
-            {
-              "expression": "group_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "threads_workspace_id_workspaces_id_fk": {
-          "name": "threads_workspace_id_workspaces_id_fk",
-          "tableFrom": "threads",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "threads_group_id_groups_id_fk": {
-          "name": "threads_group_id_groups_id_fk",
-          "tableFrom": "threads",
-          "tableTo": "groups",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "threads_user_id_users_id_fk": {
-          "name": "threads_user_id_users_id_fk",
-          "tableFrom": "threads",
-          "tableTo": "users",
-          "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "threads_select": {
-          "name": "threads_select",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"threads\".\"user_id\" = auth.uid()"
-        },
-        "threads_insert": {
-          "name": "threads_insert",
-          "as": "PERMISSIVE",
-          "for": "INSERT",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "\"threads\".\"user_id\" = auth.uid()"
-        },
-        "threads_update": {
-          "name": "threads_update",
-          "as": "PERMISSIVE",
-          "for": "UPDATE",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"threads\".\"user_id\" = auth.uid()"
-        },
-        "threads_delete": {
-          "name": "threads_delete",
-          "as": "PERMISSIVE",
-          "for": "DELETE",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"threads\".\"user_id\" = auth.uid()"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.user_profiles": {
-      "name": "user_profiles",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "(concat('prf_', gen_random_uuid()::text))"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "avatar_url": {
-          "name": "avatar_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "plan": {
-          "name": "plan",
-          "type": "plan_level",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'free'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "user_profiles_user_id_users_id_fk": {
-          "name": "user_profiles_user_id_users_id_fk",
-          "tableFrom": "user_profiles",
-          "tableTo": "users",
-          "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "user_profiles_user_id_unique": {
-          "name": "user_profiles_user_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
-        }
-      },
-      "policies": {
-        "user_profiles_select": {
-          "name": "user_profiles_select",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"user_profiles\".\"user_id\" = auth.uid()"
-        },
-        "user_profiles_insert": {
-          "name": "user_profiles_insert",
-          "as": "PERMISSIVE",
-          "for": "INSERT",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "\"user_profiles\".\"user_id\" = auth.uid()"
-        },
-        "user_profiles_update": {
-          "name": "user_profiles_update",
-          "as": "PERMISSIVE",
-          "for": "UPDATE",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"user_profiles\".\"user_id\" = auth.uid()"
-        },
-        "user_profiles_delete": {
-          "name": "user_profiles_delete",
-          "as": "PERMISSIVE",
-          "for": "DELETE",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"user_profiles\".\"user_id\" = auth.uid()"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.workspaces": {
-      "name": "workspaces",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "(concat('wp_', gen_random_uuid()::text))"
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "is_default": {
-          "name": "is_default",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "workspaces_created_by_name_idx": {
-          "name": "workspaces_created_by_name_idx",
-          "columns": [
-            {
-              "expression": "created_by",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "workspaces_created_by_users_id_fk": {
-          "name": "workspaces_created_by_users_id_fk",
-          "tableFrom": "workspaces",
-          "tableTo": "users",
-          "schemaTo": "auth",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "workspaces_select": {
-          "name": "workspaces_select",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"workspaces\".\"created_by\" = auth.uid()"
-        },
-        "workspaces_insert": {
-          "name": "workspaces_insert",
-          "as": "PERMISSIVE",
-          "for": "INSERT",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "\"workspaces\".\"created_by\" = auth.uid()"
-        },
-        "workspaces_update": {
-          "name": "workspaces_update",
-          "as": "PERMISSIVE",
-          "for": "UPDATE",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"workspaces\".\"created_by\" = auth.uid()"
-        },
-        "workspaces_delete": {
-          "name": "workspaces_delete",
-          "as": "PERMISSIVE",
-          "for": "DELETE",
-          "to": [
-            "authenticated"
-          ],
-          "using": "\"workspaces\".\"created_by\" = auth.uid()"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    }
-  },
-  "enums": {
-    "public.plan_level": {
-      "name": "plan_level",
-      "schema": "public",
-      "values": [
-        "free",
-        "pro"
-      ]
-    },
-    "public.run_status": {
-      "name": "run_status",
-      "schema": "public",
-      "values": [
-        "running",
-        "awaiting_approval",
-        "completed",
-        "failed",
-        "sleeping",
-        "idle"
-      ]
-    }
-  },
-  "schemas": {},
-  "sequences": {},
-  "roles": {},
-  "policies": {},
-  "views": {},
-  "_meta": {
-    "columns": {},
-    "schemas": {},
-    "tables": {}
-  }
+	"id": "bef683e8-90c2-4a92-a2f7-0ab870903b01",
+	"prevId": "b17d629c-381e-4c34-901e-e16c9ede41ff",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.callouts": {
+			"name": "callouts",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "(concat('cal_', gen_random_uuid()::text))"
+				},
+				"title": {
+					"name": "title",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "''"
+				},
+				"image_url": {
+					"name": "image_url",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"sort_order": {
+					"name": "sort_order",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"visible": {
+					"name": "visible",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.groups": {
+			"name": "groups",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "(concat('grp_', gen_random_uuid()::text))"
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"position": {
+					"name": "position",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"groups_workspace_name_idx": {
+					"name": "groups_workspace_name_idx",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "name",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"groups_workspace_position_idx": {
+					"name": "groups_workspace_position_idx",
+					"columns": [
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "position",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"groups_workspace_id_workspaces_id_fk": {
+					"name": "groups_workspace_id_workspaces_id_fk",
+					"tableFrom": "groups",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"groups_user_id_users_id_fk": {
+					"name": "groups_user_id_users_id_fk",
+					"tableFrom": "groups",
+					"tableTo": "users",
+					"schemaTo": "auth",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {
+				"groups_select": {
+					"name": "groups_select",
+					"as": "PERMISSIVE",
+					"for": "SELECT",
+					"to": ["authenticated"],
+					"using": "\"groups\".\"user_id\" = auth.uid()"
+				},
+				"groups_insert": {
+					"name": "groups_insert",
+					"as": "PERMISSIVE",
+					"for": "INSERT",
+					"to": ["authenticated"],
+					"withCheck": "\"groups\".\"user_id\" = auth.uid()"
+				},
+				"groups_update": {
+					"name": "groups_update",
+					"as": "PERMISSIVE",
+					"for": "UPDATE",
+					"to": ["authenticated"],
+					"using": "\"groups\".\"user_id\" = auth.uid()"
+				},
+				"groups_delete": {
+					"name": "groups_delete",
+					"as": "PERMISSIVE",
+					"for": "DELETE",
+					"to": ["authenticated"],
+					"using": "\"groups\".\"user_id\" = auth.uid()"
+				}
+			},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.threads": {
+			"name": "threads",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "(concat('thd_', gen_random_uuid()::text))"
+				},
+				"workspace_id": {
+					"name": "workspace_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"group_id": {
+					"name": "group_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"title": {
+					"name": "title",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'New thread'"
+				},
+				"bound_workflow_id": {
+					"name": "bound_workflow_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"status": {
+					"name": "status",
+					"type": "run_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'idle'"
+				},
+				"deleted_at": {
+					"name": "deleted_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"last_message_at": {
+					"name": "last_message_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"threads_user_workspace_last_msg_idx": {
+					"name": "threads_user_workspace_last_msg_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "workspace_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "last_message_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"threads_group_idx": {
+					"name": "threads_group_idx",
+					"columns": [
+						{
+							"expression": "group_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"threads_workspace_id_workspaces_id_fk": {
+					"name": "threads_workspace_id_workspaces_id_fk",
+					"tableFrom": "threads",
+					"tableTo": "workspaces",
+					"columnsFrom": ["workspace_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"threads_group_id_groups_id_fk": {
+					"name": "threads_group_id_groups_id_fk",
+					"tableFrom": "threads",
+					"tableTo": "groups",
+					"columnsFrom": ["group_id"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"threads_user_id_users_id_fk": {
+					"name": "threads_user_id_users_id_fk",
+					"tableFrom": "threads",
+					"tableTo": "users",
+					"schemaTo": "auth",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {
+				"threads_select": {
+					"name": "threads_select",
+					"as": "PERMISSIVE",
+					"for": "SELECT",
+					"to": ["authenticated"],
+					"using": "\"threads\".\"user_id\" = auth.uid()"
+				},
+				"threads_insert": {
+					"name": "threads_insert",
+					"as": "PERMISSIVE",
+					"for": "INSERT",
+					"to": ["authenticated"],
+					"withCheck": "\"threads\".\"user_id\" = auth.uid()"
+				},
+				"threads_update": {
+					"name": "threads_update",
+					"as": "PERMISSIVE",
+					"for": "UPDATE",
+					"to": ["authenticated"],
+					"using": "\"threads\".\"user_id\" = auth.uid()"
+				},
+				"threads_delete": {
+					"name": "threads_delete",
+					"as": "PERMISSIVE",
+					"for": "DELETE",
+					"to": ["authenticated"],
+					"using": "\"threads\".\"user_id\" = auth.uid()"
+				}
+			},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.user_profiles": {
+			"name": "user_profiles",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "(concat('prf_', gen_random_uuid()::text))"
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "''"
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "''"
+				},
+				"avatar_url": {
+					"name": "avatar_url",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "''"
+				},
+				"plan": {
+					"name": "plan",
+					"type": "plan_level",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'free'"
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"user_profiles_user_id_users_id_fk": {
+					"name": "user_profiles_user_id_users_id_fk",
+					"tableFrom": "user_profiles",
+					"tableTo": "users",
+					"schemaTo": "auth",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"user_profiles_user_id_unique": {
+					"name": "user_profiles_user_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id"]
+				}
+			},
+			"policies": {
+				"user_profiles_select": {
+					"name": "user_profiles_select",
+					"as": "PERMISSIVE",
+					"for": "SELECT",
+					"to": ["authenticated"],
+					"using": "\"user_profiles\".\"user_id\" = auth.uid()"
+				},
+				"user_profiles_insert": {
+					"name": "user_profiles_insert",
+					"as": "PERMISSIVE",
+					"for": "INSERT",
+					"to": ["authenticated"],
+					"withCheck": "\"user_profiles\".\"user_id\" = auth.uid()"
+				},
+				"user_profiles_update": {
+					"name": "user_profiles_update",
+					"as": "PERMISSIVE",
+					"for": "UPDATE",
+					"to": ["authenticated"],
+					"using": "\"user_profiles\".\"user_id\" = auth.uid()"
+				},
+				"user_profiles_delete": {
+					"name": "user_profiles_delete",
+					"as": "PERMISSIVE",
+					"for": "DELETE",
+					"to": ["authenticated"],
+					"using": "\"user_profiles\".\"user_id\" = auth.uid()"
+				}
+			},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.workspaces": {
+			"name": "workspaces",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "(concat('wp_', gen_random_uuid()::text))"
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_by": {
+					"name": "created_by",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"is_default": {
+					"name": "is_default",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"workspaces_created_by_name_idx": {
+					"name": "workspaces_created_by_name_idx",
+					"columns": [
+						{
+							"expression": "created_by",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "name",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"workspaces_created_by_users_id_fk": {
+					"name": "workspaces_created_by_users_id_fk",
+					"tableFrom": "workspaces",
+					"tableTo": "users",
+					"schemaTo": "auth",
+					"columnsFrom": ["created_by"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {
+				"workspaces_select": {
+					"name": "workspaces_select",
+					"as": "PERMISSIVE",
+					"for": "SELECT",
+					"to": ["authenticated"],
+					"using": "\"workspaces\".\"created_by\" = auth.uid()"
+				},
+				"workspaces_insert": {
+					"name": "workspaces_insert",
+					"as": "PERMISSIVE",
+					"for": "INSERT",
+					"to": ["authenticated"],
+					"withCheck": "\"workspaces\".\"created_by\" = auth.uid()"
+				},
+				"workspaces_update": {
+					"name": "workspaces_update",
+					"as": "PERMISSIVE",
+					"for": "UPDATE",
+					"to": ["authenticated"],
+					"using": "\"workspaces\".\"created_by\" = auth.uid()"
+				},
+				"workspaces_delete": {
+					"name": "workspaces_delete",
+					"as": "PERMISSIVE",
+					"for": "DELETE",
+					"to": ["authenticated"],
+					"using": "\"workspaces\".\"created_by\" = auth.uid()"
+				}
+			},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		}
+	},
+	"enums": {
+		"public.plan_level": {
+			"name": "plan_level",
+			"schema": "public",
+			"values": ["free", "pro"]
+		},
+		"public.run_status": {
+			"name": "run_status",
+			"schema": "public",
+			"values": [
+				"running",
+				"awaiting_approval",
+				"completed",
+				"failed",
+				"sleeping",
+				"idle"
+			]
+		}
+	},
+	"schemas": {},
+	"sequences": {},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
 }

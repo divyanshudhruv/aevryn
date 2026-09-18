@@ -1,8 +1,7 @@
 import { requireUser } from "@aevryn/auth";
 import { WorkspaceService } from "@aevryn/workflow";
-
-import { createServerSupabaseForNext } from "@/lib/supabase-server";
 import { jsonError } from "@/lib/api";
+import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

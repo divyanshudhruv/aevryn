@@ -1,13 +1,12 @@
-import { redirect } from "next/navigation";
-import type { Route } from "next";
 import { requireUser } from "@aevryn/auth";
 import { WorkspaceService } from "@aevryn/workflow";
+import type { Route } from "next";
+import { redirect } from "next/navigation";
 
 import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
 
 export default async function WorkspaceIndexPage() {
 	const supabase = await createServerSupabaseForNext();

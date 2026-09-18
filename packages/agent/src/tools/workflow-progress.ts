@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { toolContextSchema, type ToolContext } from "./context";
+import { type ToolContext, toolContextSchema } from "./context";
 
 export const updateStepStatusTool = tool({
 	description:
@@ -70,8 +70,7 @@ export const updateStepStatusTool = tool({
 					.from(planSteps)
 					.where(eq(planSteps.workflowId, context.workflowId));
 				const allDone =
-					steps.length > 0 &&
-					steps.every((s) => s.status === "completed");
+					steps.length > 0 && steps.every((s) => s.status === "completed");
 				if (allDone) {
 					await db
 						.update(workflows)

@@ -1,14 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
 import { wrapUntrustedMaybe } from "../untrusted";
 import {
-	requireKey,
-	anakinPost,
 	anakinGet,
+	anakinPost,
+	requireKey,
 	type ToolResult,
 } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 
 const inputSchema = z.object({
 	query: z
@@ -63,8 +62,10 @@ function mapSourceResult(item: ApiSourceResult): VisibilitySourceResult {
 		fullContent: wrapUntrustedMaybe(
 			typeof item.full_content === "string" ? item.full_content : undefined,
 		),
-		latencyMs: typeof item.latency_ms === "number" ? item.latency_ms : undefined,
-		creditsUsed: typeof item.credits_used === "number" ? item.credits_used : undefined,
+		latencyMs:
+			typeof item.latency_ms === "number" ? item.latency_ms : undefined,
+		creditsUsed:
+			typeof item.credits_used === "number" ? item.credits_used : undefined,
 		verdict: wrapUntrustedMaybe(
 			typeof item.verdict === "string" ? item.verdict : undefined,
 		),
@@ -92,13 +93,11 @@ export const aiVisibilityTool = tool({
 		try {
 			// Runtime validation against the live roster — the schema is a plain
 			// string[] because the platform adds engines without code releases.
-			let sources = input.sources;
+			const sources = input.sources;
 			if (sources && sources.length > 0) {
-				const { body } = await anakinGet<{ sources?: Array<{ slug?: unknown }> }>(
-					"/ai-visibility/sources",
-					undefined,
-					key.apiKey,
-				);
+				const { body } = await anakinGet<{
+					sources?: Array<{ slug?: unknown }>;
+				}>("/ai-visibility/sources", undefined, key.apiKey);
 				const roster = (body.sources ?? [])
 					.map((s) => (typeof s?.slug === "string" ? s.slug : null))
 					.filter((s): s is string => s != null);
@@ -120,18 +119,17 @@ export const aiVisibilityTool = tool({
 			if (sources && sources.length > 0) submitBody.sources = sources;
 			if (input.country) submitBody.country = input.country;
 
-			const { body: submitted } = await anakinPost<{ search_id?: string; status?: string }>(
-				"/ai-visibility/search",
-				submitBody,
-				key.apiKey,
-				30_000,
-			);
+			const { body: submitted } = await anakinPost<{
+				search_id?: string;
+				status?: string;
+			}>("/ai-visibility/search", submitBody, key.apiKey, 30_000);
 			if (!submitted.search_id) {
 				return {
 					ok: false,
 					error: {
 						code: "VISIBILITY_SUBMIT_FAILED",
-						message: "Anakin did not return a search_id for the AI visibility run.",
+						message:
+							"Anakin did not return a search_id for the AI visibility run.",
 					},
 				};
 			}
@@ -170,7 +168,10 @@ export const aiVisibilityTool = tool({
 							synthesis: wrapUntrustedMaybe(final.synthesis),
 							results: (final.results ?? []).map(mapSourceResult),
 						}),
-			} as ToolResult<{ synthesis?: string; results: VisibilitySourceResult[] }>;
+			} as ToolResult<{
+				synthesis?: string;
+				results: VisibilitySourceResult[];
+			}>;
 		} catch (err) {
 			return {
 				ok: false,

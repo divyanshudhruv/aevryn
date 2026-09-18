@@ -1,36 +1,35 @@
 "use client";
 
-import { useEffect } from "react";
-
 import { SizeProvider } from "@aevryn/ui/lib/size-context";
+import { useEffect } from "react";
 
 import { ThemeProvider } from "./theme-provider";
 
 const SCRIPT_TAG_WARNING =
-  "Encountered a script tag while rendering React component";
+	"Encountered a script tag while rendering React component";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    const prev = console.error.bind(console);
-    console.error = (...args: unknown[]) => {
-      if (typeof args[0] === "string" && args[0].includes(SCRIPT_TAG_WARNING)) {
-        return;
-      }
-      prev(...args);
-    };
-    return () => {
-      console.error = prev;
-    };
-  }, []);
+	useEffect(() => {
+		const prev = console.error.bind(console);
+		console.error = (...args: unknown[]) => {
+			if (typeof args[0] === "string" && args[0].includes(SCRIPT_TAG_WARNING)) {
+				return;
+			}
+			prev(...args);
+		};
+		return () => {
+			console.error = prev;
+		};
+	}, []);
 
-  return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="light"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <SizeProvider>{children}</SizeProvider>
-    </ThemeProvider>
-  );
+	return (
+		<ThemeProvider
+			attribute="class"
+			defaultTheme="light"
+			enableSystem
+			disableTransitionOnChange
+		>
+			<SizeProvider>{children}</SizeProvider>
+		</ThemeProvider>
+	);
 }

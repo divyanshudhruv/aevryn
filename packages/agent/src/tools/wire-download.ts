@@ -1,18 +1,22 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { toolContextSchema, type ToolContext } from "./context";
+import { type ToolContext, toolContextSchema } from "./context";
 import type { WireFile } from "./wire-action";
 
 const inputSchema = z.object({
 	jobId: z
 		.string()
 		.min(1)
-		.describe("The Wire job id whose result contains files (from wireAction's files manifest)."),
+		.describe(
+			"The Wire job id whose result contains files (from wireAction's files manifest).",
+		),
 	file: z
 		.string()
 		.optional()
-		.describe("For multi-file results, the file name from the manifest. Omit for the primary file."),
+		.describe(
+			"For multi-file results, the file name from the manifest. Omit for the primary file.",
+		),
 });
 
 export const wireDownloadTool = tool({

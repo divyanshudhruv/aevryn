@@ -3,8 +3,8 @@ import { UserDataService } from "@aevryn/workflow";
 import { z } from "zod";
 
 import { jsonError } from "@/lib/api";
-import { createServerSupabaseForNext } from "@/lib/supabase-server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,7 +56,11 @@ export async function POST(request: Request): Promise<Response> {
 	try {
 		body = keyInputSchema.parse(await request.json());
 	} catch (err) {
-		return jsonError(400, "BAD_REQUEST", `Invalid key payload: ${err instanceof Error ? err.message : String(err)}`);
+		return jsonError(
+			400,
+			"BAD_REQUEST",
+			`Invalid key payload: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
 	const row = await userDataService.upsertKey(user.id, body.name, body.value);

@@ -1,7 +1,5 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { toolContextSchema, type ToolContext } from "./context";
 import { wrapUntrustedMaybe } from "../untrusted";
 import {
 	anakinClient,
@@ -9,6 +7,7 @@ import {
 	requireKey,
 	type ToolResult,
 } from "./anakin-client";
+import { type ToolContext, toolContextSchema } from "./context";
 
 const inputSchema = z.object({
 	prompt: z.string().min(1).max(8_192),

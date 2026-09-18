@@ -17,7 +17,10 @@ const OPEN_TAG = /<untrusted>/gi;
  * content can't create a fake closing tag and smuggle instructions past the
  * wrapper. Returns a string always bounded by `<untrusted>\n` … `\n</untrusted>`.
  */
-export function wrapUntrusted(text: string, maxChars = MAX_UNTRUSTED_CHARS): string {
+export function wrapUntrusted(
+	text: string,
+	maxChars = MAX_UNTRUSTED_CHARS,
+): string {
 	let clip = text;
 	let note = "";
 	if (text.length > maxChars) {
@@ -31,7 +34,10 @@ export function wrapUntrusted(text: string, maxChars = MAX_UNTRUSTED_CHARS): str
 }
 
 /** Same as {@link wrapUntrusted} but for structured values (JSON payloads). */
-export function wrapUntrustedJson(value: unknown, maxChars = MAX_UNTRUSTED_CHARS): string {
+export function wrapUntrustedJson(
+	value: unknown,
+	maxChars = MAX_UNTRUSTED_CHARS,
+): string {
 	return wrapUntrusted(JSON.stringify(value), maxChars);
 }
 

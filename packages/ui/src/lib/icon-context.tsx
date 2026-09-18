@@ -1,237 +1,236 @@
 "use client";
 
 import {
-  createContext,
-  useContext,
-  useMemo,
-  type ComponentType,
-  type ReactNode,
+	ArrowDown,
+	ArrowDownFromLine,
+	ArrowLeft,
+	ArrowRight,
+	ArrowUp,
+	ArrowUpFromLine,
+	Bell,
+	Bot,
+	Brain,
+	Calendar,
+	Check,
+	ChevronDown,
+	ChevronRight,
+	ChevronsUpDown,
+	Circle,
+	Clock,
+	Command,
+	Copy,
+	CornerDownLeft,
+	CornerDownRight,
+	Database,
+	Dot,
+	Ellipsis,
+	EllipsisVertical,
+	Folder,
+	Globe,
+	Heart,
+	Home,
+	ImageIcon,
+	Inbox,
+	Key,
+	Lightbulb,
+	Link,
+	Loader,
+	Lock,
+	Mail,
+	Menu,
+	MessageCircle,
+	Monitor,
+	Moon,
+	NotebookPen,
+	Paintbrush,
+	Palette,
+	PanelLeft,
+	PanelRight,
+	Pause,
+	Pencil,
+	Pipette,
+	Play,
+	Plus,
+	RectangleHorizontal,
+	Rocket,
+	RotateCcw,
+	Scaling,
+	Search,
+	Settings,
+	Share2,
+	Shield,
+	SkipForward,
+	SlidersHorizontal,
+	SquareLibrary,
+	Star,
+	Square as StopIcon,
+	Sun,
+	ThumbsDown,
+	ThumbsUp,
+	Trash2,
+	User,
+	Users,
+	X,
+} from "lucide-react";
+import {
+	type ComponentType,
+	createContext,
+	type ReactNode,
+	useContext,
+	useMemo,
 } from "react";
 
-import {
-  ChevronRight,
-  ChevronDown,
-  X,
-  Copy,
-  Menu,
-  Dot,
-  Monitor,
-  Sun,
-  Moon,
-  RectangleHorizontal,
-  Circle,
-  SquareLibrary,
-  Clock,
-  Star,
-  Settings,
-  Plus,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
-  ArrowDown,
-  Search,
-  Loader,
-  Users,
-  Lock,
-  Mail,
-  Bell,
-  Shield,
-  Palette,
-  Lightbulb,
-  Rocket,
-  Heart,
-  Paintbrush,
-  Brain,
-  Globe,
-  User,
-  ImageIcon,
-  Link,
-  Check,
-  RotateCcw,
-  Play,
-  Pause,
-  Pipette,
-  Home,
-  MessageCircle,
-  Inbox,
-  Pencil,
-  Scaling,
-  SkipForward,
-  CornerDownRight,
-  CornerDownLeft,
-  PanelLeft,
-  PanelRight,
-  ChevronsUpDown,
-  Ellipsis,
-  EllipsisVertical,
-  Calendar,
-  Folder,
-  SlidersHorizontal,
-  Trash2,
-  Square as StopIcon,
-  Share2,
-  NotebookPen,
-  Bot,
-  ArrowUpFromLine,
-  ArrowDownFromLine,
-  Database,
-  Command,
-  Key,
-  ThumbsUp,
-  ThumbsDown,
-} from "lucide-react";
-
 export interface IconComponentProps {
-  size?: number;
-  strokeWidth?: number;
-  className?: string;
+	size?: number;
+	strokeWidth?: number;
+	className?: string;
 }
 
 export type IconComponent = ComponentType<IconComponentProps>;
 
 export type IconName =
-  | "chevron-right"
-  | "chevron-down"
-  | "x"
-  | "copy"
-  | "menu"
-  | "dot"
-  | "monitor"
-  | "sun"
-  | "moon"
-  | "rectangle-horizontal"
-  | "circle"
-  | "square-library"
-  | "clock"
-  | "star"
-  | "settings"
-  | "plus"
-  | "arrow-left"
-  | "arrow-right"
-  | "arrow-up"
-  | "arrow-down"
-  | "search"
-  | "loader"
-  | "users"
-  | "lock"
-  | "mail"
-  | "bell"
-  | "shield"
-  | "palette"
-  | "lightbulb"
-  | "rocket"
-  | "heart"
-  | "paintbrush"
-  | "brain"
-  | "globe"
-  | "user"
-  | "image"
-  | "link"
-  | "check"
-  | "rotate-ccw"
-  | "play"
-  | "pause"
-  | "pipette"
-  | "home"
-  | "message-circle"
-  | "inbox"
-  | "pencil"
-  | "scaling"
-  | "skip-forward"
-  | "corner-down-right"
-  | "corner-down-left"
-  | "panel-left"
-  | "panel-right"
-  | "chevrons-up-down"
-  | "more-horizontal"
-  | "more-vertical"
-  | "calendar"
-  | "folder"
-  | "sliders-horizontal"
-  | "dustbin"
-  | "stop"
-  | "notebook"
-  | "database"
-  | "bot"
-  | "share"
-  | "arrowupfromline"
-  | "arrowdownfromline"
-  | "command"
-  | "key"
-  | "thumbs-up"
-  | "thumbs-down";
+	| "chevron-right"
+	| "chevron-down"
+	| "x"
+	| "copy"
+	| "menu"
+	| "dot"
+	| "monitor"
+	| "sun"
+	| "moon"
+	| "rectangle-horizontal"
+	| "circle"
+	| "square-library"
+	| "clock"
+	| "star"
+	| "settings"
+	| "plus"
+	| "arrow-left"
+	| "arrow-right"
+	| "arrow-up"
+	| "arrow-down"
+	| "search"
+	| "loader"
+	| "users"
+	| "lock"
+	| "mail"
+	| "bell"
+	| "shield"
+	| "palette"
+	| "lightbulb"
+	| "rocket"
+	| "heart"
+	| "paintbrush"
+	| "brain"
+	| "globe"
+	| "user"
+	| "image"
+	| "link"
+	| "check"
+	| "rotate-ccw"
+	| "play"
+	| "pause"
+	| "pipette"
+	| "home"
+	| "message-circle"
+	| "inbox"
+	| "pencil"
+	| "scaling"
+	| "skip-forward"
+	| "corner-down-right"
+	| "corner-down-left"
+	| "panel-left"
+	| "panel-right"
+	| "chevrons-up-down"
+	| "more-horizontal"
+	| "more-vertical"
+	| "calendar"
+	| "folder"
+	| "sliders-horizontal"
+	| "dustbin"
+	| "stop"
+	| "notebook"
+	| "database"
+	| "bot"
+	| "share"
+	| "arrowupfromline"
+	| "arrowdownfromline"
+	| "command"
+	| "key"
+	| "thumbs-up"
+	| "thumbs-down";
 
 export const defaultIcons: Record<IconName, IconComponent> = {
-  "chevron-right": ChevronRight,
-  "chevron-down": ChevronDown,
-  pipette: Pipette,
-  x: X,
-  copy: Copy,
-  menu: Menu,
-  dot: Dot,
-  monitor: Monitor,
-  sun: Sun,
-  moon: Moon,
-  "rectangle-horizontal": RectangleHorizontal,
-  circle: Circle,
-  "square-library": SquareLibrary,
-  clock: Clock,
-  star: Star,
-  settings: Settings,
-  plus: Plus,
-  "arrow-left": ArrowLeft,
-  "arrow-right": ArrowRight,
-  "arrow-up": ArrowUp,
-  "arrow-down": ArrowDown,
-  search: Search,
-  loader: Loader,
-  users: Users,
-  lock: Lock,
-  mail: Mail,
-  bell: Bell,
-  shield: Shield,
-  palette: Palette,
-  lightbulb: Lightbulb,
-  rocket: Rocket,
-  heart: Heart,
-  paintbrush: Paintbrush,
-  brain: Brain,
-  globe: Globe,
-  user: User,
-  image: ImageIcon,
-  link: Link,
-  check: Check,
-  "rotate-ccw": RotateCcw,
-  play: Play,
-  pause: Pause,
-  home: Home,
-  "message-circle": MessageCircle,
-  inbox: Inbox,
-  pencil: Pencil,
-  scaling: Scaling,
-  "skip-forward": SkipForward,
-  "corner-down-right": CornerDownRight,
-  "corner-down-left": CornerDownLeft,
-  "panel-left": PanelLeft,
-  "panel-right": PanelRight,
-  "chevrons-up-down": ChevronsUpDown,
-  "more-horizontal": Ellipsis,
-  "more-vertical": EllipsisVertical,
-  calendar: Calendar,
-  folder: Folder,
-  "sliders-horizontal": SlidersHorizontal,
-  dustbin: Trash2,
-  stop: StopIcon,
-  notebook: NotebookPen,
-  database: Database,
-  bot: Bot,
-  share: Share2,
-  arrowupfromline: ArrowUpFromLine,
-  arrowdownfromline: ArrowDownFromLine,
-  command: Command,
-  key: Key,
-  "thumbs-up": ThumbsUp,
-  "thumbs-down": ThumbsDown,
+	"chevron-right": ChevronRight,
+	"chevron-down": ChevronDown,
+	pipette: Pipette,
+	x: X,
+	copy: Copy,
+	menu: Menu,
+	dot: Dot,
+	monitor: Monitor,
+	sun: Sun,
+	moon: Moon,
+	"rectangle-horizontal": RectangleHorizontal,
+	circle: Circle,
+	"square-library": SquareLibrary,
+	clock: Clock,
+	star: Star,
+	settings: Settings,
+	plus: Plus,
+	"arrow-left": ArrowLeft,
+	"arrow-right": ArrowRight,
+	"arrow-up": ArrowUp,
+	"arrow-down": ArrowDown,
+	search: Search,
+	loader: Loader,
+	users: Users,
+	lock: Lock,
+	mail: Mail,
+	bell: Bell,
+	shield: Shield,
+	palette: Palette,
+	lightbulb: Lightbulb,
+	rocket: Rocket,
+	heart: Heart,
+	paintbrush: Paintbrush,
+	brain: Brain,
+	globe: Globe,
+	user: User,
+	image: ImageIcon,
+	link: Link,
+	check: Check,
+	"rotate-ccw": RotateCcw,
+	play: Play,
+	pause: Pause,
+	home: Home,
+	"message-circle": MessageCircle,
+	inbox: Inbox,
+	pencil: Pencil,
+	scaling: Scaling,
+	"skip-forward": SkipForward,
+	"corner-down-right": CornerDownRight,
+	"corner-down-left": CornerDownLeft,
+	"panel-left": PanelLeft,
+	"panel-right": PanelRight,
+	"chevrons-up-down": ChevronsUpDown,
+	"more-horizontal": Ellipsis,
+	"more-vertical": EllipsisVertical,
+	calendar: Calendar,
+	folder: Folder,
+	"sliders-horizontal": SlidersHorizontal,
+	dustbin: Trash2,
+	stop: StopIcon,
+	notebook: NotebookPen,
+	database: Database,
+	bot: Bot,
+	share: Share2,
+	arrowupfromline: ArrowUpFromLine,
+	arrowdownfromline: ArrowDownFromLine,
+	command: Command,
+	key: Key,
+	"thumbs-up": ThumbsUp,
+	"thumbs-down": ThumbsDown,
 };
 
 const IconContext = createContext<Record<IconName, IconComponent> | null>(null);
@@ -241,8 +240,8 @@ const IconContext = createContext<Record<IconName, IconComponent> | null>(null);
  * Falls back to the default (Lucide) set if no provider is present.
  */
 function useIcon(name: IconName): IconComponent {
-  const icons = useContext(IconContext);
-  return (icons ?? defaultIcons)[name];
+	const icons = useContext(IconContext);
+	return (icons ?? defaultIcons)[name];
 }
 
 /**
@@ -250,8 +249,8 @@ function useIcon(name: IconName): IconComponent {
  * Falls back to the default (Lucide) set if no provider is present.
  */
 function useIcons(): Record<IconName, IconComponent> {
-  const icons = useContext(IconContext);
-  return icons ?? defaultIcons;
+	const icons = useContext(IconContext);
+	return icons ?? defaultIcons;
 }
 
 /**
@@ -259,14 +258,14 @@ function useIcons(): Record<IconName, IconComponent> {
  * Names left out of `icons` keep their default (Lucide) component.
  */
 function IconProvider({
-  children,
-  icons,
+	children,
+	icons,
 }: {
-  children: ReactNode;
-  icons?: Partial<Record<IconName, IconComponent>>;
+	children: ReactNode;
+	icons?: Partial<Record<IconName, IconComponent>>;
 }) {
-  const value = useMemo(() => ({ ...defaultIcons, ...icons }), [icons]);
-  return <IconContext.Provider value={value}>{children}</IconContext.Provider>;
+	const value = useMemo(() => ({ ...defaultIcons, ...icons }), [icons]);
+	return <IconContext.Provider value={value}>{children}</IconContext.Provider>;
 }
 
 export { IconProvider, useIcon, useIcons };

@@ -28,12 +28,20 @@ export async function GET(
 
 	const type = new URL(request.url).searchParams.get("type") ?? "viewport";
 	if (type !== "viewport" && type !== "fullpage") {
-		return jsonError(400, "BAD_REQUEST", "type must be 'viewport' or 'fullpage'.");
+		return jsonError(
+			400,
+			"BAD_REQUEST",
+			"type must be 'viewport' or 'fullpage'.",
+		);
 	}
 
 	const apiKey = await resolveAnakinKey(user.id);
 	if (!apiKey) {
-		return jsonError(401, "ANAKIN_KEY_REQUIRED", "Add your Anakin key in Settings → BYOK.");
+		return jsonError(
+			401,
+			"ANAKIN_KEY_REQUIRED",
+			"Add your Anakin key in Settings → BYOK.",
+		);
 	}
 
 	const upstream = await fetch(
@@ -42,13 +50,21 @@ export async function GET(
 	);
 
 	if (upstream.status === 401 || upstream.status === 403) {
-		return jsonError(upstream.status, "ANAKIN_FORBIDDEN", "Anakin rejected the key for this job.");
+		return jsonError(
+			upstream.status,
+			"ANAKIN_FORBIDDEN",
+			"Anakin rejected the key for this job.",
+		);
 	}
 	if (upstream.status === 404) {
 		return jsonError(404, "NOT_FOUND", "No screenshot exists for this job.");
 	}
 	if (!upstream.ok) {
-		return jsonError(502, "ANAKIN_UPSTREAM_ERROR", `Anakin returned ${upstream.status}.`);
+		return jsonError(
+			502,
+			"ANAKIN_UPSTREAM_ERROR",
+			`Anakin returned ${upstream.status}.`,
+		);
 	}
 
 	const bytes = await upstream.arrayBuffer();

@@ -1,6 +1,5 @@
-import { createBrowserClient } from "@supabase/ssr";
-
 import { env } from "@aevryn/env/web";
+import { createBrowserClient } from "@supabase/ssr";
 
 let browserClient: ReturnType<typeof createBrowserClient> | undefined;
 
