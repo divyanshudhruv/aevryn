@@ -1,5 +1,12 @@
 {
-  "name": "@aevryn/config",
-  "version": "0.0.0",
-  "private": true
+	"name": "@aevryn/config",
+	"version": "0.0.0",
+	"private": true,
+	"exports": {
+		".": {
+			"types": "./src/types.ts",
+			"default": "./src/types.ts"
+		},
+		"./tsconfig.base.json": "./tsconfig.base.json"
+	}
 }

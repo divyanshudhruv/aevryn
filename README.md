@@ -1,125 +1,104 @@
-# aevryn
+<img alt="banner" src="./apps/web/public/aevryn.png" />
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Self, TRPC, and more.
+<p align="center">
+
+A private agentic AI workspace that <code>executes</code> instead of just <code>chatting</code> - give it a <code>goal</code>, answer its questions, approve its plan, and watch it work step-by-step in real time.
+
+<br><br>
+
+<img src="https://gitviews.com/repo/divyanshudhruv/aevryn.svg"/>
+</p>
+
+<br>
+
+> [!IMPORTANT]\
+> **This is a personal, private project.** It is not published, not meant for public or personal use by others, and not a development framework. Expect fast, opinionated iteration.
+
+> [!NOTE]\
+> Talk to it. Answer its question cards. Approve its plan. Watch the work happen.
+
+> [!WARNING]\
+> **Aevryn is under active development.** Behavior, output and code may change without notice.
+
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [How It Works](#how-it-works)
+- [Tech Stack](#tech-stack)
+- [Tips](#tips)
+- [Development Setup](#development-setup)
+- [License](#license)
 
 ## Features
 
-- **TypeScript** - For type safety and improved developer experience
-- **Next.js** - Full-stack React framework
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **tRPC** - End-to-end type-safe APIs
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Biome** - Linting and formatting
-- **Turborepo** - Optimized monorepo build system
+- **`🎯 Goal-driven loop`** - clarify → plan → approve → execute → report, not open-ended chat
+- **`📋 Question cards`** - the agent asks for missing details with structured interactive cards
+- **`📑 Plan cards`** - a step-by-step plan is presented and only runs after you approve
+- **`⚡ Chat vs Run mode`** - cheap conversational turns; approving a plan unlocks the full tool set (including site automation)
+- **`🔁 Re-runnable workflows`** - bound plans re-run anytime via the sidebar Run button or "run this" in chat
+- **`⌨️ BYOK providers`** - bring your own key for any OpenAI-compatible provider (Groq, OpenAI, OpenRouter…)
+- **`🛡️ Tool safety`** - SSRF guard on web tooling, prompt-injection defense, replay protection, tool-call limits
+- **`🔒 Ownership everywhere`** - every thread/workflow read-write is user-scoped; cross-user access yields 404
+- **`💾 Durable state`** - every turn lands in the DB exactly once; failures resume from the last completed step
 
-## Getting Started
+## Quick Start
 
-First, install the dependencies:
+`1.` Sign up / sign in (Google OAuth)
 
-```bash
-bun install
+`2.` Add a model provider key in **Settings → BYOK** (any OpenAI-compatible provider works - Groq, OpenAI, OpenRouter…)
+
+`3.` Ask for something multi-step: _"Plan a 2-week trip to Japan - flights, hotels, rail pass, itinerary, budget"_
+
+`4.` The agent asks clarifying questions → presents a plan card → hit **Approve** and watch it execute step-by-step
+
+`5.` Bound plans can be re-run anytime with the sidebar Run button or "run this" in chat
+
+## How It Works
+
+```mermaid
+flowchart TD
+    U(["User"]) -->|goal| C{Clear?}
+    C -->|No| Q[Question Card]
+    Q --> C
+    C -->|Yes| P[Plan Card]
+    P -->|approve| B[Bind & Execute]
+    B --> T[Tool Call]
+    T -->|fail| R[Recovery]
+    R --> B
+    T -->|ok| D{More steps?}
+    D -->|Yes| B
+    D -->|No| E([Complete])
 ```
 
-## Database Setup
-
-This project uses PostgreSQL with Drizzle ORM.
-
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/web/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
-
-```bash
-bun run db:push
+```mermaid
+flowchart LR
+    A(["Agent"]) --> S[Chat Timeline]
+    S --> ID{Dup?}
+    ID -->|No| DB[("Thread State")]
+    ID -->|Yes| SKIP[Deduplicate]
+    DB --> M[Messages]
+    DB --> AP[Approvals]
+    DB --> ST[Step Snapshots]
+    DB --> FD[Failure Digest]
 ```
 
-Then, run the development server:
+_Security runs through every request: `authenticated` and `owns-the-thread` checks gate access, web tooling is `SSRF-guarded`, untrusted content is `screened` for `prompt injection`, and every turn is `deduplicated` so state lands exactly once._
 
-```bash
-bun run dev
-```
+## Tech Stack
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
+| Layer        | Tech                                    |
+| ------------ | --------------------------------------- |
+| `Framework`  | Next.js (App Router) + React 19         |
+| `Monorepo`   | Turborepo + Bun workspaces              |
+| `Agent loop` | AI SDK v7 (`ToolLoopAgent`)             |
+| `Database`   | PostgreSQL (`Supabase`) + `Drizzle ORM` |
+| `Realtime`   | Supabase Realtime (postgres_changes)    |
+| `Auth`       | Supabase Auth (`SSR` + browser clients) |
+| `Styling `   | TailwindCSS v4 + shadcn/ui primitives   |
+| `Quality`    | Biome, `Vitest`, TypeScript strict      |
+| `Web Agent`  | Anakin                                  |
 
-## UI Customization
+## License
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@aevryn/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Deployment
-
-### Vercel Services
-
-- Target: web + server
-- Config: `vercel.json`
-- Link the project first: bun run deploy:setup
-- Local Vercel dev: bun run dev:vercel
-- Sync preview env: bun run env:preview
-- Sync production env: bun run env:production
-- Dry-run check (no upload): bun run deploy:check
-- Preview deploy: bun run deploy
-- Production deploy: bun run deploy:prod
-  Vercel Services share project environment variables, but deploys do not upload local `.env` files automatically. Link the project with `vercel link`, then run the env sync command before your first deploy (otherwise the deployment starts with no env vars), or pass one-off envs with `vercel deploy -e KEY=value`.
-  Pass Vercel CLI flags to the env sync command directly, for example: `bun run env:production --scope your-team`.
-
-For more details, see the guide on [Deploying to Vercel](https://www.better-t-stack.dev/docs/guides/vercel).
-
-## Git Hooks and Formatting
-
-- Run checks: `bun run check`
-
-## Project Structure
-
-```
-aevryn/
-├── apps/
-│   └── web/         # Fullstack application (Next.js)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
-```
-
-## Available Scripts
-
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
-- `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
-- `bun run check`: Run Biome formatting and linting
-- `bun run deploy:setup`: Link this repo to a Vercel project (first-time setup)
-- `bun run dev:vercel`: Run the Vercel Services dev environment locally
-- `bun run env:preview`: Sync local env files to the Vercel preview environment
-- `bun run env:production`: Sync local env files to the Vercel production environment
-- `bun run deploy`: Create a Vercel preview deployment
-- `bun run deploy:prod`: Deploy to Vercel production
-- `bun run deploy:check`: Dry-run a deploy to preview framework detection and included files without uploading
+Private project - all rights reserved.

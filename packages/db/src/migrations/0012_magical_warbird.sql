@@ -1,0 +1,2 @@
+ALTER TABLE "messages" ADD COLUMN "client_message_id" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "messages_client_message_id_idx" ON "messages" USING btree ("thread_id","user_id","client_message_id") WHERE "messages"."client_message_id" is not null;

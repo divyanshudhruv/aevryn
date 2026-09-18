@@ -11,23 +11,27 @@
 	},
 	"scripts": {
 		"db:push": "drizzle-kit push",
+		"db:reset": "bun scripts/reset.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:deploy": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"db:migrate": "drizzle-kit migrate"
+		"db:migrate": "drizzle-kit migrate",
+		"test": "vitest run",
+		"check-types": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@aevryn/config": "workspace:*",
 		"@aevryn/env": "workspace:*",
 		"dotenv": "catalog:",
 		"drizzle-orm": "^0.45.2",
 		"pg": "^8.22.0",
-		"postgres": "^3.4.9",
+		"ulid": "^3.0.2",
 		"zod": "catalog:"
 	},
 	"devDependencies": {
-		"@aevryn/config": "workspace:*",
 		"@types/pg": "^8.20.0",
 		"drizzle-kit": "^0.31.10",
-		"typescript": "catalog:"
+		"typescript": "catalog:",
+		"vitest": "^5.0.0"
 	}
 }

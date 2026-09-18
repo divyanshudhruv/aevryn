@@ -12,10 +12,13 @@ build
 apps/web/src/routeTree.gen.ts
 local.db
 local.db-*
+.codegraph/
 
-# Environment variables
+# Environment variables — ignore every .env variant, keep only examples.
 .env
-.env*.local
+.env.*
+!.env.example
+.env.example.*
 
 # IDEs and editors
 .vscode/*
@@ -56,3 +59,24 @@ coverage
 .cache
 tmp
 temp
+PLAN.md
+/ERRORS.md
+/internal
+/final-docs
+/CHAT.md
+/plans
+TODO.md
+/.freebuff
+REWRITE-PLAN.md
+/docs
+/final-plans
+/ANAKIN DOCS
+/ANAKIN CAPABILITIES
+/review
+REVIEW_OF_CODEBASE.md
+DEBUG-AND-FIX-PLAN.md
+FINAL-FIX-PLAN.md
+/.github
+/.github/workflows
+/.github/workflows/ci.yml
+

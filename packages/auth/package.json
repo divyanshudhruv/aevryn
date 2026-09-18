@@ -1,24 +1,25 @@
 {
-  "name": "@aevryn/auth",
-  "type": "module",
-  "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
-  },
-  "scripts": {},
-  "dependencies": {
-    "@aevryn/db": "workspace:*",
-    "@aevryn/env": "workspace:*",
-    "better-auth": "catalog:",
-    "dotenv": "catalog:",
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@aevryn/config": "workspace:*",
-    "typescript": "catalog:"
-  }
+	"name": "@aevryn/auth",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@aevryn/env": "workspace:*",
+		"@supabase/supabase-js": "catalog:",
+		"@supabase/ssr": "catalog:"
+	},
+	"devDependencies": {
+		"@aevryn/config": "workspace:*",
+		"typescript": "catalog:",
+		"vitest": "^5.0.0"
+	}
 }
