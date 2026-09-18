@@ -10,6 +10,9 @@ import { useCallback, useEffect, useMemo } from "react";
 
 export type AgentMode = "chat" | "run";
 
+const FAILED_TURN_GENERIC =
+	'Something went wrong while streaming this turn. Re-run or reply "continue" to pick back up.';
+
 export interface UseAgentChatOptions {
 	threadId: string;
 	workspaceId: string;
@@ -77,6 +80,58 @@ export function useAgentChat({
 		},
 		onError: (err) => {
 			console.error("[use-agent-chat] stream error", err);
+			const e = err as {
+				message?: unknown;
+				data?: { error?: { message?: string } };
+				cause?: unknown;
+			};
+			let text = "";
+			const apiMessage = e.data?.error?.message;
+			if (typeof apiMessage === "string" && apiMessage.trim().length > 0) {
+				text = apiMessage.trim();
+			}
+			if (!text && typeof e.message === "string") {
+				const msg = e.message.trim();
+				// The AI SDK redacts raw provider errors to this placeholder —
+				// useless to show; fall through to the generic copy.
+				if (msg.length > 0 && msg !== "An error occurred.") text = msg;
+			}
+			if (!text && e.cause instanceof Error && e.cause.message.trim() !== "An error occurred.") {
+				text = e.cause.message.trim();
+			}
+			const final = text || FAILED_TURN_GENERIC;
+			// Surface the failure inline as an error SystemMessage instead of a
+			// silent console line. Dedup identical text so repeated onError
+			// callbacks don't stack tiles.
+			setMessages((current) => {
+				if (
+					current.some(
+						(m) =>
+							m.role === "system" &&
+							m.parts.some(
+								(p) =>
+									(p as { type?: string }).type === "system-message" &&
+									(p as { text?: string }).text === final,
+							),
+					)
+				) {
+					return current;
+				}
+				return [
+					...current,
+					{
+						id: `sys-error-${Date.now()}`,
+						role: "system",
+						parts: [
+							{
+								type: "system-message",
+								variant: "error",
+								text: final,
+							},
+						] as unknown as UIMessage["parts"],
+					} as UIMessage,
+				];
+			});
 		},
 	});
 

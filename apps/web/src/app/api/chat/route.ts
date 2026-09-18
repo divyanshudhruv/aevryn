@@ -259,6 +259,13 @@ export async function POST(request: Request): Promise<Response> {
 			);
 		}
 		console.error("[api/chat] createWorkflowFromPlan failed", err);
+		// Persist an in-thread error tile so the failure survives refresh
+		// (matches the streaming-failure path; never throws).
+		await chatService.persistFailedTurn({
+			threadId: body.threadId,
+			userId: user.id,
+			text: "Could not bind the approved plan to this thread. Please try again.",
+		});
 		return jsonError(
 			500,
 			"WORKFLOW_BIND_FAILED",

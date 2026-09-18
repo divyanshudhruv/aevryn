@@ -1,4 +1,5 @@
 <img alt="banner" src="./apps/web/public/aevryn.png" />
+<img width="3000"  alt="image" src="./apps/web/public/demo.png" />
 
 <p align="center">A private agentic AI workspace that <code>executes</code> instead of just <code>chatting</code> - give it a <code>goal</code>, answer its questions, approve its plan, and watch it work step-by-step in real time.</p>
 

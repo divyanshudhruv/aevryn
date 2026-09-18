@@ -162,10 +162,13 @@ export function ChatComposer({
 					}}
 				>
 					{messages.map((m) =>
+						// The composer's private transcript is a leftover showcase —
+						// the real timeline owns visible content. Only the brief
+						// queued-card morph frame renders here.
 						m.from === "assistant" ? (
 							<div
 								key={m.id}
-								className="max-w-[80%] self-start whitespace-pre-wrap break-words py-2 text-[14px] text-foreground"
+								className="pointer-events-none max-w-[80%] self-start whitespace-pre-wrap break-words py-2 text-[14px] text-foreground opacity-0 select-none"
 							>
 								{m.text}
 							</div>
@@ -188,7 +191,8 @@ export function ChatComposer({
 						) : (
 							<div
 								key={m.id}
-								className="flex max-w-[80%] flex-col items-end gap-1.5 self-end"
+								className="pointer-events-none flex max-w-[80%] flex-col items-end gap-1.5 self-end opacity-0 select-none"
+								aria-hidden="true"
 							>
 								{m.files.length > 0 && (
 									<div className="flex flex-wrap justify-end gap-1.5">

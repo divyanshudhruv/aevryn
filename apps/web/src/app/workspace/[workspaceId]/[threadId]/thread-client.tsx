@@ -324,7 +324,6 @@ export function ThreadClient() {
 	const {
 		messages,
 		status,
-		error,
 		isStreaming,
 		sendText,
 		sendToolAnswer,
@@ -460,27 +459,6 @@ export function ThreadClient() {
 				? "submitted"
 				: "idle";
 
-	// Descriptive client-facing error: prefer the API's structured message,
-	// fall back to the thrown message (skip the SDK's generic placeholder).
-	const errorMessage = (() => {
-		if (!error) return null;
-		const e = error as {
-			message?: unknown;
-			data?: { error?: { message?: string } };
-		};
-		const apiMessage = e.data?.error?.message;
-		if (typeof apiMessage === "string" && apiMessage.trim().length > 0)
-			return apiMessage;
-		const msg = e.message;
-		if (
-			typeof msg === "string" &&
-			msg.trim().length > 0 &&
-			msg.trim() !== "An error occurred."
-		)
-			return msg;
-		return null;
-	})();
-
 	if (loadError) {
 		return (
 			<div className="flex h-full items-center justify-center p-8 text-muted-foreground text-sm">
@@ -577,7 +555,6 @@ export function ThreadClient() {
 							threadStatus={threadStatus}
 							onToolAnswer={handleToolAnswer}
 							onApproval={handleApproval}
-							errorMessage={errorMessage}
 						/>
 					</div>
 				)}

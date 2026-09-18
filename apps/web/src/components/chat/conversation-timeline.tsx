@@ -72,7 +72,6 @@ interface TimelineProps {
 	threadStatus?: string;
 	onToolAnswer: (toolCallId: string, toolName: string, answer: unknown) => void;
 	onApproval: (toolCallId: string, approved: boolean) => void;
-	errorMessage?: string | null;
 }
 
 function questionsFromInput(input: unknown) {
@@ -775,7 +774,6 @@ export const ConversationTimeline = memo(function ConversationTimeline({
 	threadStatus,
 	onToolAnswer,
 	onApproval,
-	errorMessage,
 }: TimelineProps) {
 	const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -808,28 +806,39 @@ export const ConversationTimeline = memo(function ConversationTimeline({
 	// or plan decision, while the agent is working.
 	const lastMessage = messages.at(-1);
 
+	// Activity is scored on the message TAIL — everything after the last
+	// completed client-tool card. After a plan approval / question answer the
+	// SAME assistant message resumes streaming: earlier parts already hold the
+	// finished card (output-available), and any non-complete tool or text that
+	// lands later IS visible content. Gating on the whole message would kill
+	// the indicator the instant the continuation emits its first tool part,
+	// leaving "agent working, nothing shown" (the approve/bind blind spot).
+	const lastCompletedClientTool = lastMessage?.parts.reduce(
+		(idx, p, i) => (isCompletedClientTool(p) ? i : idx),
+		-1,
+	);
+	const tail = lastMessage
+		? lastMessage.parts.slice((lastCompletedClientTool ?? -1) + 1)
+		: [];
+	const hasVisibleActivity = tail.some(
+		(p: UIMessage["parts"][number]) =>
+			p.type === "text" ||
+			(p.type.startsWith("tool-") &&
+				(p as { state?: string }).state !== "output-available"),
+	);
+
 	// After the user submits a card, there's a brief window where status is still
 	// "idle" before sendAutomaticallyWhen triggers the auto-resume.  Detect this
-	// by checking whether the last assistant message ends with a completed client
-	// tool card (output-available) and no text has arrived after it yet.
+	// by checking whether the tail ends with a completed client tool card
+	// (output-available) and no text has arrived after it yet.
 	const waitingForAgentReply =
 		lastMessage?.role === "assistant" &&
-		lastMessage.parts.some(
-			(p) =>
-				p.type.startsWith("tool-") &&
-				CLIENT_TOOLS.has(p.type.slice(5)) &&
-				(p as { state?: string }).state === "output-available",
-		) &&
-		!lastMessage.parts.some((p) => p.type === "text");
+		(lastCompletedClientTool ?? -1) >= 0 &&
+		!hasVisibleActivity;
 
 	const showThinking =
 		lastMessage?.role === "assistant" &&
-		!lastMessage.parts.some(
-			(p) =>
-				p.type === "text" ||
-				(p.type.startsWith("tool-") &&
-					(p as { state?: string }).state !== "output-available"),
-		) &&
+		!hasVisibleActivity &&
 		(status === "streaming" || status === "submitted" || waitingForAgentReply);
 
 	// A pending card is SUPERSEDED — permanently locked — when the user moved
@@ -869,11 +878,6 @@ export const ConversationTimeline = memo(function ConversationTimeline({
 					<ThinkingIndicator words={THINKING_WORDS} />
 				</ChatMessage>
 			)}
-			{errorMessage && (
-				<SystemMessage variant="error" fill>
-					{errorMessage}
-				</SystemMessage>
-			)}{" "}
 			<div ref={bottomRef} />
 		</div>
 	);
