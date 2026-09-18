@@ -1172,6 +1172,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 					<Row
 						index={otherIndex}
 						registerItem={registerItem}
+						role={null}
 						isSelected={otherText.length > 0}
 						tabIndex={-1}
 						onClick={

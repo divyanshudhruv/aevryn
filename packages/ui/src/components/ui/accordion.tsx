@@ -210,9 +210,9 @@ const AccordionGroup = forwardRef<HTMLDivElement, AccordionGroupProps>(
 			}
 			return [];
 		});
-		const _singleOnValueChange = (props as AccordionGroupSingleProps)
+		const singleOnValueChange = (props as AccordionGroupSingleProps)
 			.onValueChange;
-		const _multipleOnValueChange = (props as AccordionGroupMultipleProps)
+		const multipleOnValueChange = (props as AccordionGroupMultipleProps)
 			.onValueChange;
 
 		const openValuesList: string[] =
@@ -228,12 +228,12 @@ const AccordionGroup = forwardRef<HTMLDivElement, AccordionGroupProps>(
 		// Keyed on the joined values so the Set (and the group context value
 		// below) keeps a stable identity across re-renders where the open values
 		// haven't actually changed.
-		const _openValuesKey = openValuesList.join(",");
+		const openValuesKey = openValuesList.join(",");
 
 		const openValues = useMemo(
 			() => new Set(openValuesList),
 			// Deliberately keyed on the joined string, not the (fresh) array.
-			[openValuesList],
+			[openValuesKey],
 		);
 
 		const handleSingleValueChange = useCallback(
@@ -242,7 +242,7 @@ const AccordionGroup = forwardRef<HTMLDivElement, AccordionGroupProps>(
 				if (sp.onValueChange) sp.onValueChange(value);
 				else setInternalSingleValue(value);
 			},
-			[props],
+			[singleOnValueChange],
 		);
 
 		const handleMultipleValueChange = useCallback(
@@ -251,18 +251,18 @@ const AccordionGroup = forwardRef<HTMLDivElement, AccordionGroupProps>(
 				if (mp.onValueChange) mp.onValueChange(value);
 				else setInternalMultipleValue(value);
 			},
-			[props],
+			[multipleOnValueChange],
 		);
 
 		useEffect(() => {
 			measureItems();
 			measureFullItems();
-		}, [measureItems, measureFullItems]);
+		}, [measureItems, measureFullItems, children]);
 
 		useEffect(() => {
 			measureItems();
 			measureFullItems();
-		}, [measureItems, measureFullItems]);
+		}, [measureItems, measureFullItems, openValuesKey]);
 
 		const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 

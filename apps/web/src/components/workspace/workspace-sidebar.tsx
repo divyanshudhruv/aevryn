@@ -133,6 +133,13 @@ export function WorkspaceSidebar() {
 		[refresh],
 	);
 
+	const createWorkspace = useCallback(async () => {
+		const created = await mutate({ kind: "workspace" });
+		if (created?.id) {
+			router.push(`/workspace/${created.id}` as Route);
+		}
+	}, [mutate, router]);
+
 	const createThread = useCallback(
 		async (wsId: string, groupId: string | null, title: string) => {
 			const created = await mutate({
@@ -272,8 +279,9 @@ export function WorkspaceSidebar() {
 		<AppSidebar
 			data={data ?? undefined}
 			activeThreadId={params?.threadId}
-			onCreateGroup={createGroup}
-			onCreateThread={createThread}
+onCreateGroup={createGroup}
+				onCreateThread={createThread}
+				onCreateWorkspace={createWorkspace}
 			onOpenThread={openThread}
 			onSwitchWorkspace={switchWorkspace}
 			onWorkspaceMutated={refresh}

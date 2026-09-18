@@ -30,7 +30,7 @@ const badgeColors = {
 type BadgeColor = keyof typeof badgeColors;
 
 const badgeVariants = cva(
-	"inline-flex items-center whitespace-nowrap font-medium",
+	"inline-flex min-w-0 max-w-full items-center whitespace-nowrap font-medium",
 	{
 		variants: {
 			variant: {
@@ -135,10 +135,12 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
 						}}
 					/>
 				)}
-				{/* text-box needs a block container — the badge root is a flex
+{/* text-box needs a block container — the badge root is a flex
             container, so the label gets its own span. Height is fixed (h-*),
             so trimming only recenters the letterforms. */}
-				<span className="[text-box:trim-both_cap_alphabetic]">{children}</span>
+			<span className="min-w-0 truncate [text-box:trim-both_cap_alphabetic]">
+				{children}
+			</span>
 			</span>
 		);
 	},

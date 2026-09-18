@@ -557,7 +557,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
 		// Depend on a primitive key rather than the `values` array — its identity
 		// changes every render (toRadixValue allocates), which would restart the
 		// animation on unrelated re-renders (hover/tooltip state churn).
-		const _valuesKey = values.join(",");
+		const valuesKey = values.join(",");
 		useEffect(() => {
 			if (!initialSyncDone.current) return;
 			if (dragging.current) return;
@@ -580,7 +580,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
 				);
 				animate(motionX1, px1, spring.moderate);
 			}
-		}, [min, max, isRange, motionX0, motionX1]);
+		}, [valuesKey, min, max, isRange, motionX0, motionX1]);
 
 		// --- Range crossing prevention ---
 		const clampForRange = useCallback(

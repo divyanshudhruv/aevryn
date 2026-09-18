@@ -541,7 +541,7 @@ const CommandMenu = forwardRef<HTMLDivElement, CommandMenuProps>(
 		// re-runs the memos every render, and only a real change may reset the
 		// highlight.
 		// Joined on a NUL so values with spaces cannot collide.
-		const _rowsKey = rows.map((row) => row.value).join("\u0000");
+		const rowsKey = rows.map((row) => row.value).join("\u0000");
 
 		// The highlight lives in the fluid hover hook. It is created here, at the
 		// root, so the input can drive it; the list attaches `listRef` as its
@@ -650,7 +650,7 @@ const CommandMenu = forwardRef<HTMLDivElement, CommandMenuProps>(
 			const first = rowsRef.current.findIndex((row) => !row.disabled);
 			setActiveIndex(first === -1 ? null : first);
 			scrollToRow(0, "top");
-		}, [setActiveIndex, scrollToRow]);
+		}, [rowsKey, setActiveIndex, scrollToRow]);
 
 		const move = useCallback(
 			(to: 1 | -1 | "first" | "last") => {

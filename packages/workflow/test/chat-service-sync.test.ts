@@ -99,7 +99,7 @@ describe("ChatService.saveMessage transactional persistence", () => {
 			.where(
 				and(
 					eq(toolCallLogs.messageId, saved.id),
-					eq(toolCallLogs.stepId, stepRows[0]?.id),
+					eq(toolCallLogs.stepId, stepRows[0]!.id),
 				),
 			);
 		expect(logs).toHaveLength(1);

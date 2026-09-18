@@ -182,12 +182,12 @@ const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
 			.filter(isValidElement)
 			.map((child) => (child.props as { value?: string }).value)
 			.filter((v): v is string => typeof v === "string");
-		const _valueOrderKey = values.join(",");
+		const valueOrderKey = values.join(",");
 		const setValueOrder = valueOrderCtx?.setValueOrder;
 
 		useLayoutEffect(() => {
 			setValueOrder?.(values);
-		}, [setValueOrder, values]);
+		}, [setValueOrder, valueOrderKey]);
 
 		const {
 			activeIndex: hoveredIndex,

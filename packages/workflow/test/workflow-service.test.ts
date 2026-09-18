@@ -74,14 +74,14 @@ describe("WorkflowService.replaceSteps", () => {
 			status: "completed",
 		});
 
-		const b = before?.steps;
+		const b = before!.steps;
 		// Keep B (marked completed, index 1) and A; reorder; add a new step.
 		const replaced = await service.replaceSteps({
 			workflowId,
 			userId,
 			steps: [
-				{ id: b[1]?.id, title: "B edited" },
-				{ id: b[0]?.id, title: "A reordered" },
+				{ id: b[1]!.id, title: "B edited" },
+				{ id: b[0]!.id, title: "A reordered" },
 				{ title: "D new" },
 			],
 		});
@@ -94,8 +94,8 @@ describe("WorkflowService.replaceSteps", () => {
 		expect(replaced.map((s) => s.position)).toEqual([1, 2, 3]);
 
 		const statusById = new Map(replaced.map((s) => [s.id, s.status]));
-		expect(statusById.get(b[1]?.id)).toBe("completed");
-		expect(statusById.get(b[0]?.id)).toBe("idle");
+		expect(statusById.get(b[1]!.id)).toBe("completed");
+		expect(statusById.get(b[0]!.id)).toBe("idle");
 		expect(replaced[2]?.status).toBe("idle");
 
 		const dbRows = await db

@@ -530,7 +530,7 @@ const ThinkingStepSources = forwardRef<
 	return (
 		<div
 			ref={ref}
-			className={cn("mt-1 flex flex-wrap gap-1.5", className)}
+			className={cn("mt-1 flex flex-col items-start gap-1.5", className)}
 			{...props}
 		>
 			{children}

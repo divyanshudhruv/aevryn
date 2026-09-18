@@ -706,7 +706,10 @@ function WorkspacePanel({
 		}
 		setDeleteWorkspaceOpen(false);
 		onMutated?.();
-		window.location.href = "/chat";
+		// Point the browser at the NEW entry route (the old /chat path no longer
+		// exists — Next would render the not-found page, making it look like the
+		// delete failed).
+		window.location.href = "/workspace";
 	};
 
 	return (

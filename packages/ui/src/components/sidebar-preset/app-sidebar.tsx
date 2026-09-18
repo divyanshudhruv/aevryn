@@ -61,6 +61,11 @@ import { Badge } from "../ui/badge";
 
 const GROUP_OPEN_KEY = "aevryn:sidebar:groups:open";
 
+/** Server-enforced caps (mirror @aevryn/workflow constants). */
+export const WORKSPACE_LIMIT = 3;
+export const GROUP_LIMIT = 10;
+export const THREADS_PER_GROUP_LIMIT = 15;
+
 export interface PromoCard {
 	id: string;
 	title: string;
@@ -125,6 +130,8 @@ export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
 	onSwitchWorkspace?: (workspaceId: string) => void;
 	/** Called after the settings dialog renames or deletes a workspace. */
 	onWorkspaceMutated?: () => void;
+	/** Create a fresh non-default workspace (name is chosen server-side). */
+	onCreateWorkspace?: () => void;
 	onRenameThread?: (threadId: string, title: string) => void;
 	onDeleteThread?: (threadId: string) => void;
 	onRenameGroup?: (groupId: string, name: string) => void;
@@ -148,6 +155,7 @@ export function AppSidebar({
 	onOpenThread,
 	onSwitchWorkspace,
 	onWorkspaceMutated,
+	onCreateWorkspace,
 	onRenameThread,
 	onDeleteThread,
 	onRenameGroup,
@@ -170,7 +178,7 @@ export function AppSidebar({
 		data?.promoCards && data.promoCards.length > 0
 			? data.promoCards
 			: FALLBACK_CALLOUTS;
-	const _promoKey = promoSource.map((c) => c.id).join("|");
+	const promoKey = promoSource.map((c) => c.id).join("|");
 	useEffect(() => {
 		setCallouts((prev) =>
 			prev.length === promoSource.length &&
@@ -178,7 +186,7 @@ export function AppSidebar({
 				? prev
 				: promoSource,
 		);
-	}, [promoSource.length, promoSource.every, promoSource]);
+	}, [promoKey]);
 
 	useEffect(() => {
 		const timer = setTimeout(() => setDebouncedSearch(search), 0);
@@ -483,8 +491,8 @@ export function AppSidebar({
 									index={data?.workspaces.length ?? 0}
 									icon={PlusIcon}
 									label="New workspace"
-									disabled
-									onSelect={() => {}}
+									disabled={(data?.workspaces.length ?? 0) >= WORKSPACE_LIMIT}
+									onSelect={() => onCreateWorkspace?.()}
 								/>
 							</>
 						}
@@ -510,6 +518,7 @@ export function AppSidebar({
 							<SidebarMenuItem>
 								<SidebarMenuButton
 									icon={PlusIcon}
+									disabled={(data?.groups.length ?? 0) >= GROUP_LIMIT}
 									onClick={() => setNewGroupOpen(true)}
 								>
 									New
@@ -637,6 +646,8 @@ export function AppSidebar({
 					)}
 					{(filteredSections ?? sections ?? []).map((section) => {
 						const sectionKey = section.id ?? section.label;
+						const sectionAtThreadCap =
+							section.items.length >= THREADS_PER_GROUP_LIMIT;
 						return (
 							<SidebarGroup
 								key={sectionKey}
@@ -646,10 +657,21 @@ export function AppSidebar({
 							>
 								<SidebarGroupLabel>{section.label}</SidebarGroupLabel>
 								<SidebarGroupActions>
-									<Tooltip content="Add item" side="top">
+									<Tooltip
+									content={
+										sectionAtThreadCap
+											? "Group full (20/20 threads)"
+											: "Add item"
+									}
+									side="top"
+								>
 										<SidebarGroupAction
 											aria-label="Add thread"
+											className={
+												sectionAtThreadCap ? "pointer-events-none opacity-40" : ""
+											}
 											onClick={() => {
+												if (sectionAtThreadCap) return;
 												if (currentWorkspace) {
 													onCreateThread?.(
 														currentWorkspace.id,

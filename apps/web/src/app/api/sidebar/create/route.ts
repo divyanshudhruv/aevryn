@@ -9,6 +9,12 @@ export const dynamic = "force-dynamic";
 
 const workspaceService = new WorkspaceService();
 
+const LIMIT_MESSAGES: Record<string, string> = {
+	WORKSPACE_LIMIT: "You can have up to 3 workspaces.",
+	GROUP_LIMIT: "You can have up to 10 groups per workspace.",
+	THREAD_LIMIT: "You can have up to 15 threads per group.",
+};
+
 export async function POST(request: Request): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();
 	let user: { id: string };
@@ -29,7 +35,16 @@ export async function POST(request: Request): Promise<Response> {
 		string | undefined
 	>;
 
-	if (kind === "group") {
+	try {
+		if (kind === "workspace") {
+			const workspace = await workspaceService.createWorkspace(user.id);
+			return Response.json(
+				{ data: workspace, error: null, meta: {} },
+				{ headers: { "cache-control": "no-store" } },
+			);
+		}
+
+		if (kind === "group") {
 		if (!workspaceId) {
 			return jsonError(400, "MISSING_WORKSPACE", "workspaceId is required.");
 		}
@@ -97,4 +112,12 @@ export async function POST(request: Request): Promise<Response> {
 	}
 
 	return jsonError(400, "BAD_KIND", "Unknown kind.");
+	} catch (err) {
+		const code = err instanceof Error ? err.message : "INTERNAL";
+		const friendly = LIMIT_MESSAGES[code];
+		if (friendly) {
+			return jsonError(409, code, friendly);
+		}
+		throw err;
+	}
 }

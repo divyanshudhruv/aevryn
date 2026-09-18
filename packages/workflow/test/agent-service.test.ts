@@ -240,7 +240,7 @@ describe("AgentService.respond", () => {
 		const stepRows = await db
 			.select()
 			.from(stepsTable)
-			.where(eq(stepsTable.messageId, assistant?.id));
+			.where(eq(stepsTable.messageId, assistant!.id));
 		expect(stepRows).toHaveLength(1);
 		expect(stepRows[0]?.text).toBe("step one");
 		const calls = stepRows[0]?.toolCalls as Array<{

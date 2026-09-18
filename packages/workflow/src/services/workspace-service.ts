@@ -1,8 +1,18 @@
 import type { Db } from "@aevryn/db";
 import { db, groups, ids, threads, userProfiles, workspaces } from "@aevryn/db";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, like, sql } from "drizzle-orm";
 
 import { sidebarService } from "./sidebar-service";
+
+/** Soft caps (approximate). All three caps are ALSO enforced hard at the DB
+ *  layer by triggers applied directly in Supabase. */
+export const WORKSPACE_LIMIT = 3;
+export const GROUP_LIMIT = 10;
+export const THREADS_PER_GROUP_LIMIT = 15;
+
+/** Name given to new workspaces; the unique (created_by, name) index forces
+ *  the Nth duplicate to take a numeric suffix. */
+export const NEW_WORKSPACE_NAME = "NEW WORKSPACE";
 
 export interface WorkspaceSummary {
 	id: string;
@@ -109,7 +119,48 @@ export class WorkspaceService {
 			.where(eq(workspaces.createdBy, userId))
 			.orderBy(desc(workspaces.isDefault), asc(workspaces.createdAt))
 			.limit(1);
-		return winner?.id;
+		return winner!.id;
+	}
+
+	/** Creates a non-default workspace named `NEW WORKSPACE` (numbered on
+	 *  collision). The hard count cap lives in the DB trigger; this doubles as
+	 *  a friendly pre-check so the common path returns a clean error. */
+	async createWorkspace(userId: string): Promise<WorkspaceSummary> {
+		const owned = await this.client
+			.select({ id: workspaces.id })
+			.from(workspaces)
+			.where(eq(workspaces.createdBy, userId));
+		if (owned.length >= WORKSPACE_LIMIT) {
+			throw new Error("WORKSPACE_LIMIT");
+		}
+
+		const taken = new Set(
+			(
+				await this.client
+					.select({ name: workspaces.name })
+					.from(workspaces)
+					.where(
+						and(
+							eq(workspaces.createdBy, userId),
+							like(workspaces.name, `${NEW_WORKSPACE_NAME}%`),
+						),
+					)
+			).map((row) => row.name),
+		);
+		let name = NEW_WORKSPACE_NAME;
+		for (let suffix = 2; taken.has(name); suffix++) {
+			name = `${NEW_WORKSPACE_NAME} ${suffix}`;
+		}
+
+		const [created] = await this.client
+			.insert(workspaces)
+			.values({ id: ids.workspace(), createdBy: userId, name, isDefault: false })
+			.returning({
+				id: workspaces.id,
+				name: workspaces.name,
+				isDefault: workspaces.isDefault,
+			});
+		return created!;
 	}
 
 	async createGroup(
@@ -129,6 +180,14 @@ export class WorkspaceService {
 			.limit(1);
 		if (!ownedWs) {
 			throw new Error("WORKSPACE_NOT_FOUND");
+		}
+
+		const countRows = await this.client
+			.select({ count: sql<number>`count(*)` })
+			.from(groups)
+			.where(eq(groups.workspaceId, workspaceId));
+		if ((countRows[0]?.count ?? 0) >= GROUP_LIMIT) {
+			throw new Error("GROUP_LIMIT");
 		}
 
 		const lastPos = await this.client
@@ -206,6 +265,23 @@ export class WorkspaceService {
 			.limit(1);
 		if (!ownedWs) {
 			throw new Error("WORKSPACE_NOT_FOUND");
+		}
+
+		// Per-group cap: threads are counted by their group (null = the
+		// ungrouped "THREADS" section, capped like any group).
+		const countRows = await this.client
+			.select({ count: sql<number>`count(*)` })
+			.from(threads)
+			.where(
+				and(
+					eq(threads.workspaceId, workspaceId),
+					groupId === null
+						? isNull(threads.groupId)
+						: eq(threads.groupId, groupId),
+				),
+			);
+		if ((countRows[0]?.count ?? 0) >= THREADS_PER_GROUP_LIMIT) {
+			throw new Error("THREAD_LIMIT");
 		}
 
 		const [thread] = await this.client

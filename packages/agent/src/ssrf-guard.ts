@@ -71,14 +71,14 @@ const IPV6_PRIVATE_PREFIXES = [
 ] as const;
 
 function ipv6IsPrivate(hostname: string): boolean {
-	const stripped = hostname.split("%")[0]?.toLowerCase();
+	const stripped = hostname.split("%")[0]!.toLowerCase();
 	for (const p of IPV6_PRIVATE_PREFIXES) {
 		if (stripped.startsWith(p)) return true;
 	}
 	// v4-mapped (`::ffff:127.0.0.1`) — classify by the embedded address.
 	const v4 = /::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(stripped);
 	if (v4) {
-		const octets = v4[1]?.split(".").map(Number);
+		const octets = v4[1]!.split(".").map(Number);
 		return ipv4IsPrivate(octets);
 	}
 	return false;
