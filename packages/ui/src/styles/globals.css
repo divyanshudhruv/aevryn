@@ -687,3 +687,18 @@ html.transitioning *::after {
 html {
 	scroll-behavior: smooth;
 }
+
+/* Markdown body: nested list markers change with depth (disc → circle →
+   square for bullets; 1. → a. for ordered) so hierarchy reads at a glance. */
+.markdown-body ul ul,
+.markdown-body ol ul {
+	list-style-type: circle;
+}
+.markdown-body ul ul ul,
+.markdown-body ol ul ul {
+	list-style-type: square;
+}
+.markdown-body ul ol,
+.markdown-body ol ol {
+	list-style-type: lower-alpha;
+}

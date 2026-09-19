@@ -21,6 +21,7 @@
 		"@supabase/supabase-js": "catalog:",
 		"@swc/helpers": "^0.5.23",
 		"@tanstack/react-form": "^1.33.2",
+		"@vercel/analytics": "^2.0.1",
 		"ai": "^7.0.93",
 		"dotenv": "catalog:",
 		"drizzle-orm": "^0.45.2",
