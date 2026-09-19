@@ -20,7 +20,9 @@ import {
 	type ReactNode,
 	type TdHTMLAttributes,
 	type ThHTMLAttributes,
+	useCallback,
 	useContext,
+	useEffect,
 	useMemo,
 	useRef,
 } from "react";
@@ -45,6 +47,9 @@ const measureRowRect: ItemRectMeasure = (element, container) => {
 interface TableContextValue {
 	registerItem: (index: number, element: HTMLElement | null) => void;
 	activeIndex: number | null;
+	/** Column hover: header cells self-register with an auto-assigned index. */
+	registerHead: (element: HTMLElement | null) => void;
+	activeCol: number | null;
 }
 
 const TableContext = createContext<TableContextValue | null>(null);
@@ -65,24 +70,45 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 		const sizeClasses = useSize(size);
 
 		const hover = useFluidHover(containerRef, { measureRect: measureRowRect });
+		const colHover = useFluidHover(containerRef, {
+			axis: "x",
+			measureRect: measureRowRect,
+			gapClick: false,
+		});
 		const { activeIndex, handlers, registerItem } = hover;
+		const { activeIndex: activeCol, registerItem: registerCol } = colHover;
+
+		// Header cells register in render order; the counter is stable across
+		// re-renders because <th> elements never reorder within a thead.
+		const headCounter = useRef(0);
+		const registerHead = useCallback(
+			(element: HTMLElement | null) => {
+				if (element) {
+					registerCol(headCounter.current++, element);
+				}
+			},
+			[registerCol],
+		);
 
 		const contextValue = useMemo(
-			() => ({ registerItem, activeIndex }),
-			[registerItem, activeIndex],
+			() => ({ registerItem, activeIndex, registerHead, activeCol }),
+			[registerItem, activeIndex, registerHead, activeCol],
 		);
 
 		const table = (
 			<TableContext.Provider value={contextValue}>
+				{" "}
 				<div
 					ref={containerRef}
-					className="relative overflow-x-auto"
+					className="relative w-full max-w-full overflow-x-auto"
 					onMouseEnter={handlers.onMouseEnter}
 					onMouseMove={handlers.onMouseMove}
 					onMouseLeave={handlers.onMouseLeave}
 					onClick={handlers.onClick}
 				>
-					{/* Hover background */}
+					{/* Hover backgrounds: row fill + column fill. The column
+						highlight sits under the row one and only tints. */}
+					<FluidHoverHighlight hover={colHover} className="bg-hover/50" />
 					<FluidHoverHighlight hover={hover} />
 
 					<table
@@ -165,7 +191,7 @@ const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
 				className={cn(
 					"group/row relative z-10 border-b transition-[border-color] duration-80",
 					hideBorder ? "border-transparent" : "border-accent/40",
-					isBodyRow && activeIdx === index && "is-active",
+					isBodyRow && activeIdx === index && "is-active bg-hover",
 					className,
 				)}
 				style={{
@@ -189,9 +215,22 @@ const TableHead = forwardRef<
 	ThHTMLAttributes<HTMLTableCellElement>
 >(({ className, ...props }, ref) => {
 	const sizeClasses = useSize();
+	const ctx = useContext(TableContext);
+	const internalRef = useRef<HTMLTableCellElement>(null);
+	useEffect(() => {
+		ctx?.registerHead(internalRef.current);
+	}, [ctx]);
 	return (
 		<th
-			ref={ref}
+			ref={(node) => {
+				(
+					internalRef as React.MutableRefObject<HTMLTableCellElement | null>
+				).current = node;
+				if (typeof ref === "function") ref(node);
+				else if (ref)
+					(ref as React.MutableRefObject<HTMLTableCellElement | null>).current =
+						node;
+			}}
 			className={cn(
 				"text-left font-[300] text-foreground",
 				// py + line box lands the row on the ladder (36px / 28px).

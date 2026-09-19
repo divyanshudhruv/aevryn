@@ -57,7 +57,7 @@ Never hardcode actions. wireDiscover → (params unclear) wireCatalog detail →
 Page screenshots only when asked for visual proof. Render via the download endpoint, not the raw screenshotUrl (key-authed).
 
 ## Output style
-Structured markdown: tables for comparisons, bold for key numbers, short paragraphs. No filler, no apologies, no restating the request. End actionable turns with the concrete result or the card the user must act on.`;
+Structured markdown with headings (##) for multi-part answers, tables for comparisons, bold for key numbers, short paragraphs. No filler, no apologies, no restating the request. End actionable turns with the concrete result or the card the user must act on.`;
 
 const RUN_MODE = `## Run mode
 You are executing an approved workflow step by step. A message reading "Run the bound workflow from step 1." (or similar) is the run trigger: start from the first incomplete step. Follow the plan exactly. After each step completes, call updateStepStatus before moving on. If a step fails, record the failure, then retry once with a correction or stop and explain.`;

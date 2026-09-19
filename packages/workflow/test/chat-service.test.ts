@@ -1,14 +1,17 @@
-import { db, ids, messages, planSteps, steps, workflows } from "@aevryn/db";
+import { db, messages, planSteps, steps, workflows } from "@aevryn/db";
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ChatService } from "../src/services/chat-service";
+import { WorkflowService } from "../src/services/workflow-service";
 
-// Unique ids per run so repeated test executions don't collide.
-const stamp = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
 const userId = "00000000-0000-0000-0000-000000000001";
-const workspaceId = `wsp_test_${stamp}`;
-const threadId = `thd_test_${stamp}`;
+// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
+// and threads per user, so per-run random ids self-destruct the suite after
+// a few runs. Recreating stable rows each run cascades the previous run's
+// messages/steps, keeping trigger counts flat.
+const workspaceId = "wsp_test_chat";
+const threadId = "thd_test_chat";
 
 async function seedThread() {
 	const { workspaces, threads } = await import("@aevryn/db");
@@ -19,17 +22,12 @@ async function seedThread() {
 	// raw-SQL auth seeding was removed; relying on the pre-existing row
 	// keeps the suite from touching auth.users / auth.identities.
 
-	const existing = await db
-		.select({ id: workspaces.id })
-		.from(workspaces)
-		.where(eq(workspaces.id, workspaceId));
-	if (existing.length === 0) {
-		await db.insert(workspaces).values({
-			id: workspaceId,
-			name: `test-ws-${stamp}`,
-			createdBy: userId,
-		});
-	}
+	await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+	await db.insert(workspaces).values({
+		id: workspaceId,
+		name: "test-ws-chat",
+		createdBy: userId,
+	});
 	await db.delete(threads).where(eq(threads.id, threadId));
 	await db.insert(threads).values({
 		id: threadId,
@@ -43,10 +41,10 @@ beforeEach(async () => {
 	await seedThread();
 });
 
-describe("ChatService.createWorkflowFromPlan", () => {
+describe("WorkflowService.createWorkflowFromPlan", () => {
 	it("creates a workflow + ordered plan_steps and binds it to the thread", async () => {
 		const { threads: threadsTable } = await import("@aevryn/db");
-		const service = new ChatService();
+		const service = new WorkflowService();
 
 		const workflow = await service.createWorkflowFromPlan({
 			userId,
@@ -84,7 +82,7 @@ describe("ChatService.createWorkflowFromPlan", () => {
 describe("ChatService.updatePlanStepStatus", () => {
 	it("transitions a step and completes the workflow when all steps finish", async () => {
 		const service = new ChatService();
-		const workflow = await service.createWorkflowFromPlan({
+		const workflow = await new WorkflowService().createWorkflowFromPlan({
 			userId,
 			threadId,
 			title: "Two step plan",
@@ -185,10 +183,10 @@ describe("ChatService message persistence helpers", () => {
 		expect(stepRows[0]?.toolCalls[0]?.toolName).toBe("scrapeUrl");
 	});
 
-	it("loadThread returns messages and steps for replay", async () => {
+	it("loadThread returns messages for replay", async () => {
 		const service = new ChatService();
 		await service.saveMessage({ userId, threadId, role: "user", content: "q" });
-		const assistant = await service.saveMessage({
+		await service.saveMessage({
 			userId,
 			threadId,
 			role: "assistant",
@@ -197,9 +195,5 @@ describe("ChatService message persistence helpers", () => {
 
 		const loaded = await service.loadThread({ threadId, userId });
 		expect(loaded.messages.map((m) => m.content)).toEqual(["q", "a"]);
-		// steps keyed by messageId for the timeline
-		expect(loaded.stepsByMessageId[assistant.id]).toEqual([]);
 	});
 });
-
-void ids;

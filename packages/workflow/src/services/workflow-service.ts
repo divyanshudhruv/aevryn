@@ -10,6 +10,72 @@ import { and, asc, eq } from "drizzle-orm";
 export class WorkflowService {
 	constructor(private readonly client: Db = db) {}
 
+	/** Creates a workflow + its plan steps in one transaction and binds the
+	 *  thread to it. Called by ChatService when a plan decision arrives and
+	 *  by tests as a fixture. */
+	async createWorkflowFromPlan(input: {
+		userId: string;
+		threadId: string;
+		title: string;
+		objective: string;
+		summary?: string;
+		steps: Array<{ title: string; description?: string }>;
+	}): Promise<Workflow> {
+		const workflowId = ids.workflow();
+
+		await this.client.transaction(async (tx) => {
+			const [threadRow] = await tx
+				.select({ workspaceId: threads.workspaceId })
+				.from(threads)
+				.where(
+					and(eq(threads.id, input.threadId), eq(threads.userId, input.userId)),
+				)
+				.limit(1);
+			if (!threadRow) {
+				throw new Error(
+					`Thread ${input.threadId} not found or not owned by user`,
+				);
+			}
+
+			await tx.insert(workflows).values({
+				id: workflowId,
+				threadId: input.threadId,
+				userId: input.userId,
+				workspaceId: threadRow.workspaceId,
+				title: input.title,
+				objective: input.objective,
+				status: "idle",
+			});
+
+			if (input.steps.length > 0) {
+				await tx.insert(planSteps).values(
+					input.steps.map((step, index) => ({
+						id: ids.planStep(),
+						workflowId,
+						userId: input.userId,
+						position: index + 1, // 1-based, matches updateStepStatus
+						title: step.title,
+						description: step.description ?? null,
+						status: "idle" as const,
+					})),
+				);
+			}
+
+			await tx
+				.update(threads)
+				.set({ boundWorkflowId: workflowId })
+				.where(
+					and(eq(threads.id, input.threadId), eq(threads.userId, input.userId)),
+				);
+		});
+
+		const [row] = await this.client
+			.select()
+			.from(workflows)
+			.where(eq(workflows.id, workflowId));
+		return row!;
+	}
+
 	async getWithSteps(input: {
 		workflowId: string;
 		userId: string;

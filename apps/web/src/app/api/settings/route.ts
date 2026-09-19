@@ -29,25 +29,15 @@ const settingsInputSchema = z.object({
 	defaultQuality: z.enum(["auto", "high", "medium", "low"]).optional(),
 });
 
-async function requireUserOr401(): Promise<{ id: string }> {
-	const supabase = await createServerSupabaseForNext();
-	try {
-		return await requireUser(supabase);
-	} catch {
-		throw jsonErrorResponse(401, "UNAUTHENTICATED", "Sign in first.");
-	}
-}
-
-function jsonErrorResponse(
-	status: number,
-	code: string,
-	message: string,
-): Response {
-	return jsonError(status, code, message);
-}
-
 export async function GET(): Promise<Response> {
-	const user = await requireUserOr401();
+	const supabase = await createServerSupabaseForNext();
+	let user: { id: string };
+	try {
+		user = await requireUser(supabase);
+	} catch {
+		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
+	}
+
 	const userDataService = new UserDataService();
 	const data = await userDataService.getSettings(user.id);
 	return Response.json(
@@ -57,7 +47,13 @@ export async function GET(): Promise<Response> {
 }
 
 export async function PUT(request: Request): Promise<Response> {
-	const user = await requireUserOr401();
+	const supabase = await createServerSupabaseForNext();
+	let user: { id: string };
+	try {
+		user = await requireUser(supabase);
+	} catch {
+		return jsonError(401, "UNAUTHENTICATED", "Sign in first.");
+	}
 
 	let body: z.infer<typeof settingsInputSchema>;
 	try {

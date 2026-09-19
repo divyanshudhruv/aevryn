@@ -321,6 +321,7 @@ const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
 					<svg
 						width={sizeClasses.icon}
 						height={sizeClasses.icon}
+						aria-hidden
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"

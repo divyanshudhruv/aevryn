@@ -45,73 +45,73 @@ export async function POST(request: Request): Promise<Response> {
 		}
 
 		if (kind === "group") {
-		if (!workspaceId) {
-			return jsonError(400, "MISSING_WORKSPACE", "workspaceId is required.");
+			if (!workspaceId) {
+				return jsonError(400, "MISSING_WORKSPACE", "workspaceId is required.");
+			}
+			if (!name || name.trim() === "") {
+				return jsonError(400, "MISSING_NAME", "Group name is required.");
+			}
+			const group = await workspaceService.createGroup(
+				workspaceId,
+				user.id,
+				name,
+			);
+			return Response.json(
+				{ data: group, error: null, meta: {} },
+				{ headers: { "cache-control": "no-store" } },
+			);
 		}
-		if (!name || name.trim() === "") {
-			return jsonError(400, "MISSING_NAME", "Group name is required.");
+
+		if (kind === "thread") {
+			if (!workspaceId) {
+				return jsonError(400, "MISSING_WORKSPACE", "workspaceId is required.");
+			}
+			const thread = await workspaceService.createThread(
+				workspaceId,
+				user.id,
+				groupId ?? null,
+				title ?? "",
+			);
+			return Response.json(
+				{ data: thread, error: null, meta: {} },
+				{ headers: { "cache-control": "no-store" } },
+			);
 		}
-		const group = await workspaceService.createGroup(
-			workspaceId,
-			user.id,
-			name,
-		);
-		return Response.json(
-			{ data: group, error: null, meta: {} },
-			{ headers: { "cache-control": "no-store" } },
-		);
-	}
 
-	if (kind === "thread") {
-		if (!workspaceId) {
-			return jsonError(400, "MISSING_WORKSPACE", "workspaceId is required.");
+		if (kind === "rename-thread" || kind === "rename-group") {
+			if (!id || !name || name.trim() === "") {
+				return jsonError(400, "MISSING_FIELDS", "id and name are required.");
+			}
+			if (kind === "rename-thread") {
+				await workspaceService.renameThread(id, user.id, name);
+			} else {
+				await workspaceService.renameGroup(id, user.id, name);
+			}
+			return Response.json(
+				{ data: { id, name: name.trim() }, error: null, meta: {} },
+				{ headers: { "cache-control": "no-store" } },
+			);
 		}
-		const thread = await workspaceService.createThread(
-			workspaceId,
-			user.id,
-			groupId ?? null,
-			title ?? "",
-		);
-		return Response.json(
-			{ data: thread, error: null, meta: {} },
-			{ headers: { "cache-control": "no-store" } },
-		);
-	}
 
-	if (kind === "rename-thread" || kind === "rename-group") {
-		if (!id || !name || name.trim() === "") {
-			return jsonError(400, "MISSING_FIELDS", "id and name are required.");
+		if (kind === "delete-thread") {
+			if (!id) return jsonError(400, "MISSING_ID", "id is required.");
+			await workspaceService.deleteThread(id, user.id);
+			return Response.json(
+				{ data: { id }, error: null, meta: {} },
+				{ headers: { "cache-control": "no-store" } },
+			);
 		}
-		if (kind === "rename-thread") {
-			await workspaceService.renameThread(id, user.id, name);
-		} else {
-			await workspaceService.renameGroup(id, user.id, name);
+
+		if (kind === "delete-group") {
+			if (!id) return jsonError(400, "MISSING_ID", "id is required.");
+			await workspaceService.deleteGroup(id, user.id);
+			return Response.json(
+				{ data: { id }, error: null, meta: {} },
+				{ headers: { "cache-control": "no-store" } },
+			);
 		}
-		return Response.json(
-			{ data: { id, name: name.trim() }, error: null, meta: {} },
-			{ headers: { "cache-control": "no-store" } },
-		);
-	}
 
-	if (kind === "delete-thread") {
-		if (!id) return jsonError(400, "MISSING_ID", "id is required.");
-		await workspaceService.deleteThread(id, user.id);
-		return Response.json(
-			{ data: { id }, error: null, meta: {} },
-			{ headers: { "cache-control": "no-store" } },
-		);
-	}
-
-	if (kind === "delete-group") {
-		if (!id) return jsonError(400, "MISSING_ID", "id is required.");
-		await workspaceService.deleteGroup(id, user.id);
-		return Response.json(
-			{ data: { id }, error: null, meta: {} },
-			{ headers: { "cache-control": "no-store" } },
-		);
-	}
-
-	return jsonError(400, "BAD_KIND", "Unknown kind.");
+		return jsonError(400, "BAD_KIND", "Unknown kind.");
 	} catch (err) {
 		const code = err instanceof Error ? err.message : "INTERNAL";
 		const friendly = LIMIT_MESSAGES[code];

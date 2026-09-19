@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
 import "../index.css";
@@ -29,6 +29,14 @@ export const metadata: Metadata = {
 	openGraph: {
 		images: ["/aevryn.png"],
 	},
+};
+
+// Browser UI (address bar, task switcher) matches the page background.
+export const viewport: Viewport = {
+	themeColor: [
+		{ media: "(prefers-color-scheme: light)", color: "#ffffff" },
+		{ media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+	],
 };
 
 export default function RootLayout({

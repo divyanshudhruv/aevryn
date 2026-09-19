@@ -10,6 +10,8 @@ import { useCallback, useEffect, useMemo } from "react";
 
 export type AgentMode = "chat" | "run";
 
+// Mirrors FAILED_TURN_GENERIC in /api/chat — the client can't import from a
+// route file, and the two must stay in sync for a consistent failure UX.
 const FAILED_TURN_GENERIC =
 	'Something went wrong while streaming this turn. Re-run or reply "continue" to pick back up.';
 
@@ -96,7 +98,11 @@ export function useAgentChat({
 				// useless to show; fall through to the generic copy.
 				if (msg.length > 0 && msg !== "An error occurred.") text = msg;
 			}
-			if (!text && e.cause instanceof Error && e.cause.message.trim() !== "An error occurred.") {
+			if (
+				!text &&
+				e.cause instanceof Error &&
+				e.cause.message.trim() !== "An error occurred."
+			) {
 				text = e.cause.message.trim();
 			}
 			const final = text || FAILED_TURN_GENERIC;

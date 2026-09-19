@@ -347,7 +347,7 @@ function extractTable(
 			...new Set(
 				rows.flatMap((r) =>
 					Object.keys(r).filter(
-						(k) => typeof r[k] != null && typeof r[k] !== "object",
+						(k) => r[k] != null && typeof r[k] !== "object",
 					),
 				),
 			),
@@ -551,7 +551,7 @@ function OutputTable({
 				</TableHeader>
 				<TableBody>
 					{rows.map((row, i) => (
-						<TableRow key={i}>
+						<TableRow key={i} index={i}>
 							{columns.map((c) => (
 								<TableCell key={c} className="max-w-48 truncate">
 									{String(row[c] ?? "")}

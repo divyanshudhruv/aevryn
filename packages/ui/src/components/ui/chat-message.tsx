@@ -75,7 +75,7 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
 					// bubbles stay fit-width at 80% always.
 					isUser
 						? "max-w-[80%] items-end self-end"
-						: "w-full max-w-full sm:max-w-[80%] items-start self-start",
+						: "w-full max-w-full items-start self-start sm:max-w-[80%]",
 					className,
 				)}
 				{...props}
@@ -134,7 +134,7 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
 					// show their actions alone. User rows read date → icons left-to-right.
 					<div
 						className={cn(
-							"flex select-none items-center whitespace-nowrap gap-2 px-1 text-muted-foreground leading-none",
+							"flex select-none items-center gap-2 whitespace-nowrap px-1 text-muted-foreground leading-none",
 							compact ? "text-[11px]" : "text-[12px]",
 							!isTouch && [
 								"opacity-0 transition-opacity duration-150",
@@ -145,7 +145,9 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
 					>
 						{showTime && <span className="tabular-nums">{time}</span>}
 						{actions != null && (
-							<span className="flex shrink-0 items-center gap-2 py-1">{actions}</span>
+							<span className="flex shrink-0 items-center gap-2 py-1">
+								{actions}
+							</span>
 						)}
 					</div>
 				)}

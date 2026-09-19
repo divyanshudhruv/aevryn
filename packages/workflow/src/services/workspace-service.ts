@@ -1,14 +1,13 @@
+import {
+	GROUP_LIMIT,
+	THREADS_PER_GROUP_LIMIT,
+	WORKSPACE_LIMIT,
+} from "@aevryn/config";
 import type { Db } from "@aevryn/db";
 import { db, groups, ids, threads, userProfiles, workspaces } from "@aevryn/db";
 import { and, asc, desc, eq, isNull, like, sql } from "drizzle-orm";
 
 import { sidebarService } from "./sidebar-service";
-
-/** Soft caps (approximate). All three caps are ALSO enforced hard at the DB
- *  layer by triggers applied directly in Supabase. */
-export const WORKSPACE_LIMIT = 3;
-export const GROUP_LIMIT = 10;
-export const THREADS_PER_GROUP_LIMIT = 15;
 
 /** Name given to new workspaces; the unique (created_by, name) index forces
  *  the Nth duplicate to take a numeric suffix. */
@@ -154,7 +153,12 @@ export class WorkspaceService {
 
 		const [created] = await this.client
 			.insert(workspaces)
-			.values({ id: ids.workspace(), createdBy: userId, name, isDefault: false })
+			.values({
+				id: ids.workspace(),
+				createdBy: userId,
+				name,
+				isDefault: false,
+			})
 			.returning({
 				id: workspaces.id,
 				name: workspaces.name,

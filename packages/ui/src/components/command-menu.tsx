@@ -581,7 +581,9 @@ const CommandMenu = forwardRef<HTMLDivElement, CommandMenuProps>(
 		);
 		useIsoLayoutEffect(() => {
 			highlightRef.current = activeIndex;
-			listenersRef.current.forEach((listener) => listener());
+			listenersRef.current.forEach((listener) => {
+				listener();
+			});
 		}, [activeIndex]);
 		const fill = useMemo<FluidHoverSource>(
 			() => ({ activeIndex, itemRects, isMeasured, sessionRef }),

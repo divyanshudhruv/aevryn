@@ -2,7 +2,6 @@ import type {
 	Db,
 	Message,
 	RunStatus,
-	Step,
 	StepToolCall,
 	ToolCallLogInput,
 	Workflow,
@@ -19,6 +18,8 @@ import {
 } from "@aevryn/db";
 import type { UIMessage } from "ai";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+
+import { WorkflowService } from "./workflow-service";
 
 // ─── Plan binding (resume path) ───────────────────────────────────────────
 
@@ -41,72 +42,13 @@ export type RunControlResult =
 	| { status: "already-running" };
 
 export class ChatService {
-	constructor(private readonly client: Db = db) {}
+	private readonly workflowSvc: WorkflowService;
+
+	constructor(private readonly client: Db = db) {
+		this.workflowSvc = new WorkflowService(this.client);
+	}
 
 	// ─── Workflow / plan steps ────────────────────────────────────────────────
-
-	async createWorkflowFromPlan(input: {
-		userId: string;
-		threadId: string;
-		title: string;
-		objective: string;
-		summary?: string;
-		steps: Array<{ title: string; description?: string }>;
-	}): Promise<Workflow> {
-		const workflowId = ids.workflow();
-
-		await this.client.transaction(async (tx) => {
-			const [threadRow] = await tx
-				.select({ workspaceId: threads.workspaceId })
-				.from(threads)
-				.where(
-					and(eq(threads.id, input.threadId), eq(threads.userId, input.userId)),
-				)
-				.limit(1);
-			if (!threadRow) {
-				throw new Error(
-					`Thread ${input.threadId} not found or not owned by user`,
-				);
-			}
-
-			await tx.insert(workflows).values({
-				id: workflowId,
-				threadId: input.threadId,
-				userId: input.userId,
-				workspaceId: threadRow.workspaceId,
-				title: input.title,
-				objective: input.objective,
-				status: "idle",
-			});
-
-			if (input.steps.length > 0) {
-				await tx.insert(planSteps).values(
-					input.steps.map((step, index) => ({
-						id: ids.planStep(),
-						workflowId,
-						userId: input.userId,
-						position: index + 1, // 1-based, matches updateStepStatus
-						title: step.title,
-						description: step.description ?? null,
-						status: "idle" as const,
-					})),
-				);
-			}
-
-			await tx
-				.update(threads)
-				.set({ boundWorkflowId: workflowId })
-				.where(
-					and(eq(threads.id, input.threadId), eq(threads.userId, input.userId)),
-				);
-		});
-
-		const [row] = await this.client
-			.select()
-			.from(workflows)
-			.where(eq(workflows.id, workflowId));
-		return row!;
-	}
 
 	async updatePlanStepStatus(input: {
 		userId: string;
@@ -460,16 +402,16 @@ export class ChatService {
 		});
 	}
 
+	/** Load a thread's messages, oldest → newest, user-scoped. The model
+	 *  prompt and the chat replay both render from persisted message parts;
+	 *  the `steps` table is written for auditing but not read here. */
 	async loadThread(input: {
 		threadId: string;
 		userId: string;
 		/** Fetch only the most recent N messages (newest wins; result stays
 		 *  chronological). Omitted ↔ full history. */
 		limit?: number;
-	}): Promise<{
-		messages: Message[];
-		stepsByMessageId: Record<string, Step[]>;
-	}> {
+	}): Promise<{ messages: Message[] }> {
 		const messagesQuery = this.client
 			.select()
 			.from(messages)
@@ -491,25 +433,7 @@ export class ChatService {
 			messageRows.reverse();
 		}
 
-		const stepRows = await this.client
-			.select()
-			.from(steps)
-			.where(
-				and(eq(steps.threadId, input.threadId), eq(steps.userId, input.userId)),
-			)
-			.orderBy(asc(steps.position));
-
-		const stepsByMessageId: Record<string, Step[]> = {};
-		// Every message gets a key (empty array when no steps) so the timeline
-		// renderer can rely on stepsByMessageId[messageId] always existing.
-		for (const message of messageRows) {
-			stepsByMessageId[message.id] = [];
-		}
-		for (const step of stepRows) {
-			(stepsByMessageId[step.messageId] ??= []).push(step);
-		}
-
-		return { messages: messageRows, stepsByMessageId };
+		return { messages: messageRows };
 	}
 
 	// ─── Plan binding (resume path) ───────────────────────────────────────────
@@ -592,7 +516,7 @@ export class ChatService {
 			typeof rawPlan.objective === "string" &&
 			Array.isArray(rawPlan.steps)
 		) {
-			const workflow = await this.createWorkflowFromPlan({
+			const workflow = await this.workflowSvc.createWorkflowFromPlan({
 				userId: input.userId,
 				threadId: input.threadId,
 				title: rawPlan.title,

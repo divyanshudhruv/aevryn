@@ -45,12 +45,11 @@ const keyedContext = {
 };
 
 function exec(input: unknown, context: object): Promise<unknown> {
-	return (
-		wireActionTool.execute?.(
-			input as never,
-			{ context } as never as ExecArgs,
-		) as Promise<unknown>
-	).then((r) => r);
+	const execute = wireActionTool.execute as (
+		input: unknown,
+		args: ExecArgs,
+	) => Promise<unknown>;
+	return execute(input, { context } as never as ExecArgs);
 }
 
 beforeEach(() => {

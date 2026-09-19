@@ -211,6 +211,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 									className={spinnerSizeClass}
 									viewBox="0 0 24 24"
 									fill="none"
+									aria-hidden
 								>
 									<path
 										d="M 12 12 C 14 8.5 19 8.5 19 12 C 19 15.5 14 15.5 12 12 C 10 8.5 5 8.5 5 12 C 5 15.5 10 15.5 12 12 Z"

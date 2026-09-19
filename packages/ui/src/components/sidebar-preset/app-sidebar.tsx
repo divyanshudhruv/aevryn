@@ -2,6 +2,11 @@
 
 import type { RunStatus } from "@aevryn/config";
 import {
+	GROUP_LIMIT,
+	THREADS_PER_GROUP_LIMIT,
+	WORKSPACE_LIMIT,
+} from "@aevryn/config";
+import {
 	Card,
 	CardDescription,
 	CardHeader,
@@ -61,10 +66,7 @@ import { Badge } from "../ui/badge";
 
 const GROUP_OPEN_KEY = "aevryn:sidebar:groups:open";
 
-/** Server-enforced caps (mirror @aevryn/workflow constants). */
-export const WORKSPACE_LIMIT = 3;
-export const GROUP_LIMIT = 10;
-export const THREADS_PER_GROUP_LIMIT = 15;
+// Server-enforced caps (single source of truth in @aevryn/config).
 
 export interface PromoCard {
 	id: string;
@@ -658,17 +660,19 @@ export function AppSidebar({
 								<SidebarGroupLabel>{section.label}</SidebarGroupLabel>
 								<SidebarGroupActions>
 									<Tooltip
-									content={
-										sectionAtThreadCap
-											? "Group full (20/20 threads)"
-											: "Add item"
-									}
-									side="top"
-								>
+										content={
+											sectionAtThreadCap
+												? "Group full (20/20 threads)"
+												: "Add item"
+										}
+										side="top"
+									>
 										<SidebarGroupAction
 											aria-label="Add thread"
 											className={
-												sectionAtThreadCap ? "pointer-events-none opacity-40" : ""
+												sectionAtThreadCap
+													? "pointer-events-none opacity-40"
+													: ""
 											}
 											onClick={() => {
 												if (sectionAtThreadCap) return;

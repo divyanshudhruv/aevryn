@@ -105,7 +105,9 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
 			const elements = tabElementsRef.current;
 			if (elements.size === 0) return;
 			const ro = new ResizeObserver(() => measureTabs());
-			elements.forEach((el) => ro.observe(el));
+			elements.forEach((el) => {
+				ro.observe(el);
+			});
 			return () => ro.disconnect();
 		}, [measureTabs]);
 

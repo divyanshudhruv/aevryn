@@ -237,7 +237,9 @@ function useMenuScope(
 		// filters every row out against the previous render's empty list.
 		orderedRowsRef.current = sorted;
 		setOrderedRows((prev) => (sameElements(prev, sorted) ? prev : sorted));
-		sorted.forEach((el, i) => registerItem(i, rowButton(el) ?? el));
+		sorted.forEach((el, i) => {
+			registerItem(i, rowButton(el) ?? el);
+		});
 		for (let i = sorted.length; i < registeredCountRef.current; i++) {
 			registerItem(i, null);
 		}

@@ -36,16 +36,20 @@ export function Markdown({ content, className }: MarkdownProps) {
 					),
 					p: ({ children }) => <p className="my-1.5">{children}</p>,
 					ul: ({ children }) => (
-						<ul className="list-disc space-y-0.5 pl-1 marker:text-muted-foreground/70">
+						<ul className="list-outside list-disc space-y-1 pl-6 marker:text-muted-foreground/70">
 							{children}
 						</ul>
 					),
 					ol: ({ children }) => (
-						<ol className="list-decimal space-y-0.5 pl-1 marker:text-muted-foreground/70">
+						<ol className="list-outside list-decimal space-y-1 pl-6 marker:text-muted-foreground/70">
 							{children}
 						</ol>
 					),
-					li: ({ children }) => <li className="">{children}</li>,
+					li: ({ children }) => (
+						<li className="my-0.5 [&>ol]:mt-1 [&>p]:my-0 [&>ul]:mt-1">
+							{children}
+						</li>
+					),
 					h1: ({ children }) => (
 						<h1 className="font-normal text-[20px]">
 							{/* <span className="mr-1 select-none text-muted-foreground/70">

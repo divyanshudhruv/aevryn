@@ -776,46 +776,10 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			if (hasAnswer) handleMultiNext();
 		};
 
-		if (!question) {
-			return (
-				<div
-					ref={ref}
-					className={cn(
-						"w-full max-w-[520px] border border-border bg-card p-5",
-						shape.container,
-						className,
-					)}
-					{...rest}
-				>
-					<p className="text-[13px] text-muted-foreground">No questions.</p>
-				</div>
-			);
-		}
-
-		// ── Layout calculations for hover/focus indicators ───────────
-		// focusedIndex comes from the rows container's onFocus (see rowsContent),
-		// set only when the focused row matches :focus-visible — so the blue
-		// morphing ring tracks keyboard focus across option rows. It is
-		// intentionally suppressed for the Other field: that row has its own
-		// input-field treatment (the "type here" hint when empty, the merged
-		// selected bg once it has text), so the ring is redundant there and reads
-		// as noise while typing. focusedIndex is still tracked for the hint and
-		// submit-arrow visibility — we just don't draw a ring around it.
-		const focusRect =
-			focusedIndex !== null && !(allowOther && focusedIndex === otherIndex)
-				? itemRects[focusedIndex]
-				: null;
-
 		// ── Selected-row grouping (merges contiguous selections) ─────
-		// Mirrors the CheckboxGroup pattern: contiguous selected indices
-		// collapse into a single rounded background block; stable IDs let
-		// framer-motion morph block size/position when neighbours toggle.
-		// The Other row gets its own input-field-style indicator (see below) and
-		// is intentionally excluded here so it doesn't merge into a contiguous
-		// bg-accent block with adjacent selected options.
-		// Include the Other row in selectedIndices when it has text. This lets
-		// it merge into the same morphing bg block as adjacent selected options
-		// (instead of looking like a disconnected input field next to them).
+		// Hoisted ABOVE the `!question` early return: hooks must run in the
+		// same order every render. All inputs have safe defaults when there
+		// is no question (options = [], allowOther = false, itemRects = []).
 		const selectedIndices = useMemo(() => {
 			const set = new Set<number>();
 			options.forEach((opt, i) => {
@@ -856,15 +820,51 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			return groups;
 		}, [selectedIndices]);
 
-		// Selected backgrounds, with the merge/split boundary animation when one
-		// unselected row bridges or splits two selected runs. Selected backgrounds
-		// use shape.bg, so corners animate around its radius.
 		const blocks = useMergeSplitBlocks(
 			selectedGroups,
 			itemRects,
 			shape.bgRadius,
 		);
 
+		if (!question) {
+			return (
+				<div
+					ref={ref}
+					className={cn(
+						"w-full max-w-[520px] border border-border bg-card p-5",
+						shape.container,
+						className,
+					)}
+					{...rest}
+				>
+					<p className="text-[13px] text-muted-foreground">No questions.</p>
+				</div>
+			);
+		}
+
+		// ── Layout calculations for hover/focus indicators ───────────
+		// focusedIndex comes from the rows container's onFocus (see rowsContent),
+		// set only when the focused row matches :focus-visible — so the blue
+		// morphing ring tracks keyboard focus across option rows. It is
+		// intentionally suppressed for the Other field: that row has its own
+		// input-field treatment (the "type here" hint when empty, the merged
+		// selected bg once it has text), so the ring is redundant there and reads
+		// as noise while typing. focusedIndex is still tracked for the hint and
+		// submit-arrow visibility — we just don't draw a ring around it.
+		const focusRect =
+			focusedIndex !== null && !(allowOther && focusedIndex === otherIndex)
+				? itemRects[focusedIndex]
+				: null;
+
+		// ── Selected-row grouping (merges contiguous selections) ─────
+		// Mirrors the CheckboxGroup pattern: contiguous selected indices
+		// collapse into a single rounded background block; stable IDs let
+		// framer-motion morph block size/position when neighbours toggle.
+		// The Other row gets its own input-field-style indicator (see below) and
+		// is intentionally excluded here so it doesn't merge into a contiguous
+		// bg-accent block with adjacent selected options.
+		// Selected backgrounds (blocks) render with the merge/split boundary
+		// animation computed above.
 		const showBack = total > 1 && safeIndex > 0;
 		// Skip moves PAST a question; the last question has nothing after it, so
 		// it shows the submit button (Finish/Submit) instead of Skip.
@@ -1172,7 +1172,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 					<Row
 						index={otherIndex}
 						registerItem={registerItem}
-						role={null}
 						isSelected={otherText.length > 0}
 						tabIndex={-1}
 						onClick={
@@ -1672,7 +1671,7 @@ function ShortcutChip({
 interface RowProps {
 	index: number;
 	registerItem: (index: number, element: HTMLElement | null) => void;
-	role: "radio" | "checkbox" | null;
+	role?: "radio" | "checkbox" | null;
 	isSelected: boolean;
 	tabIndex: number;
 	onClick?: () => void;

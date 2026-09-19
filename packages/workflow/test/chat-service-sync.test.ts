@@ -14,10 +14,16 @@ import { ChatService } from "../src/services/chat-service";
 /** db.execute accepts SQLWrapper | string — no `as any` needed. */
 const raw = (query: string) => db.execute(query);
 
-const stamp = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
 const userId = "00000000-0000-0000-0000-000000000003";
-const workspaceId = `wsp_test_${stamp}`;
-const threadId = `thd_test_${stamp}`;
+// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
+// and threads per user, so per-run random ids self-destruct the suite after
+// a few runs. Recreating stable rows each run cascades the previous run's
+// messages/steps, keeping trigger counts flat.
+const workspaceId = "wsp_test_sync";
+const threadId = "thd_test_sync";
+// The ownership test's attacker-owned thread is also stable (inserted with
+// onConflictDoNothing) for the same reason.
+const strangerThreadId = "thd_test_sync_other";
 
 beforeEach(async () => {
 	await raw(
@@ -29,7 +35,7 @@ beforeEach(async () => {
 		.insert(workspaces)
 		.values({
 			id: workspaceId,
-			name: `test-ws-${stamp}`,
+			name: "test-ws-sync",
 			createdBy: userId,
 		})
 		.onConflictDoNothing();
@@ -64,7 +70,7 @@ describe("ChatService.saveMessage transactional persistence", () => {
 					toolCalls: [
 						{
 							toolName: "query",
-							toolCallId: `call_${stamp}_1`,
+							toolCallId: "call_sync_1",
 							input: { q: "x" },
 							output: { ok: true },
 							status: "completed",
@@ -121,16 +127,16 @@ describe("ChatService.saveMessage transactional persistence", () => {
 		const otherId = "00000000-0000-0000-0000-000000000099";
 		await raw(
 			`insert into auth.users (id, email, encrypted_password, aud, role, email_confirmed_at, instance_id, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, email_change_token_current, reauthentication_token, phone_change_token)
-			 values ('${otherId}', 'other-user-${stamp}@test.local', '', 'authenticated', 'authenticated', now(), '00000000-0000-0000-0000-000000000000', '{}', '{}', now(), now(), '', '', '', '', '', '', '')
+			 values ('${otherId}', 'other-user-099@test.local', '', 'authenticated', 'authenticated', now(), '00000000-0000-0000-0000-000000000000', '{}', '{}', now(), now(), '', '', '', '', '', '', '')
 			 on conflict (id) do nothing`,
 		);
 		await raw(
 			`insert into auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at)
-			 select '${otherId}', '${otherId}', '${otherId}', 'email', jsonb_build_object('email', 'other-user-${stamp}@test.local'), now(), now(), now()
+			 select '${otherId}', '${otherId}', '${otherId}', 'email', jsonb_build_object('email', 'other-user-099@test.local'), now(), now(), now()
 			 where not exists (select 1 from auth.identities where user_id = '${otherId}')`,
 		);
 
-		const strangerThread = `thd_other_${stamp}`;
+		const strangerThread = strangerThreadId;
 		const { threads: threadsTable } = await import("@aevryn/db");
 		await db
 			.insert(threadsTable)
@@ -297,9 +303,8 @@ describe("ChatService.syncClientMessages dedup", () => {
 		});
 		expect(out.map((m) => m.id)).toEqual(["asst_a", "local_tmp", "asst_b"]);
 		// First occurrence survives, not the later duplicate.
-		expect((out[0]?.parts as Array<{ text?: string }>)[0]?.text).toBe(
-			"first copy",
-		);
+		const firstParts = out[0]?.parts as Array<{ text?: string }>;
+		expect(firstParts[0]?.text).toBe("first copy");
 	});
 
 	it("demotes claimed msg_ ids that are not in this thread's DB history", async () => {
@@ -385,9 +390,8 @@ describe("ChatService.syncClientMessages dedup", () => {
 			.from(messages)
 			.where(eq(messages.threadId, threadId));
 		expect(rows).toHaveLength(1);
-		const userPart = (out[0]?.parts as Array<{ type?: string }>).map(
-			(p) => p.type,
-		);
+		const firstParts = out[0]?.parts as Array<{ type?: string }>;
+		const userPart = firstParts.map((p) => p.type);
 		expect(userPart).toEqual(["text"]);
 	});
 });

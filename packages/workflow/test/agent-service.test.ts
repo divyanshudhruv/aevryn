@@ -19,10 +19,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentService } from "../src/services/agent-service";
 import { ChatService } from "../src/services/chat-service";
 
-const stamp = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
 const userId = "00000000-0000-0000-0000-000000000004";
-const workspaceId = `wsp_test_${stamp}`;
-const threadId = `thd_test_${stamp}`;
+// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
+// and threads per user, so per-run random ids self-destruct the suite after
+// a few runs. Recreating stable rows each run cascades the previous run's
+// messages/steps, keeping trigger counts flat.
+const workspaceId = "wsp_test_agent";
+const threadId = "thd_test_agent";
 
 const { mockCreateAgent } = vi.hoisted(() => ({ mockCreateAgent: vi.fn() }));
 
@@ -106,7 +109,7 @@ function fakeAgent(config: FakeConfig) {
 				toUIMessageStreamResponse: async (resp: StreamResponseOpts) => {
 					await resp.onEnd?.({
 						responseMessage: {
-							id: `msg_fake_${stamp}`,
+							id: "msg_fake",
 							role: "assistant",
 							parts: [{ type: "text", text: config.responseText }],
 						},
@@ -155,14 +158,12 @@ beforeEach(async () => {
 		 select '${userId}', '${userId}', '${userId}', 'email', jsonb_build_object('email', 'agent-service-test-${userId}@test.local'), now(), now(), now()
 		 where not exists (select 1 from auth.identities where user_id = '${userId}')`,
 	);
-	await db
-		.insert(workspaces)
-		.values({
-			id: workspaceId,
-			name: `test-ws-${stamp}`,
-			createdBy: userId,
-		})
-		.onConflictDoNothing();
+	await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+	await db.insert(workspaces).values({
+		id: workspaceId,
+		name: "test-ws-agent",
+		createdBy: userId,
+	});
 	await db.delete(threads).where(eq(threads.id, threadId));
 	await db.insert(threads).values({
 		id: threadId,
@@ -190,7 +191,7 @@ beforeEach(async () => {
 });
 
 describe("AgentService.respond", () => {
-	it("streams a mocked turn and transitions running → retrying → running → idle", async () => {
+	it("streams a mocked turn and transitions running → retrying → running → completed", async () => {
 		mockCreateAgent.mockReturnValue(
 			fakeAgent({
 				finishReason: "stop",
@@ -216,13 +217,13 @@ describe("AgentService.respond", () => {
 		const { res, statusLog } = await runRespond();
 
 		expect(res.status).toBe(200);
-		expect(statusLog).toEqual(["running", "retrying", "running", "idle"]);
+		expect(statusLog).toEqual(["running", "retrying", "running", "completed"]);
 
 		const [thread] = await db
 			.select({ status: threads.status })
 			.from(threads)
 			.where(eq(threads.id, threadId));
-		expect(thread?.status).toBe("idle");
+		expect(thread?.status).toBe("completed");
 
 		const rows = await db
 			.select()

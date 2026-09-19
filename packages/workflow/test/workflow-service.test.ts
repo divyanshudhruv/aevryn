@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ChatService } from "../src/services/chat-service";
 import { WorkflowService } from "../src/services/workflow-service";
 
-const stamp = Date.now().toString(36);
 const userId = "00000000-0000-0000-0000-000000000002";
-const workspaceId = `wsp_test_${stamp}`;
-const threadId = `thd_test_${stamp}`;
+// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
+// and threads per user, so per-run random ids self-destruct the suite after
+// a few runs. Recreating stable rows each run cascades the previous run's
+// workflows, keeping trigger counts flat.
+const workspaceId = "wsp_test_workflow";
+const threadId = "thd_test_workflow";
 
 let workflowId: string;
 
@@ -23,20 +26,17 @@ beforeEach(async () => {
 		 select '${userId}', '${userId}', '${userId}', 'email', jsonb_build_object('email', 'workflow-service-test-${userId}@test.local'), now(), now(), now()
 		 where not exists (select 1 from auth.identities where user_id = '${userId}')`,
 	);
-	const [ws] = await db
-		.insert(workspaces)
-		.values({
-			id: workspaceId,
-			name: `test-ws-${stamp}`,
-			createdBy: userId,
-		})
-		.onConflictDoNothing()
-		.returning({ id: workspaces.id });
+	await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+	await db.insert(workspaces).values({
+		id: workspaceId,
+		name: "test-ws-workflow",
+		createdBy: userId,
+	});
 	const [th] = await db
 		.insert(threads)
 		.values({
 			id: threadId,
-			workspaceId: ws ? workspaceId : workspaceId,
+			workspaceId,
 			userId,
 			title: "t",
 		})
@@ -44,7 +44,7 @@ beforeEach(async () => {
 		.returning({ id: threads.id });
 	void th;
 
-	const workflow = await new ChatService().createWorkflowFromPlan({
+	const workflow = await new WorkflowService().createWorkflowFromPlan({
 		userId,
 		threadId,
 		title: "wf",
@@ -132,12 +132,12 @@ describe("WorkflowService.replaceSteps", () => {
 		const stranger = "11111111-1111-1111-1111-111111111111";
 		await db.execute(
 			`insert into auth.users (id, email, encrypted_password, aud, role, email_confirmed_at, instance_id, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, email_change_token_current, reauthentication_token, phone_change_token)
-			 values ('${stranger}', 'stranger-${stamp}@test.local', '', 'authenticated', 'authenticated', now(), '00000000-0000-0000-0000-000000000000', '{}', '{}', now(), now(), '', '', '', '', '', '', '')
+			 values ('${stranger}', 'stranger-wf-test@test.local', '', 'authenticated', 'authenticated', now(), '00000000-0000-0000-0000-000000000000', '{}', '{}', now(), now(), '', '', '', '', '', '', '')
 			 on conflict (id) do nothing`,
 		);
 		await db.execute(
 			`insert into auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at)
-			 select '${stranger}', '${stranger}', '${stranger}', 'email', jsonb_build_object('email', 'stranger-${stamp}@test.local'), now(), now(), now()
+			 select '${stranger}', '${stranger}', '${stranger}', 'email', jsonb_build_object('email', 'stranger-wf-test@test.local'), now(), now(), now()
 			 where not exists (select 1 from auth.identities where user_id = '${stranger}')`,
 		);
 		// replaceSteps owns its ownership gate: the workflow must belong to the

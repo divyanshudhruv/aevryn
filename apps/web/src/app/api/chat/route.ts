@@ -324,7 +324,7 @@ export async function POST(request: Request): Promise<Response> {
 				: FAILED_TURN_GENERIC;
 		// Mark the thread failed and persist an in-thread error tile so the
 		// failure survives refresh (re-run triggers the retryAgent repair).
-		await persistFailedTurn({
+		await chatService.persistFailedTurn({
 			threadId: body.threadId,
 			userId: user.id,
 			text: failureText,
@@ -339,8 +339,6 @@ export async function POST(request: Request): Promise<Response> {
 		return jsonError(500, "AGENT_ERROR", FAILED_TURN_GENERIC);
 	}
 }
-
-// ─── GET: load a thread for replay ───────────────────────────────────────────
 
 export async function GET(request: Request): Promise<Response> {
 	const supabase = await createServerSupabaseForNext();
@@ -374,14 +372,6 @@ export async function GET(request: Request): Promise<Response> {
 
 const FAILED_TURN_GENERIC =
 	'Something went wrong while streaming this turn. Re-run or reply "continue" to pick back up.';
-
-async function persistFailedTurn(opts: {
-	threadId: string;
-	userId: string;
-	text: string;
-}): Promise<void> {
-	await chatService.persistFailedTurn(opts);
-}
 
 /** Text + client draft id of the newest user message in the transport payload. */
 function extractNewUserMessage(

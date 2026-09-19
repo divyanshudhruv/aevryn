@@ -1,4 +1,6 @@
+export * from "./services/agent-history";
 export * from "./services/agent-service";
+export * from "./services/agent-turn";
 export * from "./services/chat-service";
 export * from "./services/memory-service";
 export * from "./services/sidebar-service";

@@ -161,6 +161,7 @@ const InputCopy = forwardRef<HTMLDivElement, InputCopyProps>(
 							stroke="currentColor"
 							strokeLinecap="round"
 							strokeLinejoin="round"
+							aria-hidden
 						>
 							<motion.path
 								d="M9 9L15 15M15 9L9 15"
@@ -189,6 +190,7 @@ const InputCopy = forwardRef<HTMLDivElement, InputCopyProps>(
 							stroke="currentColor"
 							strokeLinecap="round"
 							strokeLinejoin="round"
+							aria-hidden
 						>
 							<motion.path
 								d="M6 12L10 16L18 8"
@@ -250,6 +252,7 @@ const InputCopy = forwardRef<HTMLDivElement, InputCopyProps>(
 										strokeWidth={2}
 										strokeLinecap="round"
 										strokeLinejoin="round"
+										aria-hidden
 									>
 										<motion.path
 											d="M9 9L15 15M15 9L9 15"
@@ -290,6 +293,7 @@ const InputCopy = forwardRef<HTMLDivElement, InputCopyProps>(
 										strokeWidth={2}
 										strokeLinecap="round"
 										strokeLinejoin="round"
+										aria-hidden
 									>
 										<motion.path
 											d="M6 12L10 16L18 8"

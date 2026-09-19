@@ -26,7 +26,9 @@ describe("new schema tables", () => {
 			userProviders,
 			userKeys,
 			userSettings,
-		].forEach((table) => expect(table).toBeTruthy());
+		].forEach((table) => {
+			expect(table).toBeTruthy();
+		});
 	});
 
 	it("keeps messages on the small role vocabulary", () => {

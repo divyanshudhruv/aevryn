@@ -1,6 +1,8 @@
+import { requireUser } from "@aevryn/auth";
 import { db, threads } from "@aevryn/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
+import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 import { ThreadClient } from "./thread-client";
 
@@ -14,15 +16,26 @@ export async function generateMetadata({
 }): Promise<Metadata> {
 	const { threadId } = await params;
 
-	const [thread] = await db
-		.select({ title: threads.title })
-		.from(threads)
-		.where(eq(threads.id, threadId));
+	// User-scoped: an unauthenticated or non-owner request must not be able
+	// to enumerate other users' thread titles via a crafted URL.
+	let title: string | undefined;
+	try {
+		const supabase = await createServerSupabaseForNext();
+		const user = await requireUser(supabase);
+		const [thread] = await db
+			.select({ title: threads.title })
+			.from(threads)
+			.where(and(eq(threads.id, threadId), eq(threads.userId, user.id)))
+			.limit(1);
+		title = thread?.title;
+	} catch {
+		// Unauthenticated — fall through to the generic title.
+	}
 
-	if (!thread?.title) {
+	if (!title) {
 		return { title: "New Chat" };
 	}
-	return { title: thread.title };
+	return { title };
 }
 
 export default function ThreadPage() {

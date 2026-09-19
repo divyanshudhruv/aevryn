@@ -279,9 +279,9 @@ export function WorkspaceSidebar() {
 		<AppSidebar
 			data={data ?? undefined}
 			activeThreadId={params?.threadId}
-onCreateGroup={createGroup}
-				onCreateThread={createThread}
-				onCreateWorkspace={createWorkspace}
+			onCreateGroup={createGroup}
+			onCreateThread={createThread}
+			onCreateWorkspace={createWorkspace}
 			onOpenThread={openThread}
 			onSwitchWorkspace={switchWorkspace}
 			onWorkspaceMutated={refresh}

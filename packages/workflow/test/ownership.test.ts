@@ -8,12 +8,14 @@ const raw = (query: string) => db.execute(query);
 import { ChatService } from "../src/services/chat-service";
 import { WorkspaceService } from "../src/services/workspace-service";
 
-// Unique ids per run so repeated test executions don't collide.
-const stamp = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
 const ownerId = "00000000-0000-0000-0000-000000000001";
 const attackerId = "11111111-1111-1111-1111-111111111111";
-const workspaceId = `wsp_own_${stamp}`;
-const threadId = `thd_own_${stamp}`;
+// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
+// and threads per user, so per-run random ids self-destruct the suite after
+// a few runs. Recreating stable rows each run cascades the previous run's
+// messages, keeping trigger counts flat.
+const workspaceId = "wsp_test_own";
+const threadId = "thd_test_own";
 
 async function seedAuthUser(id: string) {
 	await raw(
@@ -32,17 +34,12 @@ async function seedFixture() {
 	await seedAuthUser(ownerId);
 	await seedAuthUser(attackerId);
 
-	const existing = await db
-		.select({ id: workspaces.id })
-		.from(workspaces)
-		.where(eq(workspaces.id, workspaceId));
-	if (existing.length === 0) {
-		await db.insert(workspaces).values({
-			id: workspaceId,
-			name: `test-ws-${stamp}`,
-			createdBy: ownerId,
-		});
-	}
+	await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+	await db.insert(workspaces).values({
+		id: workspaceId,
+		name: "test-ws-own",
+		createdBy: ownerId,
+	});
 	await db.delete(threads).where(eq(threads.id, threadId));
 	await db.insert(threads).values({
 		id: threadId,

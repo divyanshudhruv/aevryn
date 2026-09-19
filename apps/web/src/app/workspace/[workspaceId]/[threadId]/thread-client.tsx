@@ -16,19 +16,11 @@ import {
 import { useAgentChat } from "@/hooks/use-agent-chat";
 import { usePlanSteps } from "@/hooks/use-plan-steps";
 import { pendingRunFlag } from "@/lib/pending-run";
+import {
+	fetchProviderModels,
+	invalidateProviderModels,
+} from "@/lib/provider-models";
 import { subscribeToRealtime } from "@/lib/realtime-channel";
-
-// Module-level provider/model cache. The header picker + model override are
-// read on every mount (and each sidebar open), so short-lived re-fetches of
-// the same user-level settings are pure churn. Bust 60s TTL on
-// `aevryn:settings-changed` — the settings dialog mutates these tables.
-const PROVIDERS_CACHE_TTL_MS = 60_000;
-interface ProvidersSnapshot {
-	at: number;
-	options: ProviderModelOption[];
-	defaultModel: { providerSlug: string; modelId: string } | null;
-}
-let providersCache: ProvidersSnapshot | null = null;
 
 export function ThreadClient() {
 	const resolvedParams = useParams<{
@@ -126,73 +118,24 @@ export function ThreadClient() {
 		return () => {
 			cancelled = true;
 		};
-	}, [threadId, workspaceId]);
-
-	// Model list for the header picker. Prefers the saved default model when
-	// no selection was made yet, so it survives refresh.
+	}, [threadId, workspaceId]);	// Model list for the header picker. The snapshot is cached module-level
+	// (60s TTL) in lib/provider-models; the saved default model wins when no
+	// explicit selection was made yet, so it survives refresh.
 	const refreshProviders = useCallback(async () => {
-		const cache = providersCache;
-		const fresh = cache && Date.now() - cache.at < PROVIDERS_CACHE_TTL_MS;
-		if (cache && fresh) {
-			setModels(cache.options);
-			setSelectedModel((prev) => {
-				if (
-					prev &&
-					cache.options.some(
-						(o) =>
-							o.providerSlug === prev.providerSlug &&
-							o.modelId === prev.modelId,
-					)
-				)
-					return prev;
-				const preferred =
-					cache.defaultModel &&
-					cache.options.find(
-						(o) =>
-							o.providerSlug === cache.defaultModel?.providerSlug &&
-							o.modelId === cache.defaultModel?.modelId,
-					);
-				return preferred ?? cache.options[0] ?? null;
-			});
-			return;
-		}
-		const [providersRes, settingsRes] = await Promise.all([
-			fetch("/api/providers", { cache: "no-store" }),
-			fetch("/api/settings", { cache: "no-store" }),
-		]);
-		if (!providersRes.ok) return;
-		const json = (await providersRes.json()) as {
-			data: Array<{
-				slug: string;
-				displayName: string;
-				models: Array<{ id: string; displayName?: string }>;
-			}>;
-		};
-		const options: ProviderModelOption[] = (json.data ?? []).flatMap(
-			(provider) =>
-				(provider.models ?? []).map((model) => ({
-					providerSlug: provider.slug,
-					providerName: provider.displayName,
-					modelId: model.id,
-					modelName: model.displayName ?? model.id,
-				})),
-		);
-		const settingsJson = (await settingsRes.json().catch(() => null)) as {
-			data?: {
-				defaultModel?: { providerSlug: string; modelId: string } | null;
-			};
-		} | null;
-		const defaultModel = settingsJson?.data?.defaultModel ?? null;
-		providersCache = { at: Date.now(), options, defaultModel };
+		const snapshot = await fetchProviderModels();
+		if (!snapshot) return;
+		const { options, defaultModel } = snapshot;
 		setModels(options);
 		setSelectedModel((prev) => {
-			if (prev) {
-				const still = options.find(
+			if (
+				prev &&
+				options.some(
 					(o) =>
-						o.providerSlug === prev.providerSlug && o.modelId === prev.modelId,
-				);
-				if (still) return still;
-			}
+						o.providerSlug === prev.providerSlug &&
+						o.modelId === prev.modelId,
+				)
+			)
+				return prev;
 			const preferred =
 				defaultModel &&
 				options.find(
@@ -285,7 +228,7 @@ export function ThreadClient() {
 	// have been added/removed, so bust the cache and refresh the picker.
 	useEffect(() => {
 		const onSettingsChanged = () => {
-			providersCache = null;
+			invalidateProviderModels();
 			void refreshProviders();
 		};
 		window.addEventListener("aevryn:settings-changed", onSettingsChanged);

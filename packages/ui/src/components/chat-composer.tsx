@@ -168,7 +168,7 @@ export function ChatComposer({
 						m.from === "assistant" ? (
 							<div
 								key={m.id}
-								className="pointer-events-none max-w-[80%] self-start whitespace-pre-wrap break-words py-2 text-[14px] text-foreground opacity-0 select-none"
+								className="pointer-events-none max-w-[80%] select-none self-start whitespace-pre-wrap break-words py-2 text-[14px] text-foreground opacity-0"
 							>
 								{m.text}
 							</div>
@@ -191,7 +191,7 @@ export function ChatComposer({
 						) : (
 							<div
 								key={m.id}
-								className="pointer-events-none flex max-w-[80%] flex-col items-end gap-1.5 self-end opacity-0 select-none"
+								className="pointer-events-none flex max-w-[80%] select-none flex-col items-end gap-1.5 self-end opacity-0"
 								aria-hidden="true"
 							>
 								{m.files.length > 0 && (
