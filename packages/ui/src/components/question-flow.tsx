@@ -6,9 +6,6 @@ import {
 } from "@aevryn/ui/components/ui/ask-user-questions";
 import type { ComponentProps } from "react";
 
-// Generated from a fluidfunctionalism.com playground preset —
-// swap the questions for your own.
-
 export function QuestionFlow({
 	questions,
 	...props

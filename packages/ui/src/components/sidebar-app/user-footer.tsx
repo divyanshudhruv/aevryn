@@ -16,25 +16,10 @@ import { useSize } from "@aevryn/ui/lib/size-context";
 import { cn } from "@aevryn/ui/lib/utils";
 import type { ReactNode } from "react";
 
-// ---------------------------------------------------------------------------
-// Footer user row: identity anchors the sidebar's outer edge. The 20px
-// avatar pulls -ml-0.5 to centre on the rows' leading icon axis; the
-// chevron rides a 24px slot pulled -mr-0.5 onto the trailing action axis —
-// the same axes every other sidebar row uses. Its menu opens upward on the
-// shared sidebar menu grid, so labels and trailing glyphs line up with the
-// trigger row exactly.
-// ---------------------------------------------------------------------------
-
 export interface SidebarUserFooterProps {
-	/** Display name shown in the row. */
 	name: ReactNode;
-	/** 20px avatar — e.g. <img className="size-5 rounded-full" …/>. The row
-	 *  positions it on the leading icon axis; the element owns its look. */
 	avatar: ReactNode;
-	/** Dropdown content (MenuItem rows). */
 	menu: ReactNode;
-	/** Extra classes for the wrapping SidebarMenu — pass "min-w-0 flex-1" when
-	 *  the row shares a horizontal footer line with icon buttons. */
 	className?: string;
 }
 

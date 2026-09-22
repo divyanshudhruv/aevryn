@@ -3,11 +3,6 @@
 import { QuestionFlow } from "@aevryn/ui/components/question-flow";
 import type { AskUserAnswer } from "@aevryn/ui/components/ui/ask-user-questions";
 
-/**
- * Renders a pending approval request as a one-question approve/deny flow.
- * The tool input is summarized in the question title; the decision is
- * forwarded to the resolve endpoint by the thread page.
- */
 export function ApprovalFlow({
 	toolName,
 	input,
@@ -16,7 +11,6 @@ export function ApprovalFlow({
 }: {
 	toolName: string;
 	input: unknown;
-	/** Locks the flow (e.g. the run was stopped or superseded by a newer message). */
 	disabled?: boolean;
 	onDecide: (decision: "approved" | "denied") => void;
 }) {

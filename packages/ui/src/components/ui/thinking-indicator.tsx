@@ -18,14 +18,8 @@ const circleB =
 const DEFAULT_WORDS = ["Thinking", "Moonwalking", "Planning", "Refining"];
 
 interface ThinkingIndicatorProps extends HTMLAttributes<HTMLDivElement> {
-	/** Show the morphing circle⇄infinity glyph before the label. Set to `false`
-	 *  for a text-only indicator (e.g. inline before a streamed reply). */
 	showIcon?: boolean;
-	/** Override the cycling labels — e.g. activity words from the live agent
-	 *  turn ("Calling searchWeb", "Scraping", "Synthesizing"). Defaults to
-	 *  the built-in set. */
 	words?: string[];
-	/** Step on the size ladder. Wins over the surrounding SizeProvider. */
 	size?: SizeVariant;
 }
 
@@ -34,8 +28,6 @@ const ThinkingIndicator = forwardRef<HTMLDivElement, ThinkingIndicatorProps>(
 		const compactStep = useSize(size).variant === "compact";
 		const cycleWords = words && words.length > 0 ? words : DEFAULT_WORDS;
 		const [index, setIndex] = useState(0);
-		// Reduced motion drops the infinite glyph morph and the word cycling — a
-		// static glyph and label carry the same meaning without the movement.
 		const reduceMotion = useReducedMotion() ?? false;
 
 		useEffect(() => {
@@ -53,9 +45,6 @@ const ThinkingIndicator = forwardRef<HTMLDivElement, ThinkingIndicatorProps>(
 				className={cn("flex items-center gap-2 px-3 py-2", className)}
 				{...props}
 			>
-				{/* Static announcement — the cycling word display below is aria-hidden
-          so screen readers hear one "Thinking…" instead of a re-announcement
-          every 4 seconds. */}
 				<span className="sr-only">Thinking…</span>
 				{showIcon && (
 					<motion.svg

@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TurnLifecycle } from "../src/services/agent-turn";
 import type { ChatService } from "../src/services/chat-service";
 
-/** Minimal ChatService stub — TurnLifecycle only calls these three. */
 function fakeChat() {
 	return {
 		setThreadStatus: vi.fn(async (_input: { status: RunStatus }) => {}),
@@ -125,7 +124,6 @@ describe("TurnLifecycle happy turn", () => {
 			totalTokens: 15,
 		});
 		expect(assistant?.steps).toHaveLength(1);
-		// Reasoning stripped from persistence.
 		const parts = (assistant as unknown as { parts: Array<{ type: string }> })
 			.parts;
 		expect(parts.some((p) => p.type === "reasoning")).toBe(false);
@@ -172,7 +170,6 @@ describe("TurnLifecycle failed turn", () => {
 			totalUsage: { inputTokens: 1, outputTokens: 0, totalTokens: 1 },
 		});
 		await lc.finishTurn();
-		// Raced/duplicate stream-level finish must not double-persist.
 		await lc.finishTurn({ id: "m1", role: "assistant", parts: [] });
 
 		const saved = vi
@@ -295,7 +292,6 @@ describe("TurnLifecycle loop guard", () => {
 		expect(saved.find((m) => m.role === "system")?.content).toContain(
 			'stopped early to avoid repeating itself — the same tool call ("scrapeUrl") failed twice with identical input',
 		);
-		// Turn is NOT failed.
 		expect(chat.setThreadStatus).toHaveBeenLastCalledWith({
 			threadId: "t1",
 			userId: "u1",

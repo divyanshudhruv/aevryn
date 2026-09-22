@@ -55,7 +55,6 @@ export function DotmCircular7({
 			const ringWave = 0.5 + 0.5 * Math.cos(ring * 3.3 - t * 1.2);
 			const chordWave = 0.5 + 0.5 * Math.cos((x + y) * 1.6 + t * 1.35);
 
-			// Sharpen contrast so lit cells form clear, visible groups.
 			const petalGate = petalWave ** 2.2;
 			const blend = 0.68 * petalGate + 0.22 * ringWave + 0.1 * chordWave;
 			const opacity = BASE_OPACITY + (GATE_OPACITY - BASE_OPACITY) * blend;

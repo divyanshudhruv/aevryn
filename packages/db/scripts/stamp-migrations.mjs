@@ -5,9 +5,9 @@
 // existing migration as applied (after verifying sentinel objects exist) so
 // migrate becomes a no-op now and works for future migrations.
 import "dotenv/config";
-import postgres from "postgres";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import postgres from "postgres";
 
 const sql = postgres(process.env.DATABASE_URL ?? "", { max: 1 });
 

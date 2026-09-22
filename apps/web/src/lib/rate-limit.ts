@@ -1,7 +1,3 @@
-// In-memory sliding fixed-window rate limiter, keyed per route+user.
-// Sufficient for single-instance Node deployments; move to a shared store
-// (Redis/Upstash) if the app is ever scaled horizontally.
-
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
 const CLEANUP_THRESHOLD = 10_000;
@@ -13,10 +9,6 @@ function pruneExpired(now: number): void {
 	}
 }
 
-/**
- * Returns a 429 Response when the key has exceeded `limit` requests inside
- * `windowMs`, or null when the request is allowed.
- */
 export function enforceRateLimit(opts: {
 	key: string;
 	limit: number;

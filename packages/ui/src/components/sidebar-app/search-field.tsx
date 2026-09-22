@@ -5,16 +5,8 @@ import { useIcon } from "@aevryn/ui/lib/icon-context";
 import { useSize } from "@aevryn/ui/lib/size-context";
 import type { ComponentProps } from "react";
 
-// ---------------------------------------------------------------------------
-// The header's search field, on the menu rows' own rhythm. The leading icon
-// sits on the rows' 16px leading axis; pl-8 starts the text on the rows'
-// 32px text axis; and the shortcut chip waits at the trailing edge, revealed
-// on hover/focus — the placeholder owns the field at rest.
-// ---------------------------------------------------------------------------
-
 export interface SidebarSearchFieldProps
 	extends Omit<ComponentProps<typeof SidebarInput>, "className"> {
-	/** Keystroke shown in the trailing chip. Pass null to drop the chip. */
 	shortcut?: string | null;
 }
 

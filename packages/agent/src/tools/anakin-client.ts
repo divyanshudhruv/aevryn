@@ -43,8 +43,6 @@ export async function resolveAnakinKey(userId: string): Promise<string | null> {
 export function anakinClient(apiKey: string): Anakin {
 	return new Anakin({
 		apiKey,
-		// Per-tool polling cadence is passed per call where it matters;
-		// these are safe defaults (research overrides to 10s/10min).
 		pollIntervalMs: 2_000,
 		pollMaxIntervalMs: 10_000,
 		pollTimeoutMs: 5 * 60_000,
@@ -187,7 +185,6 @@ export function mapAnakinError(err: unknown): ToolError {
 		};
 	}
 
-	// Zero-Touch graceful 402 (per-IP allowance exhausted).
 	const statusCode = readStatusCode(err);
 	if (err instanceof AnakinError && statusCode === 402) {
 		const body = (err.body ?? {}) as { signup_url?: string };
@@ -276,8 +273,6 @@ export function mapAnakinError(err: unknown): ToolError {
 		},
 	};
 }
-
-// ─── Raw HTTP helpers (endpoints the SDK doesn't cover yet) ─────────────────
 
 const RETRYABLE_STATUSES = new Set([500, 502, 503]);
 const MAX_RAW_RETRIES = 3;
@@ -372,8 +367,6 @@ export async function anakinGet<T>(
 	return { status: response.status, body: (await response.json()) as T };
 }
 
-// ─── Country list (live, cached, fail-open) ─────────────────────────────────
-
 interface CountryEntry {
 	code: string;
 	name?: string;
@@ -398,9 +391,7 @@ export async function listCountries(apiKey: string | null): Promise<string[]> {
 			countriesFetchedAt = Date.now();
 			return countriesCache;
 		}
-	} catch {
-		// fail-open
-	}
+	} catch {}
 	countriesCache = [];
 	countriesFetchedAt = Date.now();
 	return countriesCache;
@@ -411,5 +402,5 @@ export async function isValidCountry(
 	apiKey: string | null = null,
 ): Promise<boolean> {
 	const list = await listCountries(apiKey);
-	return list.includes(code.toLowerCase()); // fail-closed: unknown list blocks the gate
+	return list.includes(code.toLowerCase());
 }

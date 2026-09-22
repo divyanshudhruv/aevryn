@@ -41,9 +41,6 @@ function useInputGroup() {
 
 interface InputGroupProps extends HTMLAttributes<HTMLDivElement> {
 	children: ReactNode;
-	/** Pins the group's fields to one step of the size ladder (default 36px,
-	 *  compact 28px — see /docs/sizes). Omitted, they follow the surrounding
-	 *  SizeProvider. */
 	size?: SizeVariant;
 }
 
@@ -73,10 +70,6 @@ const InputGroup = forwardRef<HTMLDivElement, InputGroupProps>(
 					onMouseEnter={handlers.onMouseEnter}
 					onMouseMove={handlers.onMouseMove}
 					onMouseLeave={handlers.onMouseLeave}
-					// `relative` makes this div the fields' offsetParent — the fluid hover
-					// hook measures items via offsetTop and compares against
-					// container-relative mouse coords, so the two coordinate spaces must
-					// share this origin (same as every other fluid hover consumer).
 					className={cn(
 						"relative flex w-72 max-w-full flex-col gap-3",
 						className,
@@ -88,7 +81,6 @@ const InputGroup = forwardRef<HTMLDivElement, InputGroupProps>(
 			</InputGroupContext.Provider>
 		);
 
-		// A size prop pins every field in the group to one ladder step.
 		return size ? <SizeProvider size={size}>{group}</SizeProvider> : group;
 	},
 );
@@ -98,8 +90,7 @@ InputGroup.displayName = "InputGroup";
 interface InputFieldProps
 	extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "index"> {
 	label: string;
-	/** Keep the label for assistive tech but don't render it — for inline
-	 *  fields (a toolbar search) where the placeholder carries the meaning. */
+
 	labelHidden?: boolean;
 	placeholder?: string;
 	icon?: IconComponent;
@@ -149,7 +140,6 @@ const InputField = forwardRef<HTMLDivElement, InputFieldProps>(
 			setIsFocused(false);
 		};
 
-		// Input container classes
 		let bgClass: string;
 		let ringClass: string;
 
@@ -176,9 +166,6 @@ const InputField = forwardRef<HTMLDivElement, InputFieldProps>(
 		}
 
 		return (
-			// Base UI Field wires the accessibility plumbing: Field.Label's htmlFor
-			// targets the control, Field.Error's generated id lands in the control's
-			// aria-describedby, and `invalid` drives aria-invalid / data-invalid.
 			<Field.Root
 				ref={(node) => {
 					(
@@ -197,14 +184,10 @@ const InputField = forwardRef<HTMLDivElement, InputFieldProps>(
 					className,
 				)}
 			>
-				{/* Label — sr-only when hidden so the field keeps its accessible
-            name and the htmlFor wiring. */}
 				<Field.Label
 					className={cn(
 						labelHidden ? "sr-only" : "inline-grid",
 						sizeClasses.text,
-						// One notch tighter than the ladder's control padding — the field
-						// ring is invisible at rest, so the roomier inset reads as a gap.
 						!labelHidden && (compact ? "pl-2" : "pl-2.5"),
 					)}
 				>
@@ -228,19 +211,13 @@ const InputField = forwardRef<HTMLDivElement, InputFieldProps>(
 					</span>
 				</Field.Label>
 
-				{/* Input container */}
 				<div
 					onMouseDown={(e) => {
-						// The old wrapper was one big <label>, so a click anywhere (icon,
-						// padding) focused the input. Keep that, without disturbing the
-						// input's own caret placement.
 						if (e.target === inputRef.current) return;
 						e.preventDefault();
 						inputRef.current?.focus();
 					}}
 					className={cn(
-						// Fixed height (was py-2 around the line box) so the field sits
-						// exactly on the ladder's control height.
 						`flex items-center ${sizeClasses.gap} ${shape.input} ${
 							compact ? "px-2" : "px-2.5"
 						} ${sizeClasses.control} ring-1 transition-all duration-80`,
@@ -275,8 +252,6 @@ const InputField = forwardRef<HTMLDivElement, InputFieldProps>(
 					/>
 				</div>
 
-				{/* Error message — `match` pins it visible while our controlled
-            `error` prop is standing. */}
 				{error && (
 					<Field.Error
 						match

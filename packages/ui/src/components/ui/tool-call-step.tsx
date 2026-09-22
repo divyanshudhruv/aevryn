@@ -24,8 +24,6 @@ import { useIcon } from "@aevryn/ui/lib/icon-context";
 import { cn } from "@aevryn/ui/lib/utils";
 import { useState } from "react";
 
-// ─── Shared shapes ──────────────────────────────────────────────────────────
-
 export interface ToolCallView {
 	toolCallId: string;
 	toolName: string;
@@ -34,8 +32,6 @@ export interface ToolCallView {
 	isRunning: boolean;
 	isError?: boolean;
 }
-
-// ─── Per-tool display metadata ──────────────────────────────────────────────
 
 interface ToolMeta {
 	label: string;
@@ -74,8 +70,6 @@ const FALLBACK_META: ToolMeta = { label: "Tool", icon: "loader" };
 function metaFor(toolName: string): ToolMeta {
 	return TOOL_META[toolName] ?? FALLBACK_META;
 }
-
-// ─── Input/output summaries ─────────────────────────────────────────────────
 
 function summarizeInput(toolName: string, input: unknown): string | undefined {
 	if (input == null || typeof input !== "object") return undefined;
@@ -140,8 +134,6 @@ function truncate(text: string | undefined, max: number): string | undefined {
 	return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
-// Inline-output budget. Rendered text longer than this collapses into a
-// "View output" dropdown instead of stretching the step row.
 const OUTPUT_COLLAPSE_THRESHOLD = 250;
 
 function extractSubSteps(
@@ -216,7 +208,6 @@ interface SourceLink {
 	title?: string;
 }
 
-/** Object-shaped { href, text } links from scrape documents. */
 function extractLinks(output: unknown): SourceLink[] | null {
 	if (output == null || typeof output !== "object") return null;
 	const record = output as Record<string, unknown>;
@@ -248,11 +239,6 @@ interface ScreenshotRef {
 	type: "viewport" | "fullpage";
 }
 
-/**
- * Key-authed screenshot URLs from scrape documents. The raw URLs are
- * download endpoints (401 without X-API-Key), so the UI renders them through
- * the server-side proxy route instead.
- */
 function extractScreenshots(output: unknown): ScreenshotRef[] | null {
 	if (output == null || typeof output !== "object") return null;
 	const record = output as Record<string, unknown>;
@@ -279,7 +265,6 @@ interface WireFileRef {
 	sizeBytes?: number;
 }
 
-/** File artifacts from wireAction results — downloadable via the proxy. */
 function extractWireFiles(output: unknown): WireFileRef[] | null {
 	if (output == null || typeof output !== "object") return null;
 	const record = output as Record<string, unknown>;
@@ -310,7 +295,6 @@ interface WireJobRef {
 	file?: string;
 }
 
-/** jobId + file name for a wire download proxy URL. */
 function wireJobRefOf(output: unknown, file: string): WireJobRef | null {
 	if (output == null || typeof output !== "object") return null;
 	const record = output as Record<string, unknown>;
@@ -322,10 +306,6 @@ function wireJobRefOf(output: unknown, file: string): WireJobRef | null {
 	return null;
 }
 
-/**
- * Research structured data that looks like an array of uniform row objects
- * renders as a table; anything else stays JSON.
- */
 function extractTable(
 	output: unknown,
 ): { columns: string[]; rows: Array<Record<string, unknown>> } | null {
@@ -385,8 +365,6 @@ function errorDetail(output: unknown): string | undefined {
 	return undefined;
 }
 
-// ─── Output detail (nested collapsible) ─────────────────────────────────────
-
 function OutputDetails({ output }: { output: unknown }) {
 	const subSteps = extractSubSteps(output);
 	const sources = extractSources(output);
@@ -396,7 +374,6 @@ function OutputDetails({ output }: { output: unknown }) {
 	const table = extractTable(output);
 	const details: string[] = subSteps?.map((s) => s.label) ?? [];
 
-	// retryAgent outcome: the corrected result text with a sub-step trail.
 	const retrySteps = extractRetrySubSteps(output);
 	if (retrySteps) {
 		const resultText =
@@ -436,9 +413,6 @@ function OutputDetails({ output }: { output: unknown }) {
 		wireFiles == null &&
 		table == null
 	) {
-		// Generic output: inline when it fits, collapsible "View output" when big.
-		// Table-able or media-bearing outputs skip this path — their renderers
-		// truncate per cell instead.
 		let json: string;
 		try {
 			json =
@@ -454,8 +428,6 @@ function OutputDetails({ output }: { output: unknown }) {
 				{json}
 			</pre>
 		);
-		// Plain string outputs that fit inline; every JSON/object output goes in a
-		// "View output" dropdown, no matter how small.
 		if (
 			typeof output === "string" &&
 			output.length <= OUTPUT_COLLAPSE_THRESHOLD
@@ -613,8 +585,6 @@ function WireFileChips({
 	);
 }
 
-// ─── ToolCallStep ───────────────────────────────────────────────────────────
-
 export interface ToolCallStepProps {
 	call: ToolCallView;
 	className?: string;
@@ -655,9 +625,6 @@ export function ToolCallStep({ call, className }: ToolCallStepProps) {
 	);
 }
 
-/** One inner line of a step card — shared by the single ToolCallStep and the
- *  grouped ToolCallSequence. Running calls get the active shimmer; failures
- *  swap to an error icon and message. */
 function ToolStepLine({
 	call,
 	isLast,
@@ -733,14 +700,6 @@ function ToolStepLine({
 	);
 }
 
-// ─── ToolCallSequence (one card, many steps) ────────────────────────────────
-//
-// Groups every tool call of a single assistant turn into ONE expandable card
-// with one inner step per call, so a run reads as a mini pipeline (search →
-// scrape → … → final answer) instead of a stack of standalone cards. The
-// header is whatever the model itself wrote leading into the calls — no
-// hardcoded agent names.
-
 export interface ToolCallStepSegment {
 	toolCallId?: string;
 	toolName: string;
@@ -748,23 +707,19 @@ export interface ToolCallStepSegment {
 	output?: unknown;
 	isRunning: boolean;
 	isError?: boolean;
-	/** The turn was stopped/aborted while this call was in flight — render
-	 *  as interrupted instead of shimmering forever. */
+
 	isStopped?: boolean;
-	/** Model reasoning captured before this call — shown as the step's
-	 *  description (falls back to the generic "Running…" copy). */
+
 	description?: string;
 }
 
 export interface ToolCallSequenceProps {
-	/** AI-authored title for the whole card. When empty, falls back to the
-	 *  first step's tool label. */
 	title?: string;
-	/** Tool-call segments in chronological order. */
+
 	steps: ToolCallStepSegment[];
-	/** Render the trailing "Final answer" step (default true). */
+
 	answerStep?: boolean;
-	/** Keep the "Final answer" step shimmering while the answer streams. */
+
 	answerRunning?: boolean;
 	className?: string;
 }

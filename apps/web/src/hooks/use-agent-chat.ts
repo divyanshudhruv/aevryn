@@ -10,8 +10,6 @@ import { useCallback, useEffect, useMemo } from "react";
 
 export type AgentMode = "chat" | "run";
 
-// Mirrors FAILED_TURN_GENERIC in /api/chat — the client can't import from a
-// route file, and the two must stay in sync for a consistent failure UX.
 const FAILED_TURN_GENERIC =
 	'Something went wrong while streaming this turn. Re-run or reply "continue" to pick back up.';
 
@@ -21,8 +19,6 @@ export interface UseAgentChatOptions {
 	initialMessages?: UIMessage[];
 	mode?: AgentMode;
 	model?: { providerSlug?: string; modelId?: string };
-	/** Session-only thinking effort (Free→God). Not persisted; resets to
-	 *  default per session. Silently ignored by models without reasoning. */
 	thinkingEffort?: string;
 	enabled?: boolean;
 }
@@ -48,15 +44,7 @@ export function useAgentChat({
 	const chat = useChat({
 		transport,
 		messages: initialMessages,
-		// Resume the loop ONLY when a client tool got its answer
-		// (askUser / presentPlan) or a native approval was decided.
-		// Deliberately NOT lastAssistantMessageIsCompleteWithToolCalls: that
-		// helper treats ANY completed tool part in the last model step —
-		// including server tools like searchWeb — as resumable, so every turn
-		// that ended after server tool calls re-submitted itself and the
-		// whole turn (text, step cards, answered cards) rendered twice.
 		sendAutomaticallyWhen: ({ messages: current }) => {
-			// Native tool approvals (wireAction etc.) keep the SDK helper.
 			if (
 				lastAssistantMessageIsCompleteWithApprovalResponses({
 					messages: current,
@@ -66,8 +54,6 @@ export function useAgentChat({
 			}
 			const last = current[current.length - 1];
 			if (last?.role !== "assistant") return false;
-			// Only the model's FINAL step matters: if the model already
-			// produced a later step, the answered card was consumed.
 			const lastStepStart = last.parts.reduce(
 				(idx, p, i) => (p.type === "step-start" ? i : idx),
 				-1,
@@ -94,8 +80,6 @@ export function useAgentChat({
 			}
 			if (!text && typeof e.message === "string") {
 				const msg = e.message.trim();
-				// The AI SDK redacts raw provider errors to this placeholder —
-				// useless to show; fall through to the generic copy.
 				if (msg.length > 0 && msg !== "An error occurred.") text = msg;
 			}
 			if (
@@ -106,9 +90,6 @@ export function useAgentChat({
 				text = e.cause.message.trim();
 			}
 			const final = text || FAILED_TURN_GENERIC;
-			// Surface the failure inline as an error SystemMessage instead of a
-			// silent console line. Dedup identical text so repeated onError
-			// callbacks don't stack tiles.
 			setMessages((current) => {
 				if (
 					current.some(
@@ -152,7 +133,6 @@ export function useAgentChat({
 		setMessages,
 	} = chat;
 
-	// Replay: when thread history arrives after mount (async GET), hydrate once.
 	useEffect(() => {
 		if (!enabled || !initialMessages?.length) return;
 		setMessages((current) => (current.length > 0 ? current : initialMessages));
@@ -166,8 +146,6 @@ export function useAgentChat({
 		[sendMessage],
 	);
 
-	/** Run trigger: an explicit user message the system prompt's Run-mode
-	 *  section instructs the agent to treat as "execute the bound workflow". */
 	const runWorkflow = useCallback(() => {
 		sendMessage({ text: "Run the bound workflow from step 1." }).catch(
 			() => undefined,

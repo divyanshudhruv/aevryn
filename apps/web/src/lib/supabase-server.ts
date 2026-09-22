@@ -13,9 +13,7 @@ export async function createServerSupabaseForNext() {
 				for (const { name, value, options } of cookiesToSet) {
 					cookieStore.set(name, value, options);
 				}
-			} catch {
-				// Server Component — cookie writes handled by the proxy.
-			}
+			} catch {}
 		},
 	});
 }

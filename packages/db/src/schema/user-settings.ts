@@ -21,9 +21,7 @@ export interface UserSettingsData {
 		runRetrying: boolean;
 	};
 	defaultModel: { providerSlug: string; modelId: string } | null;
-	/** Master switch for Mem0 recall/store. Null = default on when a key exists. */
 	memoryEnabled: boolean | null;
-	/** Default output quality/resolution for the composer. */
 	defaultQuality: "auto" | "high" | "medium" | "low";
 }
 

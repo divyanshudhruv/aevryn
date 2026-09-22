@@ -29,9 +29,7 @@ export const workflows = pgTable(
 		workspaceId: text("workspace_id").notNull(),
 		title: text("title").notNull(),
 		objective: text("objective").notNull().default(""),
-		/** Extra user instructions the agent appends when running this workflow. */
 		instructions: text("instructions"),
-		/** When true, safe tool calls run without approval prompts. */
 		autoApprove: boolean("auto_approve").notNull().default(false),
 		status: runStatusEnum("status").notNull().default("idle"),
 		createdAt: timestamp("created_at", { withTimezone: true })

@@ -7,8 +7,6 @@ import {
 	presentPlanTool,
 } from "../src/tools/client";
 
-// ─── askUser input normalization ────────────────────────────────────────────
-
 describe("askUser schema", () => {
 	it("accepts a bare array of questions", () => {
 		const schema = (
@@ -42,8 +40,6 @@ describe("askUser schema", () => {
 	});
 });
 
-// ─── presentPlan schema ─────────────────────────────────────────────────────
-
 describe("presentPlan schema", () => {
 	it("requires step descriptions (accordion content)", () => {
 		const inputSchema = (
@@ -68,8 +64,6 @@ describe("presentPlan schema", () => {
 		expect((missing as { success: boolean }).success).toBe(false);
 	});
 });
-
-// ─── JSON repair ladder ─────────────────────────────────────────────────────
 
 describe("repairJsonText", () => {
 	it("passes valid JSON through", () => {
@@ -105,8 +99,6 @@ describe("repairJsonText", () => {
 		expect(repairJsonText("not json at all ][")).toBeUndefined();
 	});
 });
-
-// ─── repairToolCall hook ────────────────────────────────────────────────────
 
 function makeToolCall(input: string) {
 	return {

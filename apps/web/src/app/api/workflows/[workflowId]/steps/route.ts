@@ -7,15 +7,12 @@ import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Runs workflow steps through the agent; a multi-step execution can blow past
-// the default 10s cap.
 export const maxDuration = 300;
 
 const stepsSchema = z.object({
 	steps: z
 		.array(
 			z.object({
-				/** Existing step id — keeps its status. Omit for a new step. */
 				id: z.string().optional(),
 				title: z.string().min(1).max(300),
 				description: z.string().max(2_000).nullable().optional(),

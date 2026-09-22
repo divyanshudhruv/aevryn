@@ -1,10 +1,5 @@
 import type { ProviderModelOption } from "@/components/chat/workspace-header";
 
-// Module-level provider/model cache. The header picker + model override are
-// read on every mount (and each sidebar open), so short-lived re-fetches of
-// the same user-level settings are pure churn. Bust 60s TTL; the settings
-// dialog dispatches `aevryn:settings-changed` after mutating these tables,
-// and callers invalidate via invalidateProviderModels().
 const PROVIDERS_CACHE_TTL_MS = 60_000;
 
 interface ProvidersSnapshot {
@@ -15,13 +10,10 @@ interface ProvidersSnapshot {
 
 let providersCache: ProvidersSnapshot | null = null;
 
-/** Drops the cached snapshot; the next read refetches. */
 export function invalidateProviderModels(): void {
 	providersCache = null;
 }
 
-/** Cached read of `/api/providers` + `/api/settings` (default model).
- *  `force` bypasses the TTL — used on settings changes. */
 export async function fetchProviderModels(
 	force = false,
 ): Promise<ProvidersSnapshot | null> {

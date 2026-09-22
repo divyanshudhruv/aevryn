@@ -73,9 +73,6 @@ export {
 	wireDownloadTool,
 };
 
-// Client tools (askUserTool, presentPlanTool) and updateStepStatusTool are
-// intentionally NOT in the default set — AgentService registers them
-// conditionally per mode (run vs chat).
 export const anakinToolSet = {
 	searchWeb: searchWebTool,
 	scrapeUrl: scrapeUrlTool,

@@ -18,7 +18,6 @@ export const callouts = pgTable(
 		title: text("title").notNull(),
 		description: text("description").notNull().default(""),
 		imageUrl: text("image_url"),
-		/** Lower = renders first in the stacked callout area. */
 		order: integer("sort_order").notNull().default(0),
 		visible: boolean("visible").notNull().default(true),
 		createdAt: timestamp("created_at", { withTimezone: true })
@@ -30,8 +29,6 @@ export const callouts = pgTable(
 			.$onUpdate(() => new Date()),
 	},
 	() => [
-		// Global promo content — public to read, administered out-of-band
-		// (seed/service-role writers bypass RLS).
 		pgPolicy("callouts_select_anon", {
 			for: "select",
 			to: anonRole,

@@ -31,14 +31,13 @@ describe("costGuardStop", () => {
 	});
 
 	it("stops once cumulative token cost exceeds the budget", () => {
-		const stop = costGuardStop(0.3); // $0.30 budget
-		// 2M in * $0.15/M + 100k out * $0.60/M = $0.36 > budget.
+		const stop = costGuardStop(0.3);
 		expect(stop({ steps: [stepOf(2_000_000, 100_000)] })).toBe(true);
 	});
 
 	it("sums usage across all steps", () => {
 		const stop = costGuardStop(0.3);
-		const half = stepOf(1_000_000, 50_000); // $0.18 each; 2 steps = $0.36
+		const half = stepOf(1_000_000, 50_000);
 		expect(stop({ steps: [half, half] })).toBe(true);
 	});
 
@@ -68,7 +67,6 @@ describe("createAevrynAgent", () => {
 	});
 
 	it("carries a run-mode budget into its stop conditions", async () => {
-		// Run mode defaults to a tighter budget; agent must still construct.
 		const agent = createAevrynAgent({
 			model: "openai/gpt-4o" as never,
 			mode: "run",

@@ -68,13 +68,9 @@ export interface WorkflowDialogProps {
 	open?: boolean;
 	defaultOpen?: boolean;
 	onOpenChange?: (open: boolean) => void;
-	/** The section shown first. @default "general" */
 	defaultSection?: WorkflowSectionId;
-	/** The bound workflow to edit. Null/undefined = empty-state panels. */
 	workflowId?: string | null;
-	/** The owning thread — memories are per-conversation. */
 	threadId?: string | null;
-	/** Called after the workflow is deleted from the General panel. */
 	onWorkflowDeleted?: () => void;
 }
 

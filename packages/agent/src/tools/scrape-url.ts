@@ -127,7 +127,6 @@ export const scrapeUrlTool = tool({
 	description:
 		"Scrape one page inline. Returns markdown + html + cleanedHtml by default. Keyless. 1 credit (2 with JSON extraction). Free if cached <24h unless forceFresh. 2–10 pages: scrapeBatch. Whole site: crawlSite. URLs only: mapSite.",
 	inputSchema,
-	// Zero Touch: no context key required.
 	contextSchema: toolContextSchema,
 	execute: async (
 		input,
@@ -175,11 +174,10 @@ export const scrapeUrlTool = tool({
 				"/url-scraper/scrape",
 				body,
 				context.anakinKey,
-				120_000, // inline endpoint blocks up to ~90s; give headroom
+				120_000,
 			);
 
 			if (status === 202 || !isTerminal(document.status)) {
-				// Non-terminal: poll the same job id until terminal.
 				const polled = await pollScrapeJob(document.id, context.anakinKey);
 				return { ok: true, document: untrustedDocument(polled) };
 			}
@@ -211,8 +209,6 @@ async function pollScrapeJob(
 			`/url-scraper/${jobId}`,
 			undefined,
 			apiKey,
-			// Per-attempt cap: the hop between 2s polls stays short, so a
-			// single hung request must not hold the whole scavenge open.
 			15_000,
 		);
 		if (isTerminal(body.status)) return body;

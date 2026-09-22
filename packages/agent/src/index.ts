@@ -1,4 +1,3 @@
-// Agent core
 export {
 	AGENT_ID,
 	CHAT_BUDGET_USD,
@@ -26,7 +25,6 @@ export {
 	buildSystemPrompt,
 } from "./prompt";
 export { checkExternalUrl } from "./ssrf-guard";
-// Tools
 export * from "./tools";
 export {
 	wrapUntrusted,

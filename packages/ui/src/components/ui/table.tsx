@@ -27,10 +27,6 @@ import {
 	useRef,
 } from "react";
 
-// Table rows live in the table's own layout space — offsetParent math can't
-// map a `<tr>` into the container frame, so measure via getBoundingClientRect
-// (both boxes are in viewport space; the diff is the row's container-space rect,
-// scroll compensated so later scrolling doesn't skew it).
 const measureRowRect: ItemRectMeasure = (element, container) => {
 	const el = element.getBoundingClientRect();
 	const box = container.getBoundingClientRect();
@@ -42,25 +38,17 @@ const measureRowRect: ItemRectMeasure = (element, container) => {
 	};
 };
 
-// ── Context ──────────────────────────────────────────────
-
 interface TableContextValue {
 	registerItem: (index: number, element: HTMLElement | null) => void;
 	activeIndex: number | null;
-	/** Column hover: header cells self-register with an auto-assigned index. */
 	registerHead: (element: HTMLElement | null) => void;
 	activeCol: number | null;
 }
 
 const TableContext = createContext<TableContextValue | null>(null);
 
-// ── Table ────────────────────────────────────────────────
-
 interface TableProps extends HTMLAttributes<HTMLTableElement> {
 	children: ReactNode;
-	/** Pins the table's rows to one step of the size ladder (default 36px,
-	 *  compact 28px — see /docs/sizes). Omitted, it follows the surrounding
-	 *  SizeProvider. */
 	size?: SizeVariant;
 }
 
@@ -78,8 +66,6 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 		const { activeIndex, handlers, registerItem } = hover;
 		const { activeIndex: activeCol, registerItem: registerCol } = colHover;
 
-		// Header cells register in render order; the counter is stable across
-		// re-renders because <th> elements never reorder within a thead.
 		const headCounter = useRef(0);
 		const registerHead = useCallback(
 			(element: HTMLElement | null) => {
@@ -106,8 +92,6 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 					onMouseLeave={handlers.onMouseLeave}
 					onClick={handlers.onClick}
 				>
-					{/* Hover backgrounds: row fill + column fill. The column
-						highlight sits under the row one and only tints. */}
 					<FluidHoverHighlight hover={colHover} className="bg-hover/50" />
 					<FluidHoverHighlight hover={hover} />
 
@@ -126,14 +110,11 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 			</TableContext.Provider>
 		);
 
-		// A size prop pins every cell to one ladder step (cells read the context).
 		return size ? <SizeProvider size={size}>{table}</SizeProvider> : table;
 	},
 );
 
 Table.displayName = "Table";
-
-// ── TableHeader ──────────────────────────────────────────
 
 const TableHeader = forwardRef<
 	HTMLTableSectionElement,
@@ -144,8 +125,6 @@ const TableHeader = forwardRef<
 
 TableHeader.displayName = "TableHeader";
 
-// ── TableBody ────────────────────────────────────────────
-
 const TableBody = forwardRef<
 	HTMLTableSectionElement,
 	HTMLAttributes<HTMLTableSectionElement>
@@ -154,8 +133,6 @@ const TableBody = forwardRef<
 ));
 
 TableBody.displayName = "TableBody";
-
-// ── TableRow ─────────────────────────────────────────────
 
 interface TableRowProps extends HTMLAttributes<HTMLTableRowElement> {
 	index?: number;
@@ -208,8 +185,6 @@ const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
 
 TableRow.displayName = "TableRow";
 
-// ── TableHead ────────────────────────────────────────────
-
 const TableHead = forwardRef<
 	HTMLTableCellElement,
 	ThHTMLAttributes<HTMLTableCellElement>
@@ -233,7 +208,6 @@ const TableHead = forwardRef<
 			}}
 			className={cn(
 				"text-left font-[300] text-foreground",
-				// py + line box lands the row on the ladder (36px / 28px).
 				sizeClasses.variant === "compact" ? "px-2.5 py-[5px]" : "px-3 py-2",
 				className,
 			)}
@@ -243,8 +217,6 @@ const TableHead = forwardRef<
 });
 
 TableHead.displayName = "TableHead";
-
-// ── TableCell ────────────────────────────────────────────
 
 const TableCell = forwardRef<
 	HTMLTableCellElement,
@@ -265,7 +237,5 @@ const TableCell = forwardRef<
 });
 
 TableCell.displayName = "TableCell";
-
-// ── Exports ──────────────────────────────────────────────
 
 export { Table, TableBody, TableCell, TableHead, TableHeader, TableRow };

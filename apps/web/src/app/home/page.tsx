@@ -18,7 +18,6 @@ export const metadata = {
 import type { IconName } from "@aevryn/ui/lib/icon-context";
 
 export default function Home() {
-	// Seed content for the generated card group — replace with your own.
 	const ITEMS: { icon: IconName; title: string; description: string }[] = [
 		{
 			icon: "circle",
@@ -45,7 +44,6 @@ export default function Home() {
 		},
 	];
 
-	// Seed content for the generated card group — replace with your own.
 	const ITEMS2: { icon: IconName; title: string; description: string }[] = [
 		{
 			icon: "bot",
@@ -140,7 +138,6 @@ export default function Home() {
 						</TabPanel>
 					</Tabs>
 				</div>{" "}
-				{/* <div className="text-[13px] font-mono">Free launch generous usage, no card to sign up</div> */}
 			</section>
 
 			<section className="flex w-full flex-row items-center justify-center border-b-2 border-dashed px-4 py-4 sm:px-8 lg:px-12">

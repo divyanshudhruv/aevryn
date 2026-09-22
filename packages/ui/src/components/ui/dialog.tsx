@@ -36,8 +36,6 @@ function Dialog({
 	onOpenChange,
 	modal,
 }: DialogProps) {
-	// Base UI's Root handles controlled/uncontrolled state internally. We only
-	// narrow the (open, eventDetails) callback to (open) for our public prop.
 	return (
 		<DialogPrimitive.Root
 			open={open}
@@ -50,16 +48,8 @@ function Dialog({
 	);
 }
 
-// Trigger and Close compose either way — `render={<Button/>}` (the
-// library's composition API, shared with DropdownTrigger) or Radix-style
-// `asChild` with a single child element — so one snippet works everywhere.
-// Plain button attributes, which both the trigger and the close accept —
-// their state-typed render/className/style function forms stay off the
-// public surface.
 interface DialogSlotProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-	/** Element to render as the control, e.g. a Button. */
 	render?: ReactElement;
-	/** Compose onto the single child element instead. */
 	asChild?: boolean;
 }
 
@@ -103,24 +93,9 @@ const DialogClose = forwardRef<HTMLButtonElement, DialogSlotProps>(
 DialogClose.displayName = "DialogClose";
 
 interface DialogContentProps extends HTMLAttributes<HTMLDivElement> {
-	/** Width: sm 400, lg 540, xl 880 (each one notch narrower in compact
-	 *  regions). `xl` is the canvas for composed layouts — a sidebar beside
-	 *  a panel — which usually pair it with `className="p-0"` and a fixed
-	 *  height. */
 	size?: "sm" | "lg" | "xl";
-	/** Portal target. When set, the overlay and panel render inside this element
-	 *  (positioned `absolute`) instead of covering the viewport (`fixed`). Pair
-	 *  with a `position: relative; overflow: hidden` container — and usually
-	 *  `<Dialog modal={false}>` — to scope a dialog to a bounded region, e.g. a
-	 *  docs preview. Defaults to the document body / full-viewport behaviour. */
 	container?: HTMLElement | null;
-	/** The ✕ in the top-right corner. Drop it when the content has its own
-	 *  way out, e.g. a command menu that closes on Escape and on a pick.
-	 *  @default true */
 	showCloseButton?: boolean;
-	/** Where the panel sits: centered, or anchored 12dvh from the top so a
-	 *  panel whose height follows its content (a command menu) keeps its top
-	 *  edge still. @default "center" */
 	position?: "center" | "top";
 }
 
@@ -141,14 +116,8 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
 		const shape = useShape();
 		const substrate = useSurface();
 		const dialogLevel = Math.min(substrate + DIALOG_OFFSET, 8);
-		// The size ladder narrows the dialog one notch in compact regions —
-		// width only, the padding stays put (see /docs/sizes).
 		const compact = useSize().variant === "compact";
 
-		// No `if (!open) return null` here — Base UI's `<DialogPrimitive.Popup>`
-		// handles mount/unmount itself, and waits for the framer-motion opacity
-		// tween below to finish (via `element.getAnimations()`) before unmounting.
-		// Returning null early would short-circuit the closing animation.
 		return (
 			<DialogPrimitive.Portal container={container ?? undefined}>
 				<DialogPrimitive.Backdrop
@@ -194,10 +163,7 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
 						} = popupProps as React.HTMLAttributes<HTMLDivElement>;
 						return (
 							<motion.div
-								// Base UI's props first (data attrs, refs, role, etc.)…
 								{...rest}
-								// …then the consumer's `<DialogContent>` props (className,
-								// event handlers, data-*, etc.) land on the visible motion.div.
 								{...(props as Omit<
 									React.HTMLAttributes<HTMLDivElement>,
 									| "onDrag"
@@ -283,7 +249,6 @@ const DialogTitle = forwardRef<
 	HTMLHeadingElement,
 	HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => {
-	// The title role of the type scale — see /docs/sizes.
 	const compact = useSizeVariant() === "compact";
 	return (
 		<DialogPrimitive.Title

@@ -6,7 +6,6 @@ import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Polls a remote Anakin job that can take well over the default 10s cap.
 export const maxDuration = 300;
 
 export async function GET(

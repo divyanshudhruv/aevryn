@@ -111,12 +111,11 @@ export const wireActionTool = tool({
 			};
 			if (input.credentialId) body.credential_id = input.credentialId;
 
-			// Keyless read-only path: the sync run returns the result inline.
 			if (!input.credentialId) {
 				const { status, body: runBody } = await anakinPost<WireJobBody>(
 					"/wire-run",
 					body,
-					context.anakinKey, // sent if present; works without
+					context.anakinKey,
 					120_000,
 				);
 				if (status === 200) {
@@ -141,12 +140,8 @@ export const wireActionTool = tool({
 						},
 					};
 				}
-				// 401/402/etc from the sync endpoint fall through to the async path
-				// which produces typed, actionable errors.
 			}
 
-			// Keyed async durable path (writes, connected runs). Raw because the
-			// SDK's wire() drops credential_id and the files[] manifest.
 			if (!context.anakinKey) {
 				return {
 					ok: false,
@@ -204,5 +199,4 @@ async function pollWireJob(
 	throw new Error(`Wire job ${jobId} did not settle within the poll window.`);
 }
 
-// Re-export for the agent-level toolApproval wiring in Task 6.
 export type { DiscoveredAction };

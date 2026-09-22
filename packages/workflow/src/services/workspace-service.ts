@@ -9,8 +9,6 @@ import { and, asc, desc, eq, isNull, like, sql } from "drizzle-orm";
 
 import { sidebarService } from "./sidebar-service";
 
-/** Name given to new workspaces; the unique (created_by, name) index forces
- *  the Nth duplicate to take a numeric suffix. */
 export const NEW_WORKSPACE_NAME = "NEW WORKSPACE";
 
 export interface WorkspaceSummary {
@@ -111,7 +109,6 @@ export class WorkspaceService {
 
 		if (created?.id) return created.id;
 
-		// Lost a concurrent insert race: the winner exists now.
 		const [winner] = await this.client
 			.select({ id: workspaces.id })
 			.from(workspaces)
@@ -121,9 +118,6 @@ export class WorkspaceService {
 		return winner!.id;
 	}
 
-	/** Creates a non-default workspace named `NEW WORKSPACE` (numbered on
-	 *  collision). The hard count cap lives in the DB trigger; this doubles as
-	 *  a friendly pre-check so the common path returns a clean error. */
 	async createWorkspace(userId: string): Promise<WorkspaceSummary> {
 		const owned = await this.client
 			.select({ id: workspaces.id })
@@ -174,7 +168,6 @@ export class WorkspaceService {
 	): Promise<{ id: string; name: string }> {
 		const normalizedName = name.toUpperCase();
 
-		// Ensure the workspace belongs to the requesting user (IDOR guard).
 		const [ownedWs] = await this.client
 			.select({ id: workspaces.id })
 			.from(workspaces)
@@ -246,8 +239,6 @@ export class WorkspaceService {
 	}
 
 	async deleteThread(threadId: string, userId: string): Promise<void> {
-		// Permanent delete — the thread row and everything under it (messages,
-		// steps, bound workflows → plan steps, tool-call logs) cascade via FK.
 		await this.client
 			.delete(threads)
 			.where(and(eq(threads.id, threadId), eq(threads.userId, userId)));
@@ -259,7 +250,6 @@ export class WorkspaceService {
 		groupId: string | null,
 		title: string,
 	): Promise<{ id: string; title: string; groupId: string | null }> {
-		// Ensure the workspace belongs to the requesting user (IDOR guard).
 		const [ownedWs] = await this.client
 			.select({ id: workspaces.id })
 			.from(workspaces)
@@ -271,8 +261,6 @@ export class WorkspaceService {
 			throw new Error("WORKSPACE_NOT_FOUND");
 		}
 
-		// Per-group cap: threads are counted by their group (null = the
-		// ungrouped "THREADS" section, capped like any group).
 		const countRows = await this.client
 			.select({ count: sql<number>`count(*)` })
 			.from(threads)
@@ -322,7 +310,6 @@ export class WorkspaceService {
 	}): Promise<WorkspaceSummary | null> {
 		return this.client.transaction(async (tx) => {
 			if (input.patch.isDefault === true) {
-				// Only one default: clear the flag on the current default first.
 				await tx
 					.update(workspaces)
 					.set({ isDefault: false })
@@ -351,8 +338,6 @@ export class WorkspaceService {
 		});
 	}
 
-	/** Deletes a workspace (its threads/groups cascade). The last workspace
-	 *  cannot be deleted — the app always needs one. */
 	async deleteWorkspace(input: {
 		workspaceId: string;
 		userId: string;

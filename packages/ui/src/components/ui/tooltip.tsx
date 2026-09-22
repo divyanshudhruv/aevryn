@@ -14,10 +14,6 @@ import {
 	useState,
 } from "react";
 
-// ---------------------------------------------------------------------------
-// Portal container context
-// ---------------------------------------------------------------------------
-
 const TooltipPortalContainerContext = createContext<HTMLElement | null>(null);
 
 function TooltipPortalContainer({
@@ -34,31 +30,16 @@ function TooltipPortalContainer({
 	);
 }
 
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
-
 const DEFAULT_DELAY = 200;
 
-// Tracks whether an app-level <TooltipProvider> is above us. Each Tooltip
-// only wraps itself in a local primitive Provider when there isn't one —
-// a per-instance Provider would defeat cross-tooltip skip-delay grouping
-// (moving between adjacent tooltips would re-wait the full delay).
 const TooltipGroupContext = createContext(false);
 
 interface TooltipProviderProps {
 	children: ReactNode;
-	/** Hover delay before tooltips open, in ms. Defaults to 200. */
 	delayDuration?: number;
-	/** After a tooltip closes, adjacent tooltips opened within this window
-	 *  skip the hover delay, in ms. Defaults to 300. */
 	skipDelayDuration?: number;
 }
 
-/** Groups descendant Tooltips so that once one opens, moving to an adjacent
- *  trigger shows its tooltip instantly instead of re-waiting the full delay.
- *  Wrap once at the app (or section) level; bare Tooltips still work without
- *  it via a per-instance fallback. */
 function TooltipProvider({
 	children,
 	delayDuration = DEFAULT_DELAY,
@@ -76,10 +57,6 @@ function TooltipProvider({
 	);
 }
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 type TooltipSide = "top" | "right" | "bottom" | "left";
 
 interface TooltipProps {
@@ -87,26 +64,13 @@ interface TooltipProps {
 	children: React.ReactElement;
 	side?: TooltipSide;
 	sideOffset?: number;
-	/** Hover delay before this tooltip opens, in ms. Defaults to 200, or to the
-	 *  ambient TooltipProvider's delayDuration when one is present. */
 	delayDuration?: number;
 	className?: string;
-	/** Extra classes for the portalled positioner element — pass a z utility
-	 *  here to lift the whole tooltip above other fixed layers (default z-50). */
 	contentClassName?: string;
-	/** When true, forces the tooltip open. When false, forces it closed. When undefined, uses default hover/focus behavior. */
 	forceOpen?: boolean;
-	/** Follow the cursor along one axis while hovering the trigger — for tall
-	 *  or wide triggers (the Sidebar rail) where a centered tooltip sits far
-	 *  from the pointer. The other axis stays anchored by `side`. */
 	followCursor?: "x" | "y";
-	/** Called when the tooltip's internal open state changes (before forceOpen is applied). */
 	onOpenChange?: (open: boolean) => void;
 }
-
-// ---------------------------------------------------------------------------
-// Animation helpers
-// ---------------------------------------------------------------------------
 
 function getSlideOffset(side: TooltipSide) {
 	switch (side) {
@@ -120,10 +84,6 @@ function getSlideOffset(side: TooltipSide) {
 			return { x: -4 };
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Tooltip
-// ---------------------------------------------------------------------------
 
 function Tooltip({
 	content,
@@ -145,11 +105,7 @@ function Tooltip({
 
 	const slideOffset = getSlideOffset(side);
 
-	// Cursor-follow offset from the trigger's center, driven as a motion value
-	// so per-move updates skip React re-renders.
 	const followOffset = useMotionValue(0);
-	// A force-opened follow-cursor tooltip has no cursor to follow — it rests
-	// centered on the trigger until a real pointer takes over.
 	useEffect(() => {
 		if (forceOpen && followCursor) followOffset.set(0);
 	}, [forceOpen, followCursor, followOffset]);
@@ -171,8 +127,6 @@ function Tooltip({
 				onOpenChangeProp?.(v);
 			}}
 		>
-			{/* An explicit delayDuration overrides the ambient provider's delay;
-          left undefined, the trigger inherits it from the provider. */}
 			<TooltipPrimitive.Trigger
 				render={children}
 				delay={delayDuration}
@@ -190,8 +144,6 @@ function Tooltip({
 							const contentChildren = content;
 							const {
 								style: baseStyle,
-								// motion.div has incompatible drag/animation event signatures —
-								// strip the React-DOM versions so they don't fight motion's own.
 								onDrag: _onDrag,
 								onDragStart: _onDragStart,
 								onDragEnd: _onDragEnd,
@@ -201,9 +153,6 @@ function Tooltip({
 								...rest
 							} = props as React.HTMLAttributes<HTMLDivElement>;
 							return (
-								// Outer wrapper carries Base UI's popup props plus the
-								// cursor-follow motion value; the inner box keeps the
-								// enter/exit slide so the two transforms don't fight.
 								<motion.div
 									{...rest}
 									style={{
@@ -217,9 +166,6 @@ function Tooltip({
 								>
 									<motion.div
 										className={cn(
-											// Trim recenters the label; the padding bump only applies
-											// where text-box is supported, keeping the same overall
-											// height (~26px) as untrimmed browsers.
 											"bg-foreground px-2 py-1 text-[12px] text-background",
 											"[text-box:trim-both_cap_alphabetic] supports-[text-box:trim-both]:py-2",
 											shape.bg,
@@ -245,9 +191,6 @@ function Tooltip({
 		</TooltipPrimitive.Root>
 	);
 
-	// Fallback: without an ambient TooltipProvider, give this instance its own
-	// so a bare <Tooltip> keeps the library's default delay. Grouped skip-delay
-	// needs the shared app-level TooltipProvider.
 	if (hasAmbientProvider) return tooltip;
 
 	return (

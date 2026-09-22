@@ -28,18 +28,6 @@ import { fontWeights } from "@aevryn/ui/lib/font-weight";
 import { type IconName, useIcons } from "@aevryn/ui/lib/icon-context";
 import { useState } from "react";
 
-// ---------------------------------------------------------------------------
-// A settings dialog: the `xl` Dialog as a canvas, a non-collapsing Sidebar
-// of sections down its left edge, and a scrolling panel for the section's
-// controls. The sidebar is the same composable Sidebar the app shell uses —
-// it just lives in a bounded frame: `collapsible="none"` drops the rail and
-// the drawer, the provider is told not to persist or listen for the
-// shortcut, and `h-full` pins both to the dialog's fixed height.
-//
-// Below the `sm` breakpoint the column would leave no room for the panel,
-// so it hides and a Select at the top of the panel takes over navigation.
-// ---------------------------------------------------------------------------
-
 interface SettingsSection {
 	id: SettingsSectionId;
 	label: string;
@@ -90,11 +78,8 @@ export interface SettingsDialogProps {
 	open?: boolean;
 	defaultOpen?: boolean;
 	onOpenChange?: (open: boolean) => void;
-	/** The section shown first. @default "general" */
 	defaultSection?: SettingsSectionId;
-	/** The active workspace, for the workspace settings panel. */
 	workspace?: { id: string; name: string; isDefault: boolean };
-	/** Called after a rename or delete so the shell can refresh its data. */
 	onWorkspaceMutated?: () => void;
 }
 

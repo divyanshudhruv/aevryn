@@ -9,10 +9,6 @@ import { InputField, InputGroup } from "../ui/input-group";
 import { Switch } from "../ui/switch";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 
-// ---------------------------------------------------------------------------
-// Shared row used by workflow section panels.
-// ---------------------------------------------------------------------------
-
 function SettingRow({
 	label,
 	description,
@@ -43,10 +39,6 @@ function SettingRow({
 		</div>
 	);
 }
-
-// ---------------------------------------------------------------------------
-// Shared data types + loading.
-// ---------------------------------------------------------------------------
 
 export interface WorkflowStepItem {
 	id: string;
@@ -102,10 +94,6 @@ export function useWorkflowData(workflowId: string | null) {
 	return { data, loading, reload };
 }
 
-// ---------------------------------------------------------------------------
-// Section panels.
-// ---------------------------------------------------------------------------
-
 function GeneralPanel({
 	workflowId,
 	onDeleted,
@@ -118,7 +106,6 @@ function GeneralPanel({
 	const [description, setDescription] = useState("");
 	const [deleteWorkflowOpen, setDeleteWorkflowOpen] = useState(false);
 
-	// Sync the form once data arrives; afterwards it's locally editable.
 	const [synced, setSynced] = useState<string | null>(null);
 	useEffect(() => {
 		if (data && synced !== data.workflow.id) {
@@ -217,8 +204,6 @@ function PlanPanel({ workflowId }: { workflowId: string }) {
 	const [rows, setRows] = useState<
 		Array<{ id: string; title: string; description: string; status: string }>
 	>([]);
-	// Re-sync local rows whenever the persisted shapes change (new ids after a
-	// reload) so in-progress edits never fight the server copy.
 	const syncKey = data
 		? `${data.workflow.id}:${data.steps.map((s) => s.id).join(",")}`
 		: null;

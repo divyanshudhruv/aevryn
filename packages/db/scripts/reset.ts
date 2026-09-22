@@ -53,9 +53,7 @@ for (const table of DOMAIN_TABLES) {
 	try {
 		await dbClient.execute(sql.raw(`TRUNCATE TABLE ${table} CASCADE`));
 		truncated += 1;
-	} catch {
-		// Table not present in the remote schema (yet).
-	}
+	} catch {}
 }
 console.log(
 	`RESET: ${truncated}/${DOMAIN_TABLES.length} domain tables truncated`,

@@ -2,7 +2,6 @@ import { db, groups, messages, threads, workspaces } from "@aevryn/db";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
-/** db.execute accepts SQLWrapper | string — no `as any` needed. */
 const raw = (query: string) => db.execute(query);
 
 import { ChatService } from "../src/services/chat-service";
@@ -10,10 +9,6 @@ import { WorkspaceService } from "../src/services/workspace-service";
 
 const ownerId = "00000000-0000-0000-0000-000000000001";
 const attackerId = "11111111-1111-1111-1111-111111111111";
-// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
-// and threads per user, so per-run random ids self-destruct the suite after
-// a few runs. Recreating stable rows each run cascades the previous run's
-// messages, keeping trigger counts flat.
 const workspaceId = "wsp_test_own";
 const threadId = "thd_test_own";
 

@@ -47,11 +47,7 @@ interface TabsSubtleProps
 	selectedIndex: number;
 	onSelect: (index: number) => void;
 	idPrefix?: string;
-	/** When true, only the selected tab shows its text label. Requires icons on tabs. */
 	activeLabel?: boolean;
-	/** Pins the tabs to one step of the size ladder (default 36px, compact
-	 *  28px — see /docs/sizes). Omitted, they follow the surrounding
-	 *  SizeProvider. */
 	size?: SizeVariant;
 }
 
@@ -82,7 +78,6 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
 			measureItems: measureTabs,
 		} = useFluidHover(containerRef, { axis: "x" });
 
-		// Track tab elements locally so we can observe their individual resizes
 		const tabElementsRef = useRef(new Map<number, HTMLElement>());
 		const registerTab = useCallback(
 			(index: number, element: HTMLElement | null) => {
@@ -100,7 +95,6 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
 			measureTabs();
 		}, [measureTabs]);
 
-		// Observe individual tab buttons for resize (label expand/collapse in activeLabel mode)
 		useEffect(() => {
 			const elements = tabElementsRef.current;
 			if (elements.size === 0) return;
@@ -111,7 +105,6 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
 			return () => ro.disconnect();
 		}, [measureTabs]);
 
-		// Wrap handlers to track isMouseInside
 		const handleMouseMove = useCallback(
 			(e: React.MouseEvent) => {
 				isMouseInside.current = true;
@@ -143,11 +136,6 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
 					activeLabel,
 				}}
 			>
-				{/* Root is merged into List via `render` so a single <div> is emitted,
-            matching the previous DOM structure. Base UI owns role="tablist",
-            roving tabindex, and Arrow/Home/End keyboard navigation.
-            `activateOnFocus={false}` keeps manual activation: arrows move
-            focus, Enter/Space selects. */}
 				<Tabs.Root
 					value={selectedIndex}
 					onValueChange={(value) => {
@@ -188,18 +176,11 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
 								setHoveredIndex(null);
 							}}
 							className={cn(
-								// -mx-1 px-1 / -my-1 py-1 give the 2px-outset focus ring room
-								// to draw without being clipped by overflow-x-auto. The
-								// max-width allows for the negative margins: fit-content
-								// parents size against the margin box (8px narrower than the
-								// border box), so a plain max-w-full would clamp the list 8px
-								// too small and clip the first/last tab's ring.
 								"scrollbar-hide relative -mx-1 -my-1 flex max-w-[calc(100%_+_8px)] select-none items-center overflow-x-auto px-1 py-1",
 								className,
 							)}
 							{...props}
 						>
-							{/* Selected pill */}
 							{selectedRect && (
 								<motion.div
 									className={cn(
@@ -266,7 +247,6 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
 								)}
 							</AnimatePresence>
 
-							{/* Focus ring */}
 							<AnimatePresence>
 								{focusRect && (
 									<motion.div
@@ -297,7 +277,6 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
 			</TabsSubtleContext.Provider>
 		);
 
-		// A size prop pins every tab to one ladder step.
 		return size ? <SizeProvider size={size}>{root}</SizeProvider> : root;
 	},
 );
@@ -313,12 +292,6 @@ interface TabsSubtleItemProps extends HTMLAttributes<HTMLButtonElement> {
 const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 	({ icon: Icon, label, index, className, ...props }, ref) => {
 		const internalRef = useRef<HTMLButtonElement | null>(null);
-		// The collapsing label animates to a MEASURED layout width, not "auto":
-		// framer resolves an "auto" target from the element's *visual*
-		// (transformed) size, so under a scaled ancestor (e.g. /demo's card) the
-		// spring overshoots to scale-x the real width and snaps when "auto"
-		// lands. offsetWidth and ResizeObserver are transform-immune — same
-		// setup as the accordions' height animation.
 		const [labelWidth, setLabelWidth] = useState<number | null>(null);
 		const labelRoRef = useRef<ResizeObserver | null>(null);
 		const measureLabel = useCallback((el: HTMLSpanElement | null) => {
@@ -346,8 +319,6 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 		const showLabel = !collapseLabel || isSelected;
 
 		const labelContent = (
-			// Both stacked spans carry the text-box trim so the invisible bold
-			// sizer and the visible label keep identical boxes.
 			<span
 				ref={measureLabel}
 				className={cn("inline-grid whitespace-nowrap", sizeClasses.text)}
@@ -376,10 +347,6 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 		);
 
 		return (
-			// Base UI Tab renders a native <button type="button"> and wires
-			// role="tab", aria-selected, roving tabindex, and activation for us.
-			// id/aria-controls are only overridden when an idPrefix is supplied so
-			// externally rendered TabsSubtlePanel elements stay linked.
 			<Tabs.Tab
 				ref={(node: HTMLElement | null) => {
 					const button = node as HTMLButtonElement | null;
@@ -395,9 +362,6 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 				aria-controls={idPrefix ? `${idPrefix}-panel-${index}` : undefined}
 				aria-label={collapseLabel && !showLabel ? label : undefined}
 				className={cn(
-					// Fixed heights (was py-2 around a 19.5px line box ≈ 35.5px) so the
-					// text-box trim on the label doesn't shrink the tab. Standalone
-					// pills sit directly on the ladder's control height.
 					"relative z-10 flex cursor-pointer items-center border-none bg-transparent outline-none",
 					sizeClasses.control,
 					sizeClasses.px,
@@ -423,20 +387,11 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 							<motion.span
 								key="label"
 								className="overflow-hidden"
-								// Until the measurement lands, let CSS resolve the width
-								// instead of handing framer "auto": framer resolves an "auto"
-								// target from the element's *visual* size, so under a scaled
-								// ancestor (the /demo card, ~1.76x) it writes back a layout
-								// width that much too wide, then springs back down when the
-								// measured value arrives — the selected tab visibly pulses on
-								// arrival. Plain CSS auto is the true layout width, and the
-								// measured number that follows matches it exactly.
 								style={labelWidth == null ? { width: "auto" } : undefined}
 								initial={{ width: 0, opacity: 0, marginLeft: 0 }}
 								animate={{
 									...(labelWidth != null ? { width: labelWidth } : null),
 									opacity: 1,
-									// Matches the ladder's icon-to-label gap (gap-2 / gap-1.5).
 									marginLeft: sizeClasses.variant === "compact" ? 6 : 8,
 								}}
 								exit={{ width: 0, opacity: 0, marginLeft: 0 }}
@@ -466,9 +421,6 @@ interface TabsSubtlePanelProps extends HTMLAttributes<HTMLDivElement> {
 	children: ReactNode;
 }
 
-// Rendered outside <TabsSubtle> at every call site, so it cannot use Base UI's
-// Tabs.Panel (which requires the Tabs.Root context). It stays a plain tabpanel
-// linked to its tab through the shared idPrefix.
 const TabsSubtlePanel = forwardRef<HTMLDivElement, TabsSubtlePanelProps>(
 	({ index, selectedIndex, idPrefix, children, className, ...props }, ref) => {
 		const isSelected = selectedIndex === index;

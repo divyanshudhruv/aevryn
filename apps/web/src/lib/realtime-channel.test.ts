@@ -136,7 +136,6 @@ describe("subscribeToRealtime", () => {
 			heartbeatMs: 10_000,
 		});
 
-		// First failure is within budget: reconnect is scheduled.
 		const statusCb1 = channels[0]?.subscribe.mock.calls[0]?.[0];
 		statusCb1("SUBSCRIBE_ERROR");
 		expect(removeChannel).toHaveBeenCalledTimes(1);
@@ -144,7 +143,6 @@ describe("subscribeToRealtime", () => {
 		await vi.advanceTimersByTimeAsync(100);
 		expect(channels).toHaveLength(2);
 
-		// Second failure exhausts the budget: no retry, channel left alone.
 		const statusCb2 = channels[1]?.subscribe.mock.calls[0]?.[0];
 		statusCb2("CHANNEL_ERROR");
 		await vi.advanceTimersByTimeAsync(10_000);

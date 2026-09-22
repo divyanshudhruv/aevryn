@@ -10,7 +10,6 @@ import {
 } from "../../components/ui/dialog";
 import { InputCopy } from "../../components/ui/input-copy";
 
-/** Which deletion the dialog confirms. */
 export type DeleteMode = "delete-all" | "delete-one";
 
 const DEFAULT_DELETIONS: Record<DeleteMode, Array<{ value: string }>> = {
@@ -45,11 +44,8 @@ export interface WorkflowDelConfirmationDialogProps {
 	defaultOpen?: boolean;
 	onOpenChange?: (open: boolean) => void;
 	mode?: DeleteMode;
-	/** When supplied, renders the listed deletions instead of the mode defaults. */
 	deletions?: Array<{ value: string }>;
-	/** Called when the primary action is pressed. The dialog is not closed by this prop. */
 	onConfirm?: () => void;
-	/** When true, the primary button shows a spinner and is disabled. */
 	loading?: boolean;
 }
 

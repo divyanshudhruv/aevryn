@@ -77,10 +77,6 @@ export const scrapeBatchTool = tool({
 				};
 			}
 
-			// The SDK exposes single-URL scrape only; batch is the async endpoint
-			// POST /v1/url-scraper/batch polled at /v1/url-scraper/{id} (same
-			// job-status shape). Batch in ONE rate-limit slot is the whole point,
-			// so submit raw rather than fanning out client.scrape() per URL.
 			const { status, body: submitted } = await anakinPost<{
 				jobId?: string;
 				status?: string;
@@ -112,8 +108,6 @@ export const scrapeBatchTool = tool({
 				throw new Error("Batch submit did not return a jobId.");
 			}
 
-			// Poll the shared job endpoint until terminal (batch parent settles
-			// when every child settles; partial failures don't fail the parent).
 			const result = await pollBatchJob<
 				BatchDocument & { results?: BatchDocument[] }
 			>(`/url-scraper/${jobId}`, context.anakinKey);

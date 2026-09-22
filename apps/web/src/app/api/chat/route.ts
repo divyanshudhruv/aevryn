@@ -14,19 +14,11 @@ import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Streaming turns with interleaved tool loops can run past the 10s default
-// (5-turn agent runs hang on the model between steps). Vercel hard-caps at
-// the plan's maxHandlerDuration, but declaring it prevents the default 10s.
 export const maxDuration = 300;
 
 const agentService = new AgentService();
 const chatService = new ChatService();
 
-// ─── POST: stream a turn ─────────────────────────────────────────────────────
-
-// Per-part validation + caps. Intentionally tolerant of SDK part shape
-// variants (no enforced enum on `state` — too many branches to close), but
-// every string is bounded so an oversized body fails loudly at parse time.
 const clientPartSchema = z.object({
 	type: z.string().min(1).max(64),
 	text: z.string().max(100_000).optional(),
@@ -42,8 +34,6 @@ const clientMessageSchema = z.object({
 	parts: z.array(clientPartSchema).max(500),
 });
 
-// `presentPlan` answers are a decision object; `askUser` answers are a record
-// of questionId → answer. Both are legal resume payloads.
 const decisionAnswerSchema = z
 	.object({
 		decision: z
@@ -58,11 +48,7 @@ const chatBodySchema = z.object({
 	threadId: z.string().min(1).max(128),
 	workspaceId: z.string().min(1).max(128),
 	mode: z.enum(["chat", "run"]).default("chat"),
-	// DefaultChatTransport sends the conversation as UIMessages; the last
-	// user message carries the new text (single extraction path — there is
-	// deliberately no separate `message` string field).
 	messages: z.array(clientMessageSchema).max(200).optional(),
-	// Resume from an askUser/presentPlan client-tool answer.
 	toolAnswer: z
 		.object({
 			toolCallId: z.string().min(1).max(128),
@@ -73,7 +59,6 @@ const chatBodySchema = z.object({
 			]),
 		})
 		.optional(),
-	// Resume from a native tool-approval response (wireAction etc.).
 	approval: z
 		.object({
 			toolCallId: z.string().min(1).max(128),
@@ -87,14 +72,9 @@ const chatBodySchema = z.object({
 			modelId: z.string().min(1).max(128).optional(),
 		})
 		.optional(),
-	// Composer thinking-effort level (session-only, not persisted). Mapped to
-	// providerOptions.reasoningEffort; models without reasoning ignore it.
 	thinkingEffort: z.enum(["low", "medium", "high", "ultra", "god"]).optional(),
 });
 
-// Slider label → reasoning-effort string sent as providerOptions. God/ultra
-// map to "max"/"high"; models that only accept low/medium/high ignore
-// unsupported values (most providers fall back to their default).
 const THINKING_EFFORT_MAP: Record<string, string> = {
 	low: "low",
 	medium: "medium",
@@ -130,8 +110,6 @@ export async function POST(request: Request): Promise<Response> {
 		);
 	}
 
-	// Determine whether this is a RESUME (client tool answer / approval):
-	// useChat sends the full messages array with the tool output merged in.
 	const clientMessages = body.messages ?? [];
 	const lastClientPart = clientMessages.at(-1)?.parts.at(-1) as
 		| { type?: string; state?: string }
@@ -142,36 +120,14 @@ export async function POST(request: Request): Promise<Response> {
 		(lastClientPart?.type?.startsWith("tool-") === true &&
 			lastClientPart.state === "output-available");
 
-	// Build the UIMessage list for this turn. On resume, trust the client's
-	// messages — the DB still has the tool call PENDING, so rebuilding from
-	// it would drop the answer and the provider would reject the request.
-	// On a fresh send, rebuild from the DB (source of truth).
 	const uiMessages = isResume
 		? await syncThreadMessages(body.threadId, user.id, clientMessages)
-		: // Fresh send: replay only the recent history window (the model prompt
-			// is pruned to MODEL_HISTORY_WINDOW anyway) so long threads don't
-			// ship hundreds of replay parts on every turn.
-			await loadThreadMessages(body.threadId, user.id, MODEL_HISTORY_WINDOW);
+		: await loadThreadMessages(body.threadId, user.id, MODEL_HISTORY_WINDOW);
 
-	// Single extraction path: the last user message in the transport payload
-	// IS the new turn on a fresh send (useChat appends it before submit). Its
-	// client draft id rides along as the idempotency key — if this turn dies
-	// before the server echo, the retry re-sends the same draft id and
-	// saveMessage's (threadId, userId, clientMessageId) unique index dedups
-	// it. On a RESUME the last user message is the ORIGINAL prompt (already
-	// persisted and already present in the synced list) — which is why the
-	// append below is fresh-send-only.
 	const newTurn = extractNewUserMessage(clientMessages);
 	const message = newTurn?.text;
 
-	// Fresh sends only. Re-extracting + appending on a resume sent the model
-	// the same user request TWICE at the tail of every card answer, which
-	// read as "the user asked again" and made it re-answer the original
-	// request instead of continuing from the answered card (the "I don't
-	// have the tool call results" loop). syncClientMessages already put the
-	// persisted copy in place, so a resume must not append anything.
 	if (!isResume && message != null && message.trim().length > 0) {
-		// New user message: persist it (parts included) and append.
 		const userParts = [{ type: "text" as const, text: message }];
 		await chatService.saveMessage({
 			userId: user.id,
@@ -181,10 +137,6 @@ export async function POST(request: Request): Promise<Response> {
 			parts: userParts,
 			clientMessageId: newTurn?.id,
 		});
-		// ChatGPT-style auto title is NOT fired here — it moved into
-		// AgentService.finishTurn so it fires exactly once per completed turn
-		// (guarded by turnPersisted) even on the client-abort path. The new
-		// user text rides along as autoTitleMessage.
 		uiMessages.push({
 			id: `local_${Date.now()}`,
 			role: "user",
@@ -193,9 +145,6 @@ export async function POST(request: Request): Promise<Response> {
 	}
 
 	if (body.toolAnswer) {
-		// Client-tool answer (askUser / presentPlan) flows back as a tool part
-		// on the last assistant message. Log it on the audit rail first — the
-		// message id is unknown here (sentinel row; see logClientToolCall).
 		await chatService.logClientToolCall({
 			threadId: body.threadId,
 			userId: user.id,
@@ -215,13 +164,6 @@ export async function POST(request: Request): Promise<Response> {
 		}
 	}
 
-	// Plan decision approve/bind: persist the workflow + plan steps and bind
-	// it to the thread BEFORE the resumed loop runs. The decision arrives two
-	// ways — as an explicit body.toolAnswer, or merged into the client's
-	// messages array by useChat's auto-resume (the normal path). The service
-	// finds the answered presentPlan part anywhere in the synced message list
-	// and binds it idempotently (a thread with a bound workflow yields
-	// `already-bound`; ownership is verified inside).
 	try {
 		const bindResult = await chatService.bindPlanDecision({
 			userId: user.id,
@@ -229,16 +171,8 @@ export async function POST(request: Request): Promise<Response> {
 			uiMessages,
 		});
 		if (bindResult.status !== "no-decision") {
-			// Server-authoritative run mode: an "Approve" (run now) decision
-			// executes THIS turn in run mode even if the client's transport
-			// still says chat — the auto-resume races the client's realtime-
-			// driven mode flip, and the chat-mode prompt forbids executing a
-			// bound plan. "bound" (run later) resumes in the client's mode.
 			const resumeMode =
 				bindResult.status === "bound-approved" ? "run" : body.mode;
-			// Authoritative idempotency: the decision was processed on an
-			// earlier resume — the reflected workflowId is already on the
-			// parts. Resume the loop immediately.
 			return await agentService.respond({
 				userId: user.id,
 				workspaceId: body.workspaceId,
@@ -259,8 +193,6 @@ export async function POST(request: Request): Promise<Response> {
 			);
 		}
 		console.error("[api/chat] createWorkflowFromPlan failed", err);
-		// Persist an in-thread error tile so the failure survives refresh
-		// (matches the streaming-failure path; never throws).
 		await chatService.persistFailedTurn({
 			threadId: body.threadId,
 			userId: user.id,
@@ -274,7 +206,6 @@ export async function POST(request: Request): Promise<Response> {
 	}
 
 	if (body.approval) {
-		// Native tool-approval resume: the SDK validates the signed approval.
 		await chatService.logClientToolCall({
 			threadId: body.threadId,
 			userId: user.id,
@@ -310,8 +241,6 @@ export async function POST(request: Request): Promise<Response> {
 					: undefined,
 				autoTitleMessage: !isResume ? message : undefined,
 			},
-			// Forwarding request.signal: a client Stop / tab close aborts the
-			// stream server-side (model call + tools cancel; thread resets).
 			{ headers: { "cache-control": "no-store" }, signal: request.signal },
 		);
 	} catch (err) {
@@ -322,8 +251,6 @@ export async function POST(request: Request): Promise<Response> {
 					? err.message
 					: "No model provider configured."
 				: FAILED_TURN_GENERIC;
-		// Mark the thread failed and persist an in-thread error tile so the
-		// failure survives refresh (re-run triggers the retryAgent repair).
 		await chatService.persistFailedTurn({
 			threadId: body.threadId,
 			userId: user.id,
@@ -368,12 +295,9 @@ export async function GET(request: Request): Promise<Response> {
 	}
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 const FAILED_TURN_GENERIC =
 	'Something went wrong while streaming this turn. Re-run or reply "continue" to pick back up.';
 
-/** Text + client draft id of the newest user message in the transport payload. */
 function extractNewUserMessage(
 	messages: Array<{ id?: string; role: string; parts: unknown[] }>,
 ): { id?: string; text: string } | undefined {
@@ -389,14 +313,6 @@ function extractNewUserMessage(
 		: undefined;
 }
 
-/**
- * On resume (tool answer / approval), the client sends the authoritative
- * message list with the tool output merged in. We return that list (sanitized)
- * for the model loop. Persistence is selective (see ChatService.syncClientMessages):
- * only genuinely new user text turns that were never persisted get written — the
- * assistant rows belong to the stream, and transport snapshots would overwrite
- * merged tool parts with stale client copies.
- */
 async function syncThreadMessages(
 	threadId: string,
 	userId: string,

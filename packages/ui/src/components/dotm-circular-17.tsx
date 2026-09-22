@@ -16,7 +16,6 @@ export type DotmCircular17Props = DotMatrixCommonProps;
 const BASE_OPACITY = 0.07;
 const MID_OPACITY = 0.34;
 const HIGH_OPACITY = 0.95;
-/** Discrete checker frames per loop (must stay integer for `(row + col + t) % 2`). */
 const CHECKER_STEPS = 4;
 export function DotmCircular17({
 	speed = 1,

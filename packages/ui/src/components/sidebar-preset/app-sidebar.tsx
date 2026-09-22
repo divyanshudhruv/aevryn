@@ -66,8 +66,6 @@ import { Badge } from "../ui/badge";
 
 const GROUP_OPEN_KEY = "aevryn:sidebar:groups:open";
 
-// Server-enforced caps (single source of truth in @aevryn/config).
-
 export interface PromoCard {
 	id: string;
 	title: string;
@@ -75,7 +73,6 @@ export interface PromoCard {
 	imageUrl: string | null;
 }
 
-/** Shown only while the callouts table has no visible rows. */
 const FALLBACK_CALLOUTS: PromoCard[] = [
 	{
 		id: "fallback-1",
@@ -118,9 +115,7 @@ export interface SidebarData {
 }
 
 export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
-	/** Sidebar data from /api/sidebar. Omitted → skeleton shown. */
 	data?: SidebarData;
-	/** Thread id of the currently open conversation, for the active row. */
 	activeThreadId?: string;
 	onCreateGroup?: (workspaceId: string, name: string) => void;
 	onCreateThread?: (
@@ -130,21 +125,15 @@ export interface AppSidebarProps extends Omit<SidebarProps, "children"> {
 	) => void;
 	onOpenThread?: (workspaceId: string, threadId: string) => void;
 	onSwitchWorkspace?: (workspaceId: string) => void;
-	/** Called after the settings dialog renames or deletes a workspace. */
 	onWorkspaceMutated?: () => void;
-	/** Create a fresh non-default workspace (name is chosen server-side). */
 	onCreateWorkspace?: () => void;
 	onRenameThread?: (threadId: string, title: string) => void;
 	onDeleteThread?: (threadId: string) => void;
 	onRenameGroup?: (groupId: string, name: string) => void;
 	onDeleteGroup?: (groupId: string) => void;
-	/** Run a single thread's bound workflow. */
 	onRunThread?: (threadId: string) => void;
-	/** Stop a running thread. */
 	onStopThread?: (threadId: string) => void;
-	/** Run every runnable thread in a section (has a bound workflow, not running). */
 	onRunAll?: (threadIds: string[]) => void;
-	/** Stop every active thread in a section. */
 	onStopAll?: (threadIds: string[]) => void;
 	onLogout?: () => void;
 }
@@ -174,8 +163,6 @@ export function AppSidebar({
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [callouts, setCallouts] = useState<PromoCard[]>(FALLBACK_CALLOUTS);
 
-	// Real callouts come from the callouts table via /api/sidebar. Empty table =
-	// fall back to the three promo cards.
 	const promoSource =
 		data?.promoCards && data.promoCards.length > 0
 			? data.promoCards
@@ -195,9 +182,6 @@ export function AppSidebar({
 		return () => clearTimeout(timer);
 	}, [search]);
 
-	// Per-group open/closed toggle persisted across sessions. Restored on first
-	// client mount (SSR pre-renders the all-open state, so hydration never
-	// differs); nothing is written until the user actually toggles a group.
 	const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
 	useEffect(() => {
 		try {
@@ -208,27 +192,21 @@ export function AppSidebar({
 					setGroupOpen(parsed as Record<string, boolean>);
 				}
 			}
-		} catch {
-			// storage unavailable — open/close still works for the session
-		}
+		} catch {}
 	}, []);
 	const handleGroupOpenChange = useCallback((key: string, next: boolean) => {
 		setGroupOpen((prev) => {
 			const updated = { ...prev, [key]: next };
 			try {
 				window.localStorage.setItem(GROUP_OPEN_KEY, JSON.stringify(updated));
-			} catch {
-				// storage unavailable — keep the session-level toggle
-			}
+			} catch {}
 			return updated;
 		});
 	}, []);
 
 	const dismiss = (id: string) =>
 		setCallouts((c) => c.filter((x) => x.id !== id));
-	// The callout rests one surface step above the rail.
 	const level = Math.min(useSurface() + 1, 8);
-	// Front card's measured height — never an animated "auto".
 	const [cardH, setCardH] = useState(64);
 	const collapsedH = cardH + Math.min(callouts.length - 1, 2) * 12;
 	const PlusIcon = useIcon("plus");
@@ -274,7 +252,6 @@ export function AppSidebar({
 		setTheme(nextTheme);
 	}, [nextTheme, setTheme]);
 
-	// Map the real workspace data into the sidebar's group/thread sections.
 	const sections = useMemo(() => {
 		if (!data) return null;
 		const byGroup = new Map<string | null, SidebarData["threads"]>();
@@ -308,10 +285,7 @@ export function AppSidebar({
 				item.title.toLowerCase().includes(query),
 			),
 		}));
-	}, [sections, query]); // Derived attention feed (no new table): threads that need eyes on them.
-	// Which statuses surface here follows the user's notification settings
-	// (failed / completed / retrying / approval), kept fresh whenever the
-	// settings dialog closes (it dispatches `aevryn:settings-changed`).
+	}, [sections, query]);
 	const [notify, setNotify] = useState({
 		runFailed: true,
 		runCompleted: true,
@@ -436,9 +410,7 @@ export function AppSidebar({
 									GROUP_OPEN_KEY,
 									JSON.stringify(updated),
 								);
-							} catch {
-								// storage unavailable — session-level state is enough
-							}
+							} catch {}
 							return updated;
 						});
 					} else {
@@ -499,7 +471,6 @@ export function AppSidebar({
 							</>
 						}
 					/>
-					{/* search + action rows are ONE block on the menu rows' rhythm */}
 					<div className="flex flex-col gap-0.5">
 						<div className="flex flex-col gap-1">
 							{" "}
@@ -507,14 +478,6 @@ export function AppSidebar({
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
 							/>
-							{/* {search !== "" && (
-                <div className="">
-                  <Badge size="sm">
-                    {threadCount} {threadCount === 1 ? "thread" : "threads"}{" "}
-                    found
-                  </Badge>
-                </div>
-              )} */}
 						</div>
 						<SidebarMenu>
 							<SidebarMenuItem>
@@ -524,7 +487,6 @@ export function AppSidebar({
 									onClick={() => setNewGroupOpen(true)}
 								>
 									New
-									{/* shortcut chip, revealed on row hover */}
 									<span className="ml-auto inline-flex opacity-0 transition-opacity duration-80 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100">
 										<kbd className="font-sans text-[11px] text-muted-foreground">
 											⇧⌘O
@@ -551,12 +513,6 @@ export function AppSidebar({
 										}
 									/>
 									<DropdownContent
-										// The popup is portalled (outside the sidebar), so
-										// --sidebar-width doesn't inherit — but the Positioner
-										// exposes the trigger button's width as --anchor-width.
-										// Pinning to it makes the menu exactly the parent
-										// button's width, so long labels truncate instead of
-										// stretching the popup.
 										className="w-[var(--anchor-width)] min-w-0"
 										align="start"
 										sideOffset={4}
@@ -610,7 +566,6 @@ export function AppSidebar({
 							<SidebarMenuItem>
 								<SidebarMenuButton icon={CommandIcon}>
 									Commands
-									{/* shortcut chip, revealed on row hover */}
 									<span className="ml-auto inline-flex">
 										<kbd className="font-sans text-[11px] text-muted-foreground">
 											<CommandMenuDemo />
@@ -787,7 +742,6 @@ export function AppSidebar({
 								<SidebarMenu>
 									{section.items.map((item) => (
 										<SidebarMenuItem key={item.id}>
-											{/* status drives the dot and the screen-reader "unread" text */}
 											<SidebarMenuButton
 												status={item.status as RunStatus}
 												isActive={item.id === (activeThreadId ?? activeId)}
@@ -936,8 +890,6 @@ export function AppSidebar({
 				</SidebarContent>
 
 				<SidebarFooter>
-					{/* sonner-style pile: cards peek 12px apiece behind the front one,
-            scaling 0.05 a step, two peeks max */}
 					<m.div
 						className="relative"
 						animate={{ height: callouts.length === 0 ? 0 : collapsedH }}
@@ -976,7 +928,6 @@ export function AppSidebar({
 										label={`${c.title} - ${c.description}`}
 										className={`min-h-0 overflow-hidden rounded-xl transition-[background-color,box-shadow] duration-80 ${surfaceClasses(level, 2)} ${surfaceHoverClasses(level + 1, 3)}shadow-(--shadow-2-inset) hover:shadow-(--shadow-3-inset)`}
 									>
-										{/* swap for your artwork */}
 										<CardImage
 											src={c.imageUrl ?? FALLBACK_IMG}
 											className="aspect-[2/1] max-h-28"
@@ -992,7 +943,6 @@ export function AppSidebar({
 							))}
 						</AnimatePresence>
 					</m.div>
-					{/* vertical: actions stack above the user row */}
 					<SidebarMenu>
 						<SidebarMenuItem>
 							<SidebarMenuButton

@@ -39,12 +39,7 @@ export function SignUpCard() {
 					Bring your own key. Keep your data.
 				</p>
 			</div>
-			<Button
-				className="w-full gap-2"
-				onClick={handleSignIn}
-				// disabled={loading}
-				loading={loading}
-			>
+			<Button className="w-full gap-2" onClick={handleSignIn} loading={loading}>
 				Continue with Google
 			</Button>
 			{error && (

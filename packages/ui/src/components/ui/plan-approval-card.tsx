@@ -33,7 +33,6 @@ export interface PlanApprovalCardProps {
 	plan: PlanInput;
 	onDecision: (result: PlanDecisionResult) => void;
 	className?: string;
-	/** Read-only: show an already-made decision instead of collecting one. */
 	completed?: boolean;
 	decision?: PlanDecision;
 	feedback?: string;
@@ -70,8 +69,6 @@ export function PlanApprovalCard({
 }: PlanApprovalCardProps) {
 	const [decided, setDecided] = useState(false);
 
-	// Unmount safety: if the card goes away before the user answers
-	// (thread switch), the parent decides what "no answer" means.
 	useEffect(() => () => setDecided(false), []);
 
 	const handleComplete = (answers: Record<string, AskUserAnswer>) => {
@@ -100,25 +97,11 @@ export function PlanApprovalCard({
 
 	return (
 		<div className={cn(className, "min-w-full")}>
-			{/* {completed && (
-        <div
-          role="status"
-          className="mb-3 flex flex-col gap-1 rounded-md bg-muted/50 px-3 py-2 text-[13px] text-foreground"
-        >
-          <span className="font-medium">{decisionBannerLabel(decision)}</span>
-          {decision === "changes_requested" && feedback && (
-            <span className="text-muted-foreground">{`“${feedback}”`}</span>
-          )}
-        </div>
-      )} */}
 			<div className="mb-3 flex flex-col gap-2">
 				<span className="font-medium text-[18px] text-foreground">
 					{plan.title}
 				</span>
 				<span className="text-muted-foreground">{plan.objective}</span>
-				{/* {plan.summary && (
-          <span className="text-muted-foreground/80">{plan.summary}</span>
-        )} */}
 			</div>
 
 			<AccordionGroup type="single" className="mb-3 w-full" collapsible>

@@ -23,21 +23,12 @@ type InputCopyAlign = "right" | "left";
 
 interface InputCopyProps
 	extends Omit<HTMLAttributes<HTMLDivElement>, "children"> {
-	/** The value to display and copy to clipboard. */
 	value: string;
-	/** Optional label displayed above the input. */
 	label?: string;
-	/** Callback fired after the value is copied. */
 	onCopy?: () => void;
-	/** Whether the component is disabled. */
 	disabled?: boolean;
-	/** Display variant: icon-only with tooltip, or button with label. */
 	variant?: InputCopyVariant;
-	/** Position of the copy action relative to the value. */
 	align?: InputCopyAlign;
-	/** Pins the field to one step of the size ladder (default 36px, compact
-	 *  28px — see /docs/sizes). Omitted, it follows the surrounding
-	 *  SizeProvider. */
 	size?: SizeVariant;
 }
 
@@ -57,10 +48,8 @@ const InputCopy = forwardRef<HTMLDivElement, InputCopyProps>(
 		ref,
 	) => {
 		const CopyIcon = useIcon("copy");
-		// "copied" and "error" both occupy the same animation slot on the button
 		const [status, setStatus] = useState<"idle" | "copied" | "error">("idle");
 		const [copyCount, setCopyCount] = useState(0);
-		// "idle" = normal tooltip behavior, "copied" = force open, "suppressed" = force closed
 		const [tooltipState, setTooltipState] = useState<
 			"idle" | "copied" | "suppressed"
 		>("idle");
@@ -69,24 +58,16 @@ const InputCopy = forwardRef<HTMLDivElement, InputCopyProps>(
 		const tooltipWasVisibleRef = useRef(false);
 		const shape = useShape();
 		const sizeClasses = useSize(size);
-		// The row's height comes from the padded children, so the paddings step
-		// down with the ladder (py-2 → 36px total, py-1 → 28px).
 		const rowPy = sizeClasses.variant === "compact" ? "py-1" : "py-2";
 
-		// Associate the visible label with the button: the button's accessible
-		// name reads "Copy <label>" (its own state label + the field label).
 		const generatedId = useId();
 		const labelId = label ? `${generatedId}-label` : undefined;
 		const buttonId = `${generatedId}-button`;
 
 		const handlePointerDown = useCallback(() => {
-			// Capture tooltip visibility before Radix closes it on pointer down
 			tooltipWasVisibleRef.current = tooltipVisibleRef.current;
 		}, []);
 
-		// execCommand fallback for when the async Clipboard API is unavailable or
-		// denied (insecure context, permissions policy) — copies via a temporary
-		// off-screen textarea.
 		const copyViaExecCommand = useCallback(() => {
 			const textarea = document.createElement("textarea");
 			textarea.value = value;

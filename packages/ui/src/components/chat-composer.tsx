@@ -46,13 +46,9 @@ export function ChatComposer({
 	status = "idle",
 	onThinkingChange,
 }: {
-	/** Fired on submit (or queue auto-dispatch) with the sent text. */
 	onSend?: (text: string) => void;
-	/** Fired when Stop is pressed while a run is active. */
 	onStop?: () => void;
-	/** Assistant activity state: drives Send/Queue/Stop morphing. */
 	status?: "idle" | "streaming";
-	/** Fired when the session thinking effort changes ("free"…"god"). */
 	onThinkingChange?: (effort: string) => void;
 }) {
 	const shape = useShape();
@@ -70,22 +66,13 @@ export function ChatComposer({
 	]);
 	const [files, setFiles] = useState<File[]>([]);
 	const [queue, setQueue] = useState<QueuedMessage[]>([]);
-	// Run state comes from the page (real backend), not a local stub.
-	// The streaming → idle edge is what auto-dispatches the next queued
-	// message through onSend.
 	const [quality, setQuality] = useState(30000);
 	const [displayQuality, setDisplayQuality] = useState(30000);
 	const releaseQuality = () => setDisplayQuality(quality);
 
-	// Session-only thinking effort. Never persisted — refresh resets to the
-	// default. The page reads it per send; models without reasoning ignore it.
 	const thinkingEfforts = ["Low", "Medium", "High", "Ultra", "God"] as const;
 	const [thinking, setThinking] = useState("Medium");
 
-	// The id of the message currently playing its queued→sent morph. The
-	// morph props are applied ONLY to this one, ONLY for the brief
-	// transition — then cleared, so a settled bubble never re-animates its
-	// layout when the transcript reflows underneath it.
 	const [morphingId, setMorphingId] = useState<string | null>(null);
 	const morphTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	useEffect(
@@ -95,8 +82,6 @@ export function ChatComposer({
 		[],
 	);
 
-	// Real backend: the page submits via onSend; the assistant reply and
-	// status transitions arrive through the transcript/read model, not here.
 	const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	useEffect(
 		() => () => {
@@ -105,9 +90,6 @@ export function ChatComposer({
 		[],
 	);
 
-	// Float the composer over the transcript: measure it to reserve scroll
-	// padding (plus the collapsed queue stack) and to position the stack, and
-	// keep the transcript pinned to the latest message.
 	const inputRef = useRef<HTMLDivElement>(null);
 	const [inputH, setInputH] = useState(0);
 	useEffect(() => {
@@ -123,11 +105,8 @@ export function ChatComposer({
 	useEffect(() => {
 		const el = scrollRef.current;
 		if (el) el.scrollTop = el.scrollHeight;
-		// `queue` is a dep: enqueuing grows the reserved bottom padding,
-		// which must re-pin the scroll too.
 	}, []);
 
-	// Double-click a queued card (or its ✎) to pull it back into the composer.
 	const editQueued = (item: QueuedMessage) => {
 		setValue(item.text);
 		setFiles(item.files);
@@ -141,8 +120,6 @@ export function ChatComposer({
 		});
 	};
 
-	// Height of the collapsed queue pile — reserved under the transcript
-	// alongside the composer.
 	const collapsedStackH = collapsedStackHeight(queue.length, cardH);
 
 	return (
@@ -162,9 +139,6 @@ export function ChatComposer({
 					}}
 				>
 					{messages.map((m) =>
-						// The composer's private transcript is a leftover showcase —
-						// the real timeline owns visible content. Only the brief
-						// queued-card morph frame renders here.
 						m.from === "assistant" ? (
 							<div
 								key={m.id}
@@ -173,8 +147,6 @@ export function ChatComposer({
 								{m.text}
 							</div>
 						) : m.id === morphingId ? (
-							// Mid-morph: shares a layoutId with the front stack card; the
-							// inner span is layout-corrected so the text doesn't stretch.
 							<motion.div
 								key={m.id}
 								layoutId={`qm-${m.id}`}
@@ -218,8 +190,6 @@ export function ChatComposer({
 				</div>
 			</div>
 
-			{/* Queued messages — Sonner-style stack floated just above the
-          composer (front card = next to dispatch). */}
 			<QueuedStack
 				queue={queue}
 				onQueueChange={setQueue}
@@ -239,8 +209,6 @@ export function ChatComposer({
 						const id = meta?.queuedId ?? crypto.randomUUID();
 						setMessages((m) => [...m, { id, from: "user", text, files: sent }]);
 						if (text) onSend?.(text);
-						// A dispatched (from-queue) text message morphs from its stack
-						// card; attachment cards fade instead (their layouts differ).
 						if (meta?.queuedId && sent.length === 0) {
 							setMorphingId(meta.queuedId);
 							if (morphTimerRef.current) clearTimeout(morphTimerRef.current);
@@ -250,8 +218,6 @@ export function ChatComposer({
 							);
 						}
 					}
-					// Only clear the composer for an actual user submit — a queued
-					// dispatch must leave any in-progress draft untouched.
 					if (!meta?.queuedId) {
 						setValue("");
 						setFiles([]);
@@ -259,7 +225,6 @@ export function ChatComposer({
 				}}
 				placeholderSuggestion="Research <topic> for me and summarize"
 				suggestions={SUGGESTIONS}
-				// ArrowUp recalls sent messages, ArrowDown walks back to the draft.
 				history={messages
 					.filter((m) => m.from === "user")
 					.map((m) => m.text)
@@ -280,8 +245,6 @@ export function ChatComposer({
 				)}
 				rightSlot={
 					<div className="flex items-center gap-1">
-						{/* Session-only thinking effort — its own dropdown, resets on
-                refresh. Non-reasoning models silently ignore it. */}
 						<Tooltip content="Thinking effort" side="top">
 							<DropdownMenu>
 								<DropdownTrigger
@@ -313,7 +276,6 @@ export function ChatComposer({
 								</DropdownContent>
 							</DropdownMenu>
 						</Tooltip>
-						{/* Max output tokens (showcase) — unchanged behavior. */}
 						<Tooltip content="Max output tokens" side="top">
 							<DropdownMenu>
 								<DropdownTrigger
@@ -347,8 +309,6 @@ export function ChatComposer({
 						</Tooltip>
 					</div>
 				}
-				// While streaming, submits enqueue; flipping back to idle
-				// dispatches the head of the queue through onSend.
 				status={status}
 				queue={queue}
 				onQueueChange={setQueue}
@@ -356,7 +316,6 @@ export function ChatComposer({
 					if (replyTimerRef.current) clearTimeout(replyTimerRef.current);
 					onStop?.();
 				}}
-				// The built-in queue rows are replaced by the stacked cards above.
 				showQueue={false}
 			/>
 		</div>

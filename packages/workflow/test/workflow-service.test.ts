@@ -6,10 +6,6 @@ import { ChatService } from "../src/services/chat-service";
 import { WorkflowService } from "../src/services/workflow-service";
 
 const userId = "00000000-0000-0000-0000-000000000002";
-// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
-// and threads per user, so per-run random ids self-destruct the suite after
-// a few runs. Recreating stable rows each run cascades the previous run's
-// workflows, keeping trigger counts flat.
 const workspaceId = "wsp_test_workflow";
 const threadId = "thd_test_workflow";
 
@@ -66,7 +62,6 @@ describe("WorkflowService.replaceSteps", () => {
 		const before = await service.getWithSteps({ workflowId, userId });
 		expect(before?.steps.map((s) => s.title)).toEqual(["A", "B", "C"]);
 
-		// Mark the middle step completed — its status must survive the replace.
 		await new ChatService().updatePlanStepStatus({
 			userId,
 			workflowId,
@@ -75,7 +70,6 @@ describe("WorkflowService.replaceSteps", () => {
 		});
 
 		const b = before!.steps;
-		// Keep B (marked completed, index 1) and A; reorder; add a new step.
 		const replaced = await service.replaceSteps({
 			workflowId,
 			userId,
@@ -122,8 +116,6 @@ describe("WorkflowService.replaceSteps", () => {
 		});
 		expect(replaced).toHaveLength(1);
 
-		// Stale ids from before the replace can still be spawned by other writers;
-		// replacing to a smaller list must produce exactly one row.
 		expect(replaced[0]?.title).toBe("only");
 	});
 
@@ -140,9 +132,6 @@ describe("WorkflowService.replaceSteps", () => {
 			 select '${stranger}', '${stranger}', '${stranger}', 'email', jsonb_build_object('email', 'stranger-wf-test@test.local'), now(), now(), now()
 			 where not exists (select 1 from auth.identities where user_id = '${stranger}')`,
 		);
-		// replaceSteps owns its ownership gate: the workflow must belong to the
-		// caller. A stranger's userId on someone else's workflow must throw (the
-		// PUT route maps any throw to 404) and leave no rows behind.
 		await expect(
 			service.replaceSteps({
 				workflowId,

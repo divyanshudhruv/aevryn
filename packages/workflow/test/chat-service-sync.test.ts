@@ -11,18 +11,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { ChatService } from "../src/services/chat-service";
 
-/** db.execute accepts SQLWrapper | string — no `as any` needed. */
 const raw = (query: string) => db.execute(query);
 
 const userId = "00000000-0000-0000-0000-000000000003";
-// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
-// and threads per user, so per-run random ids self-destruct the suite after
-// a few runs. Recreating stable rows each run cascades the previous run's
-// messages/steps, keeping trigger counts flat.
 const workspaceId = "wsp_test_sync";
 const threadId = "thd_test_sync";
-// The ownership test's attacker-owned thread is also stable (inserted with
-// onConflictDoNothing) for the same reason.
 const strangerThreadId = "thd_test_sync_other";
 
 beforeEach(async () => {
@@ -175,10 +168,6 @@ describe("ChatService.syncClientMessages dedup", () => {
 		});
 		expect(out).toHaveLength(1);
 
-		// Same draft id re-sent (as the client retries before the server echo
-		// replaces the id). The draft id is now the idempotency key: saveMessage
-		// hits the (threadId, userId, clientMessageId) unique index, skips the
-		// write, and returns the existing row — no duplicate turn.
 		const existing = await service.syncClientMessages({
 			userId,
 			threadId,
@@ -195,8 +184,6 @@ describe("ChatService.syncClientMessages dedup", () => {
 				},
 			],
 		});
-		// draft_a returned the prior persisted row under the echoed id; draft_b
-		// is genuinely new.
 		expect(existing).toHaveLength(2);
 		expect(existing[0]?.id).not.toBe("draft_a");
 
@@ -302,7 +289,6 @@ describe("ChatService.syncClientMessages dedup", () => {
 			],
 		});
 		expect(out.map((m) => m.id)).toEqual(["asst_a", "local_tmp", "asst_b"]);
-		// First occurrence survives, not the later duplicate.
 		const firstParts = out[0]?.parts as Array<{ text?: string }>;
 		expect(firstParts[0]?.text).toBe("first copy");
 	});
@@ -320,8 +306,6 @@ describe("ChatService.syncClientMessages dedup", () => {
 				},
 			],
 		});
-		// The claimed-but-unknown id is demoted to an anonymous draft — it can
-		// never be mistaken for (or collide with) a real persisted row.
 		expect(out).toHaveLength(1);
 		expect(out[0]?.id.startsWith("msg_")).toBe(false);
 	});
@@ -384,7 +368,6 @@ describe("ChatService.syncClientMessages dedup", () => {
 				},
 			],
 		});
-		// Only reasoning-stripped user text persists; assistant turn is skipped.
 		const rows = await db
 			.select({ id: messages.id })
 			.from(messages)

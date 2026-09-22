@@ -46,7 +46,6 @@ export function ThreadClient() {
 	const { steps: planSteps, reset: resetPlanSteps } =
 		usePlanSteps(boundWorkflowId);
 
-	// Replay history + header data (thread title, bound workflow) once.
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
@@ -88,8 +87,6 @@ export function ThreadClient() {
 							}>;
 						};
 					};
-					// Threads are workspace-scoped: only valid if the sidebar's
-					// selected workspace is this one.
 					const belongsToWorkspace = sidebarJson.data.workspaces.some(
 						(w) => w.id === workspaceId,
 					);
@@ -118,9 +115,7 @@ export function ThreadClient() {
 		return () => {
 			cancelled = true;
 		};
-	}, [threadId, workspaceId]);	// Model list for the header picker. The snapshot is cached module-level
-	// (60s TTL) in lib/provider-models; the saved default model wins when no
-	// explicit selection was made yet, so it survives refresh.
+	}, [threadId, workspaceId]);
 	const refreshProviders = useCallback(async () => {
 		const snapshot = await fetchProviderModels();
 		if (!snapshot) return;
@@ -131,8 +126,7 @@ export function ThreadClient() {
 				prev &&
 				options.some(
 					(o) =>
-						o.providerSlug === prev.providerSlug &&
-						o.modelId === prev.modelId,
+						o.providerSlug === prev.providerSlug && o.modelId === prev.modelId,
 				)
 			)
 				return prev;
@@ -147,8 +141,6 @@ export function ThreadClient() {
 		});
 	}, []);
 
-	// Live thread status (run in progress on another tab, side effects from
-	// the server, etc.) so the Run button reflects reality without a refresh.
 	useEffect(() => {
 		if (!threadId) return;
 		const supabase = getBrowserSupabase();
@@ -167,9 +159,6 @@ export function ThreadClient() {
 				}
 			},
 			onReconnected: () => {
-				// The WS was down and something may have changed on the server (run
-				// finished on another tab, settings edited). Re-sync header state
-				// instead of waiting for a change event that arrived while offline.
 				void (async () => {
 					try {
 						const sidebarRes = await fetch("/api/sidebar", {
@@ -199,9 +188,7 @@ export function ThreadClient() {
 								setThreadStatus(thread.status);
 							}
 						}
-					} catch {
-						// Non-fatal; a later change event re-syncs.
-					}
+					} catch {}
 				})();
 				void refreshProviders();
 			},
@@ -224,8 +211,6 @@ export function ThreadClient() {
 		void refreshProviders();
 	}, [refreshProviders]);
 
-	// The settings dialog lives in the sidebar; when it closes, providers may
-	// have been added/removed, so bust the cache and refresh the picker.
 	useEffect(() => {
 		const onSettingsChanged = () => {
 			invalidateProviderModels();
@@ -237,13 +222,8 @@ export function ThreadClient() {
 		};
 	}, [refreshProviders]);
 
-	// Session-only thinking level — not persisted; resets on refresh.
 	const [thinkingEffort, setThinkingEffort] = useState("medium");
 
-	// Memoized on primitive deps: the transport rebuilds (and useChat resets)
-	// when `model` identity changes, so an inline object that's recreated every
-	// render would tear down + rebuild the transport on every keystroke/state
-	// change. Derived on the two stable primitives instead.
 	const modelOverride = useMemo(
 		() =>
 			selectedModel
@@ -280,9 +260,7 @@ export function ThreadClient() {
 			void sendText(text);
 		},
 		[sendText],
-	); // A stop from the sidebar (or another tab) flips the thread status over
-	// realtime; if a stream is still open here, close it too so the timeline,
-	// cards, and composer all settle together.
+	);
 	const statusRef = useRef(threadStatus);
 	statusRef.current = threadStatus;
 	const stopRef = useRef(stop);
@@ -296,7 +274,6 @@ export function ThreadClient() {
 		) {
 			stopRef.current();
 		}
-		// threadStatus is the trigger; the refs avoid stale closures.
 	}, [threadStatus]);
 
 	const handleRun = useCallback(() => {
@@ -323,8 +300,6 @@ export function ThreadClient() {
 					setRunError(json?.error?.message ?? "Could not start run.");
 					return;
 				}
-				// A fresh run starts at step 1: flip the slider back before the
-				// agent's updateStepStatus writes arrive over realtime.
 				resetPlanSteps();
 				void runWorkflow();
 			} catch {
@@ -333,15 +308,12 @@ export function ThreadClient() {
 		})();
 	}, [threadId, runWorkflow, resetPlanSteps]);
 
-	// Sidebar/header Run for the thread that is already open here (same tab):
-	// the sidebar POSTs /run for validation, then dispatches this event — the
-	// POST alone never starts a run, only the trigger message does.
 	useEffect(() => {
 		const onRunThread = (event: Event) => {
 			const detail = (event as CustomEvent<{ threadId?: string }>).detail;
 			if (detail?.threadId !== threadId) return;
 			if (!hasBoundWorkflow) return;
-			if (streamingRef.current) return; // already running here
+			if (streamingRef.current) return;
 			setRunError(null);
 			resetPlanSteps();
 			runWorkflow();
@@ -352,18 +324,11 @@ export function ThreadClient() {
 		};
 	}, [threadId, hasBoundWorkflow, runWorkflow, resetPlanSteps]);
 
-	// Sidebar Run on a thread that was NOT open: the window event fired while
-	// this page was still mounting (listener not attached yet), so the intent
-	// survived in the sessionStorage pending-run flag instead. Consume it once
-	// the thread data is loaded — hasBoundWorkflow must be known, otherwise a
-	// bound thread that loads slowly would silently drop the run. The flag
-	// self-clears on consume, so a remount can't double-fire; streamingRef
-	// covers the (rare) case where this page is somehow already streaming.
 	useEffect(() => {
-		if (initialMessages === null) return; // thread data not loaded yet
+		if (initialMessages === null) return;
 		if (!hasBoundWorkflow) return;
 		if (!pendingRunFlag.consume(threadId)) return;
-		if (streamingRef.current) return; // already running here
+		if (streamingRef.current) return;
 		setRunError(null);
 		resetPlanSteps();
 		runWorkflow();
@@ -379,8 +344,6 @@ export function ThreadClient() {
 		setSettingsOpen(true);
 	}, []);
 
-	// Stable callbacks so ConversationTimeline (memoized) skips re-render
-	// churn on unrelated state (thread status heartbeats, provider refresh).
 	const handleToolAnswer = useCallback(
 		(toolCallId: string, toolName: string, answer: unknown) => {
 			sendToolAnswer(toolCallId, toolName, answer);
@@ -442,15 +405,10 @@ export function ThreadClient() {
 				className="min-h-0 flex-1 overflow-y-auto"
 			>
 				{messages.length === 0 && !isStreaming ? (
-					// Brand-new thread: centered theme-aware logo so the canvas
-					// doesn't look empty. Vanishes the moment the first message is
-					// sent (messages.length grows / streaming starts).
 					<div
 						className="pointer-events-none flex h-full flex-col items-center justify-center gap-3"
 						unselectable="on"
 					>
-						{/* Both variants rendered; CSS picks by theme — no hydration flash. */}
-						{/* Dark theme: icon + wordmark pair. */}
 						<div className="hidden flex-wrap items-end justify-center gap-2 md:gap-4 dark:flex">
 							<img
 								src="/logo-black.svg"
@@ -467,7 +425,6 @@ export function ThreadClient() {
 								className="fade-in h-10 w-auto max-w-[70vw] animate-in select-none opacity-30 duration-500 md:h-18"
 							/>
 						</div>
-						{/* Light theme: same pair, dark artwork. */}
 						<div className="flex flex-wrap items-end justify-center gap-2 md:gap-4 dark:hidden">
 							<img
 								src="/logo-white.svg"
@@ -484,10 +441,6 @@ export function ThreadClient() {
 								className="fade-in h-10 w-auto max-w-[70vw] animate-in select-none opacity-37 duration-500 md:h-18"
 							/>
 						</div>
-
-						{/* <p className="animate-in fade-in slide-in-from-bottom-1 text-sm text-muted-foreground duration-700">
-              How can I help you today?
-            </p> */}
 					</div>
 				) : (
 					<div className="mx-auto max-w-3xl">

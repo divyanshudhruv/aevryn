@@ -26,13 +26,9 @@ interface SwitchProps extends HTMLAttributes<HTMLDivElement> {
 	onToggle: () => void;
 	disabled?: boolean;
 	thumbTransition?: Transition;
-	/** Pins the switch to one step of the size ladder (see /docs/sizes).
-	 *  Omitted, it follows the surrounding SizeProvider. */
 	size?: SizeVariant;
 }
 
-// Track/thumb geometry per ladder step. The hover pill-extend and press
-// squash scale down with the thumb so the compact switch keeps the same feel.
 const METRICS = {
 	default: {
 		trackWidth: 34,
@@ -219,11 +215,9 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 				}}
 				{...props}
 			>
-				{/* Switch */}
 				<SwitchPrimitive.Root
 					checked={checked}
 					aria-labelledby={labelId}
-					// Base UI passes (checked, eventDetails); narrow to () => void for our onToggle.
 					onCheckedChange={() => {
 						if (didDrag.current) return;
 						onToggle();
@@ -285,12 +279,9 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 					/>
 				</SwitchPrimitive.Root>
 
-				{/* Label */}
 				<span
 					id={labelId}
 					className={cn(
-						// text-box trim recenters the letterforms against the track; the
-						// track is taller than the label, so layout doesn't change.
 						"transition-[color] duration-80 [text-box:trim-both_cap_alphabetic]",
 						sizeClasses.text,
 						checked ? "text-foreground" : "text-muted-foreground",

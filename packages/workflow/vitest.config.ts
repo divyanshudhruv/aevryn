@@ -1,5 +1,3 @@
-// Real Supabase DB from apps/web/.env — the chat-service tests exercise
-// actual tables (RLS is bypassed by the direct connection string).
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vitest/config";
 
@@ -11,9 +9,7 @@ function envFromWeb(name: string): string {
 		);
 		const match = content.match(new RegExp(`^${name}=(.*)$`, "m"));
 		if (match?.[1] != null) return match[1].trim();
-	} catch {
-		// fall through to fixture
-	}
+	} catch {}
 	return "";
 }
 

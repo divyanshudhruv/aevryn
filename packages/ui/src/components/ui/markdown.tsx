@@ -49,8 +49,6 @@ export function Markdown({ content, className }: MarkdownProps) {
 						<li
 							className={cn(
 								"my-0.5",
-								// Nested lists inside an li: breathe and indent relative
-								// to the li's own text, not the parent list's padding.
 								"[&>ol]:mt-1 [&>ol]:mb-1 [&>ol]:pl-4",
 								"[&>p]:my-0 [&>ul]:mt-1 [&>ul]:mb-1 [&>ul]:pl-4",
 							)}
@@ -97,8 +95,6 @@ export function Markdown({ content, className }: MarkdownProps) {
 						const isBlock =
 							typeof cls === "string" && cls.includes("language-");
 						if (isBlock) {
-							// Inside <pre>: reset the inline-code chrome so block code
-							// doesn't render muted-bg-in-muted-bg with doubled padding.
 							return (
 								<code
 									className={cn(
@@ -126,9 +122,6 @@ export function Markdown({ content, className }: MarkdownProps) {
 							{children}
 						</pre>
 					),
-					// Markdown tables render through the app's Table component
-					// (fluid hover rows, size ladder). Wide tables scroll horizontally
-					// inside the Table instead of crushing their columns.
 					table: ({ children }) => <Table>{children}</Table>,
 					thead: ({ children }) => <TableHeader>{children}</TableHeader>,
 					tbody: ({ children }) => (

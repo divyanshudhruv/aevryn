@@ -50,7 +50,7 @@ export const wireDiscoverTool = tool({
 			const { body } = await anakinGet<{ results?: DiscoveredAction[] }>(
 				"/wire/resolve",
 				Object.keys(params).length > 0 ? params : undefined,
-				null, // public — no key
+				null,
 			);
 			return { ok: true, actions: body.results ?? [] };
 		} catch (err) {

@@ -91,8 +91,6 @@ export const aiVisibilityTool = tool({
 		if (!key.ok) return key;
 
 		try {
-			// Runtime validation against the live roster — the schema is a plain
-			// string[] because the platform adds engines without code releases.
 			const sources = input.sources;
 			if (sources && sources.length > 0) {
 				const { body } = await anakinGet<{
@@ -134,7 +132,6 @@ export const aiVisibilityTool = tool({
 				};
 			}
 
-			// Poll @3s, up to ~10 minutes (run auto-fails after 10).
 			const deadline = Date.now() + 10 * 60_000;
 			let final: {
 				status?: string;

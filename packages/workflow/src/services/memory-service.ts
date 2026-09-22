@@ -8,10 +8,6 @@ export interface MemoryItem {
 	memory: string;
 }
 
-/**
- * Per-chat memories via Mem0. Memories are stored with user_id = threadId so
- * the agent only ever recalls the memory of the conversation it's in.
- */
 export class MemoryService {
 	constructor(private readonly client: Db = db) {}
 

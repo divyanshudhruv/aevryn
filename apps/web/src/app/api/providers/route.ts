@@ -15,7 +15,7 @@ const providerInputSchema = z.object({
 	slug: z.string().min(1).max(64),
 	displayName: z.string().min(1).max(120),
 	baseUrl: z.string().url(),
-	apiKey: z.string().min(1), // plaintext in transit over TLS; stored encrypted
+	apiKey: z.string().min(1),
 	models: z
 		.array(
 			z.object({
@@ -64,7 +64,6 @@ export async function POST(request: Request): Promise<Response> {
 		);
 	}
 
-	// Reject base URLs that point at private/metadata endpoints (SSRF guard).
 	const urlVerdict = checkExternalUrl(body.baseUrl);
 	if (urlVerdict.blocked) {
 		return jsonError(
@@ -89,8 +88,6 @@ export async function POST(request: Request): Promise<Response> {
 	);
 }
 
-// Set the model list for a provider: append ONE model (no key re-entry), or
-// replace the whole ordered list (drag/reorder from the settings UI).
 const modelAppendSchema = z.object({
 	slug: z.string().min(1).max(64),
 	modelId: z.string().min(1).max(120).optional(),

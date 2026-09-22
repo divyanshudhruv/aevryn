@@ -40,8 +40,6 @@ export function SearchableDropdown() {
 	const [workflow, setWorkflow] = useState("Monitor product price drop");
 	const [query, setQuery] = useState("");
 
-	// Filter groups by title or item label; the popup re-indexes from 0 each
-	// time, so flatten group rows into one contiguous index sequence.
 	const matches = WORKFLOW_GROUPS.map((group) => ({
 		...group,
 		items: group.items.filter((item) =>
@@ -49,8 +47,6 @@ export function SearchableDropdown() {
 		),
 	})).filter((group) => group.items.length > 0);
 
-	// Flatten group rows into one contiguous index sequence; group titles take
-	// no index (DropdownLabel is a plain, non-focusable div between rows).
 	const rows: { kind: "group" | "item"; label: string }[] = [];
 	let checkedFlatIndex: number | undefined;
 	for (const group of matches) {

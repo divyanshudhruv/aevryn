@@ -23,8 +23,6 @@ describe("CryptoBox", () => {
 
 	it("throws on tampered ciphertext", () => {
 		const cipher = encryptSecret("secret");
-		// Flip a character inside the data segment (after the 3rd colon) so the
-		// base64 stays parseable but the GCM tag no longer matches.
 		const parts = cipher.split(":");
 		const data = parts[3];
 		if (data == null) throw new Error("unexpected ciphertext shape");

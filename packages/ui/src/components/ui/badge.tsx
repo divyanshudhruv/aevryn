@@ -37,7 +37,6 @@ const badgeVariants = cva(
 				solid: "",
 				dot: "border border-border text-foreground",
 			},
-			// The two-step size ladder shared by every control — see /docs/sizes.
 			size: {
 				default: "h-6 gap-1.5 px-2.5 text-[12px]",
 				compact: "h-5 gap-1 px-2 text-[11px]",
@@ -52,9 +51,6 @@ const badgeVariants = cva(
 
 type BadgeSizeCanonical = "default" | "compact";
 
-/** Public size values: the canonical two-size scale plus the pre-sizes-system
- *  aliases, kept so existing call sites keep compiling. Aliases resolve onto
- *  the canonical ladder (sm → compact; md/lg → default). */
 type BadgeSize = BadgeSizeCanonical | "sm" | "md" | "lg";
 
 const legacySizeAliases: Partial<Record<BadgeSize, BadgeSizeCanonical>> = {
@@ -67,8 +63,6 @@ interface BadgeProps
 	extends Omit<HTMLAttributes<HTMLSpanElement>, "color">,
 		Omit<VariantProps<typeof badgeVariants>, "size"> {
 	color?: BadgeColor;
-	/** Omitted, the badge follows the surrounding SizeProvider. Legacy
-	 *  sm/md/lg values still resolve. */
 	size?: BadgeSize;
 }
 
@@ -86,8 +80,6 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
 		ref,
 	) => {
 		const shape = useShape();
-		// Resolve the size: explicit prop (legacy aliases mapped onto the
-		// canonical ladder) > surrounding SizeProvider > default.
 		const contextSize = useSizeVariant();
 		const size: BadgeSizeCanonical = sizeProp
 			? (legacySizeAliases[sizeProp] ?? (sizeProp as BadgeSizeCanonical))
@@ -97,10 +89,6 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
 		const colorValue = badgeColors[color];
 		const isSolid = variant === "solid";
 		const dotSize = size === "compact" ? 6 : 7;
-		// `resolvedTheme` is undefined during SSR and on the first client pass, so
-		// deriving textMix from it makes the server HTML disagree with the hydrated
-		// tree (different color-mix() ratios) and produces the attribute mismatch.
-		// Hold the theme-dependent style until after hydration agrees on the theme.
 		const { resolvedTheme } = useTheme();
 		const [mounted, setMounted] = useState(false);
 		useEffect(() => setMounted(true), []);
@@ -138,9 +126,7 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
 				{/* text-box needs a block container — the badge root is a flex
             container, so the label gets its own span. Height is fixed (h-*),
             so trimming only recenters the letterforms. */}
-				<span className="[text-box:trim-both_cap_alphabetic]">
-					{children}
-				</span>
+				<span className="[text-box:trim-both_cap_alphabetic]">{children}</span>
 			</span>
 		);
 	},

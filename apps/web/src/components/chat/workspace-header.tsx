@@ -87,7 +87,6 @@ export function WorkspaceHeader({
 
 	const current = threads.find((t) => t.id === threadId);
 
-	// Threads of this workspace, live via Supabase realtime (Header.tsx pattern).
 	useEffect(() => {
 		let cancelled = false;
 
@@ -108,9 +107,7 @@ export function WorkspaceHeader({
 						})),
 					);
 				}
-			} catch {
-				// threads table may not exist yet
-			}
+			} catch {}
 		}
 
 		async function fetchGroups() {
@@ -128,9 +125,7 @@ export function WorkspaceHeader({
 						})),
 					);
 				}
-			} catch {
-				// groups table may not exist yet; non-critical
-			}
+			} catch {}
 		}
 
 		void fetchGroups();
@@ -236,7 +231,6 @@ export function WorkspaceHeader({
 				{" "}
 				<div className="flex min-w-0 flex-1 flex-row items-center gap-1">
 					<SidebarTrigger />
-					{/* Thread switcher — Header.tsx, real data */}
 					<DropdownMenu>
 						<DropdownTrigger
 							render={
@@ -314,7 +308,6 @@ export function WorkspaceHeader({
 							</Button>
 						)}
 					</div>
-					{/* Model picker */}
 					<DropdownMenu>
 						<DropdownTrigger
 							render={
@@ -322,8 +315,6 @@ export function WorkspaceHeader({
 									variant="ghost"
 									aria-label="Select model"
 									trailingIcon={ChevronsUpDown}
-									// Cap the picker so "Model · Provider" never stretches the
-									// header row; the label truncates with an ellipsis.
 									className="min-w-0 max-w-37.5 justify-between md:max-w-full"
 								>
 									{" "}

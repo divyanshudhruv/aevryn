@@ -1,10 +1,6 @@
 import type { PlanInput } from "@aevryn/ui/components/ui/plan-approval-card";
 import type { UIMessage } from "ai";
 
-// Pure helpers for the conversation timeline: part→data decoders, turn
-// splitting, and formatting. No React here — everything is unit-testable
-// on its own.
-
 export const CLIENT_TOOLS = new Set([
 	"askUser",
 	"presentPlan",
@@ -17,8 +13,6 @@ export function questionsFromInput(input: unknown) {
 	return input as Array<Record<string, unknown>>;
 }
 
-/** Real timestamp from persisted/stream metadata; falls back to now for
- *  brand-new live messages (their createdAt arrives on the finish event). */
 export function messageTimestamp(message: UIMessage): string {
 	const createdAt = (message.metadata as { createdAt?: string } | undefined)
 		?.createdAt;
@@ -31,7 +25,6 @@ export function messageTimestamp(message: UIMessage): string {
 	});
 }
 
-/** Human-facing copy for a completed askUser / presentPlan interaction. */
 export function clientToolOutcomeRow(
 	toolName: string,
 	output: unknown,
@@ -109,7 +102,6 @@ export interface MessageTurn {
 	offset: number;
 }
 
-/** One-line card header from narration text: first sentence, capped. */
 export function truncateHeader(text: string): string {
 	const firstSentence = text.split(/(?<=[.!?])\s/)[0] ?? text;
 	const clean = firstSentence
@@ -118,10 +110,6 @@ export function truncateHeader(text: string): string {
 	return clean.length > 60 ? `${clean.slice(0, 60)}…` : clean;
 }
 
-/** Split one assistant message into turns: a new turn starts right after
- *  every *completed* client-tool part (answered askUser/presentPlan, decided
- *  wire action). The answer's card closes its turn; whatever the agent
- *  streams next opens a fresh bubble — no more same-message grouping. */
 export function splitIntoTurns(parts: UIMessage["parts"]): MessageTurn[] {
 	if (parts.length === 0) return [{ parts, offset: 0 }];
 	const turns: MessageTurn[] = [];

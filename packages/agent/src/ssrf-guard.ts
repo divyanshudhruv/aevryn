@@ -13,7 +13,6 @@ function isIpv4Literal(hostname: string): number[] | null {
 
 function isIpv6Literal(hostname: string): boolean {
 	if (!hostname.includes(":")) return false;
-	// IPv6 literals may carry a zone id (`fe80::1%eth0`); strip it.
 	const stripped = hostname.split("%")[0]!;
 	return stripped.split("::").length <= 2 && /^[0-9a-f:.]+$/i.test(stripped);
 }
@@ -53,8 +52,6 @@ function ipv4IsPrivate(octets: number[]): boolean {
 	return IPV4_PRIVATE_CIDRS.some((cidr) => inCidr(octets, cidr));
 }
 
-/** Well-known non-routable IPv6 prefixes (link-local, ULA, loopback, multicast,
- *  documentation, NAT64, v4-mapped, unspecified). */
 const IPV6_PRIVATE_PREFIXES = [
 	"::",
 	"::1",
@@ -75,7 +72,6 @@ function ipv6IsPrivate(hostname: string): boolean {
 	for (const p of IPV6_PRIVATE_PREFIXES) {
 		if (stripped.startsWith(p)) return true;
 	}
-	// v4-mapped (`::ffff:127.0.0.1`) — classify by the embedded address.
 	const v4 = /::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(stripped);
 	if (v4) {
 		const octets = v4[1]!.split(".").map(Number);
@@ -88,7 +84,7 @@ const RESERVED_HOSTS = new Set([
 	"localhost",
 	"metadata",
 	"metadata.google.internal",
-	"metadata.google.internal.", // trailing-dot form equals FQDN for resolvers
+	"metadata.google.internal.",
 	"instance-data",
 	"instance-data.ec2.internal",
 	"api.sys.internal",
@@ -103,12 +99,6 @@ function hasReservedSuffix(hostname: string): boolean {
 	);
 }
 
-/**
- * Rejects URLs that would target local/private/cloud-metadata endpoints
- * when fetched by a server-side process (SSRF guard). Enforcing http(s)
- * plus IP-literal range checks is deterministic and safe in edge runtimes.
- * Returns `{ blocked: false }` for public URLs.
- */
 export function checkExternalUrl(raw: string): SsrfVerdict {
 	let url: URL;
 	try {

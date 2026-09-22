@@ -6,21 +6,11 @@ import { ChatService } from "../src/services/chat-service";
 import { WorkflowService } from "../src/services/workflow-service";
 
 const userId = "00000000-0000-0000-0000-000000000001";
-// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
-// and threads per user, so per-run random ids self-destruct the suite after
-// a few runs. Recreating stable rows each run cascades the previous run's
-// messages/steps, keeping trigger counts flat.
 const workspaceId = "wsp_test_chat";
 const threadId = "thd_test_chat";
 
 async function seedThread() {
 	const { workspaces, threads } = await import("@aevryn/db");
-
-	// userId 0000..0001 is a stable test user that already exists in the
-	// shared Supabase cloud DB (created by prior seed runs). The FKs on
-	// threads.user_id and messages.user_id are NOT DEFERRABLE, so per-run
-	// raw-SQL auth seeding was removed; relying on the pre-existing row
-	// keeps the suite from touching auth.users / auth.identities.
 
 	await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
 	await db.insert(workspaces).values({

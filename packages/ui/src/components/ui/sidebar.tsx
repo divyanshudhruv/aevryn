@@ -25,18 +25,6 @@ import {
 	useState,
 } from "react";
 
-// ─── Mobile sheet ────────────────────────────────────────────────────────────
-//
-// Built on Base UI Dialog rather than Base UI Drawer: Drawer's
-// swipe-to-dismiss writes inline `transform` + `--drawer-swipe-movement-*`
-// CSS vars onto its Popup and expects CSS-transition choreography (plus a
-// mandatory <Drawer.Viewport>), which fights framer-motion's transform
-// management on the same element. Dialog provides everything we actually
-// need — scroll lock, focus trap, focus restore, Esc + outside-click
-// dismissal — while leaving the slide animation to framer-motion.
-
-// Props framer-motion redefines with incompatible signatures; they must not
-// be forwarded from Base UI's render-prop payload onto a motion.div.
 type MotionSafeDivProps = Omit<
 	React.HTMLAttributes<HTMLDivElement>,
 	| "onDrag"
@@ -56,21 +44,11 @@ interface SidebarSheetProps {
 
 function SidebarSheet({ side, open, onClose, children }: SidebarSheetProps) {
 	const { widthMobile } = useSidebar();
-	// Reduced motion drops the slide (the movement) but keeps the scrim's
-	// opacity fade — the state change stays legible without the travel.
 	const reduceMotion = useReducedMotion() ?? false;
-	// The panel takes initial focus itself. Left to the primitive, the focus
-	// trap lands on the first focusable child — the top nav row — which reads
-	// as a selected item the moment the drawer opens, and Chrome grants
-	// :focus-visible to script-driven focus so it shows the keyboard ring too.
 	const panelRef = useRef<HTMLDivElement | null>(null);
 	const substrate = useSurface();
 	const level = Math.min(substrate + 2, 8);
 
-	// The primitive tears its portal down the moment it closes — an outside
-	// press would snap the panel away with no exit. So the dialog is held OPEN
-	// through the exit: `closing` slides the panel offscreen first, and only
-	// when the spring lands does the real close propagate.
 	const [closing, setClosing] = useState(false);
 	const visible = open && !closing;
 
@@ -79,15 +57,12 @@ function SidebarSheet({ side, open, onClose, children }: SidebarSheetProps) {
 		onClose();
 	}, [onClose]);
 
-	// A parent-driven close (trigger, shortcut, route change) gets the same
-	// exit as a primitive-driven one.
 	const wasOpen = useRef(open);
 	useEffect(() => {
 		if (wasOpen.current && !open) setClosing(true);
 		wasOpen.current = open;
 	}, [open]);
 
-	// Fallback: rAF-driven animation callbacks stall in throttled tabs.
 	useEffect(() => {
 		if (!closing) return;
 		const id = setTimeout(finishClose, exitFallbackMs(spring.moderate));
@@ -104,9 +79,6 @@ function SidebarSheet({ side, open, onClose, children }: SidebarSheetProps) {
 			}}
 		>
 			<DialogPrimitive.Portal>
-				{/* Scrim: an always-on bg-black/40 base that stays visible for
-            system-dark users (`dark:` only matches the explicit .dark class),
-            boosted to /80 in explicit dark mode. */}
 				<DialogPrimitive.Backdrop
 					render={(backdropProps) => {
 						const { style: _style, ...rest } =
@@ -141,8 +113,6 @@ function SidebarSheet({ side, open, onClose, children }: SidebarSheetProps) {
 						return (
 							<motion.div
 								{...(rest as MotionSafeDivProps)}
-								// Merge, don't replace: the primitive needs its own handle on
-								// the panel as much as initialFocus needs ours.
 								ref={(node: HTMLDivElement | null) => {
 									panelRef.current = node;
 									if (typeof baseRef === "function") baseRef(node);
@@ -166,9 +136,6 @@ function SidebarSheet({ side, open, onClose, children }: SidebarSheetProps) {
 									width: widthMobile,
 								}}
 								initial={{ x: offscreen }}
-								// spring.moderate: critically damped, so the panel decelerates
-								// into x: 0 without overshooting and exposing the page behind
-								// its leading edge.
 								animate={{ x: visible ? 0 : offscreen }}
 								transition={
 									reduceMotion
@@ -191,8 +158,6 @@ function SidebarSheet({ side, open, onClose, children }: SidebarSheetProps) {
 	);
 }
 
-// ─── Sidebar ─────────────────────────────────────────────────────────────────
-
 export interface SidebarProps
 	extends Omit<
 		HTMLAttributes<HTMLDivElement>,
@@ -205,14 +170,9 @@ export interface SidebarProps
 	> {
 	side?: SidebarSide;
 	variant?: SidebarVariant;
-	/** `"icon"` collapse is intentionally not supported — offcanvas or none. */
 	collapsible?: SidebarCollapsible;
-	/** The `sidebar` variant's inner-edge border. Default true. */
 	bordered?: boolean;
-	/** Pin the rail's tooltip open (`true`) or closed (`false`); `undefined`
-	 *  leaves it on hover. Dragging always hides it. */
 	railTooltipOpen?: boolean;
-	/** Render the built-in resize/collapse rail. Default true. */
 	rail?: boolean;
 }
 
@@ -235,8 +195,6 @@ const Sidebar = forwardRef<HTMLDivElement, SidebarProps>(
 		const { isMobile, openMobile, setOpenMobile, width, registerSide } =
 			useSidebar();
 
-		// The provider mirrors the side into the default shortcut ("[" / "]")
-		// and the rail handle.
 		useEffect(() => registerSide(side), [side, registerSide]);
 
 		if (collapsible === "none") {
@@ -271,11 +229,6 @@ const Sidebar = forwardRef<HTMLDivElement, SidebarProps>(
 			);
 		}
 
-		// The desktop shell stays MOUNTED across the drawer breakpoint — its
-		// breakpoint classes fade it out (opacity + display, allow-discrete)
-		// instead of this component unmounting it, which snapped the rail away
-		// the instant the window shrank. The sheet mounts alongside it below the
-		// breakpoint; the hidden shell costs nothing visible (display: none).
 		return (
 			<>
 				{isMobile && (
@@ -306,8 +259,6 @@ const Sidebar = forwardRef<HTMLDivElement, SidebarProps>(
 );
 Sidebar.displayName = "Sidebar";
 
-// ─── SidebarContent ──────────────────────────────────────────────────────────
-
 export interface SidebarContentProps extends HTMLAttributes<HTMLDivElement> {
 	viewportClassName?: string;
 }
@@ -316,11 +267,6 @@ const SidebarContent = forwardRef<HTMLDivElement, SidebarContentProps>(
 	({ className, viewportClassName, children, ...props }, ref) => {
 		const { isMobile } = useSidebar();
 
-		// Inside the mobile sheet, the sheet's flex column owns layout and this
-		// region scrolls natively — a nested ScrollArea would double-scroll. The
-		// boundary hairline still needs a frame to ride: scroll-divider can't sit
-		// on the scroller itself (its own fade mask would erase the line), so the
-		// region is wrapped the way ScrollArea wraps its viewport on desktop.
 		if (isMobile) {
 			return (
 				<div className="scroll-divider flex min-h-0 w-full flex-1 flex-col [--scroll-divider-inset:8px]">
@@ -339,10 +285,6 @@ const SidebarContent = forwardRef<HTMLDivElement, SidebarContentProps>(
 			);
 		}
 
-		// The scroll primitive wraps children in an inline-styled sizer that
-		// sizes to content — rows would stop shrinking near the min width
-		// instead of truncating, so the viewport's direct child is forced back
-		// to a plain shrinkable block.
 		return (
 			<ScrollArea
 				className={cn("scroll-divider min-h-0 w-full flex-1", className)}
@@ -380,7 +322,6 @@ export type {
 	SidebarVariant,
 } from "@aevryn/ui/components/ui/sidebar-core";
 
-// Re-export the flavor-neutral parts so `sidebar` is a one-stop import.
 export {
 	SIDEBAR_COOKIE_MAX_AGE,
 	SIDEBAR_COOKIE_NAME,

@@ -2,7 +2,6 @@ import type { RunStatus } from "@aevryn/config";
 
 export interface NavItem {
 	label: string;
-	/** Semantic status: drives the leading dot and screen-reader text. */
 	status: RunStatus;
 	badge?: string;
 }

@@ -47,47 +47,17 @@ export interface AskUserOption {
 export interface AskUserQuestion {
 	id?: string;
 	title: string;
-	/** Options to choose from. Optional only because a `freeText` question
-	 *  has none; every other mode requires at least one. */
 	options?: AskUserOption[];
 	multiSelect?: boolean;
 	allowOther?: boolean;
 	otherPlaceholder?: string;
 	skippable?: boolean;
 	nextLabel?: string;
-	/** Visual layout for each option row.
-	 *  - "inline" (default): title and description on one line.
-	 *  - "stacked": title above, description below — useful when descriptions
-	 *    are long enough to wrap. */
 	layout?: "inline" | "stacked";
-	/** Which side of the row the numbered chip sits on.
-	 *  - "right" (default): chip on the right; the single-select submit
-	 *    arrow overlays it on hover/focus.
-	 *  - "left": chip on the left, before the body. The submit arrow
-	 *    still appears on the right edge of the row, so the action
-	 *    affordance stays where the eye expects it.
-	 *  Works with every other option (single/multi-select, allowOther,
-	 *  inline/stacked layout). */
 	chipPosition?: "left" | "right";
-	/** Render a single multi-line textarea as the *only* answer, with no
-	 *  option rows — for open-ended prompts (a name, a description, free
-	 *  comments). Distinct from `allowOther`, which appends a free-text row
-	 *  *alongside* options. The field auto-focuses when the question appears;
-	 *  ⌘/⌃+Enter (or the bottom submit button) commits, and the answer is
-	 *  returned in `otherText`. `options` is ignored when this is set. */
 	freeText?: boolean;
-	/** Placeholder for the `freeText` textarea. */
 	freeTextPlaceholder?: string;
-	/** Whether the `freeText` field starts at multi-line height. Defaults to
-	 *  `true` — a taller field that invites a few sentences. Set `false` for a
-	 *  single-line field (one row tall) where a short answer is expected;
-	 *  plain Enter then submits instead of inserting a newline. Either way the
-	 *  textarea still grows to fit longer content as it wraps. */
 	freeTextMultiline?: boolean;
-	/** Validate the `freeText` value when the user tries to submit (button or
-	 *  ⌘/⌃+Enter). Return an error message to block submission and surface it in
-	 *  the footer; return null/undefined to allow it. The error clears as soon
-	 *  as the user edits the field. */
 	freeTextValidate?: (value: string) => string | null | undefined;
 }
 
@@ -110,13 +80,7 @@ export interface AskUserQuestionsProps
 	onComplete?: (answers: Record<string, AskUserAnswer>) => void;
 	onSkip?: (questionId: string, currentIndex: number) => void;
 	skipLabel?: string;
-	/** Pins the flow to one step of the size ladder (default 36px, compact
-	 *  28px — see /docs/sizes). Omitted, it follows the surrounding
-	 *  SizeProvider. */
 	size?: SizeVariant;
-	/** Read-only review mode: options are pinned, answering is blocked, but
-	 *  Back/Skip navigation still works. Pairs with `defaultAnswers`/`answers`
-	 *  to show a previously submitted response. */
 	disabled?: boolean;
 }
 
@@ -128,18 +92,8 @@ function optionKey(o: AskUserOption, i: number) {
 	return o.id ?? `o-${i}`;
 }
 
-// Mounted-instance registry for the document-level 1-9 shortcut. The listener
-// has to be global (digits should work without focus in the card), but only ONE
-// instance may answer a keypress: the one containing focus, or — when focus is
-// outside every instance — the most recently mounted one. Without this,
-// stacked instances (e.g. docs demos) would all answer the same digit.
 const mountedInstances: HTMLElement[] = [];
 
-// True while a Row's mousedown handler is programmatically redirecting focus
-// to the row (see Row's onMouseDown). Chrome reports script-initiated focus as
-// :focus-visible, so without this flag every mouse click would light up the
-// keyboard focus ring. Set/cleared synchronously around the focus() call —
-// focus events dispatch synchronously, so a module-level flag is safe.
 let pointerFocusRedirect = false;
 
 const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
@@ -162,13 +116,9 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 		},
 		ref,
 	) {
-		// Resolve locally with the prop override — this component both consumes
-		// the ladder (its own rows and chrome) and re-provides it to nested
-		// ladder-aware children (Button etc.) via the SizeProvider wrap below.
 		const sizeClasses = useSize(size);
 		const compact = sizeClasses.variant === "compact";
 
-		// ── Controlled / uncontrolled state ──────────────────────────
 		const [internalIndex, setInternalIndex] = useState(defaultCurrentIndex);
 		const isIndexControlled = controlledIndex !== undefined;
 		const index = isIndexControlled
@@ -214,10 +164,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 		const ArrowLeft = useIcon("arrow-left");
 		const ArrowRight = useIcon("arrow-right");
 
-		// The footer ← / → icons hint at the ArrowLeft/ArrowRight keys, which
-		// mobile has no equivalent for, so render them desktop-only. (The inline
-		// submit arrows on option rows stay — those are tap affordances, not
-		// keyboard hints.)
 		const ArrowLeftKey = useMemo(
 			() =>
 				function ArrowLeftKey(p: {
@@ -245,13 +191,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			[ArrowRight],
 		);
 
-		// Detect the platform so the Continue shortcut hint shows the right
-		// modifier: ⌘ on macOS, ⌃ (Control) elsewhere. Computed in a lazy
-		// initializer (guarded for SSR, where `navigator` doesn't exist) rather
-		// than an effect — an effect resolves a frame late, so ⌘/⌃+Enter would
-		// check ctrlKey on Macs for the first frames. The server can't know the
-		// platform, so the ⌘/⌃ glyph alone may differ on hydration; ShortcutChip
-		// carries suppressHydrationWarning to absorb that one-character delta.
 		const [isMac] = useState(() => {
 			if (typeof navigator === "undefined") return false;
 			const nav = navigator as Navigator & {
@@ -272,10 +211,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 		const isMulti = !!question?.multiSelect;
 		const isSkippable = question?.skippable !== false;
 		const isFreeText = !!question?.freeText;
-		// Multi-line is the default; single-line is opt-out via freeTextMultiline.
 		const isFreeTextMultiline = question?.freeTextMultiline !== false;
-		// freeText owns the whole answer area, so the inline Other row is
-		// suppressed even if a caller sets both.
 		const allowOther = !isFreeText && !!question?.allowOther;
 		const selectedIds = useMemo(
 			() => currentAnswer?.selectedIds ?? [],
@@ -287,7 +223,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 		const otherIndex = allowOther ? options.length : -1;
 		const rowCount = options.length + (allowOther ? 1 : 0);
 
-		// ── Refs & fluid hover ───────────────────────────────────
 		const rootRef = useRef<HTMLDivElement>(null);
 		const hasQuestion = !!question;
 		useEffect(() => {
@@ -301,35 +236,14 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			};
 		}, [hasQuestion]);
 		const rowsContainerRef = useRef<HTMLDivElement>(null);
-		// The Other field is a multi-line textarea — it auto-resizes to fit
-		// wrapped content and lets users press Enter for a newline.
 		const otherInputRef = useRef<HTMLTextAreaElement>(null);
-		// Stable IDs for contiguous-selection runs (see selectedGroups below).
 		const groupIdCounterRef = useRef(0);
 		const prevGroupMapRef = useRef(new Map<number, number>());
 		const hover = useFluidHover(rowsContainerRef);
 		const { activeIndex, setActiveIndex, itemRects, handlers, registerItem } =
 			hover;
 
-		// ── Other-row textarea auto-resize ──────────────────────────
-		// The Other field is a textarea so users can write a multi-line answer.
-		// Browsers don't auto-fit textarea height to content, so we set it
-		// manually: reset to 0 (so the field can shrink when lines are deleted),
-		// then expand to scrollHeight. Remeasure the fluid hover rows after — the
-		// hover, selected and focus indicators absolutely-position against
-		// itemRects, so they need fresh rects when the row's height changes.
-		//
-		// We also track whether the textarea is currently displaying more than
-		// one line (either via explicit \n or text that wraps). Only then do
-		// we switch the Other row to `topAlign`; in the 1-line state the row
-		// stays `items-center` so a single line sits at the row's optical
-		// centre, matching the surrounding option rows.
 		const [isOtherMultiline, setIsOtherMultiline] = useState(false);
-		// Reset the multi-line flag when the question changes so the new
-		// question's first paint of an empty Other row doesn't inherit a
-		// stale `true` from the previous question's multi-line draft (which
-		// would briefly apply `items-start` + the -5px chip nudge on an
-		// empty single-line row before the resize effect below corrects it).
 		useEffect(() => {
 			setIsOtherMultiline(false);
 		}, []);
@@ -338,35 +252,16 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			if (!el) return;
 			el.style.height = "0px";
 			el.style.height = `${el.scrollHeight}px`;
-			// Threshold against the textarea's *measured* line-height, not a
-			// hard-coded 22px — so the flag stays correct at high browser
-			// font-size / zoom settings where line-height grows past 22 even
-			// for a single line. 1.5× line-height is a generous fudge below
-			// a true second wrapped line (2× line-height) but well above any
-			// single-line rounding artefact.
 			const lineHeight =
 				Number.parseFloat(window.getComputedStyle(el).lineHeight) || 18;
 			setIsOtherMultiline(el.scrollHeight > lineHeight * 1.5);
 		}, []);
 
-		// ── freeText auto-focus ─────────────────────────────────────
-		// A freeText question is a single open-ended field, so drop the caret
-		// straight into it when the question appears — the user can start typing
-		// without a click. Re-runs on qId so each freeText step in a flow gets
-		// focused as it slides in.
 		useEffect(() => {
 			if (!isFreeText) return;
-			// preventScroll so mounting the card (or advancing to the next freeText
-			// step) drops the caret in without yanking the viewport to the field.
 			otherInputRef.current?.focus({ preventScroll: true });
 		}, [isFreeText]);
 
-		// ── Animated height ──────────────────────────────────────────
-		// Track the natural height of the Q/A content and animate the wrapper's
-		// REAL height to it. Animating the actual height (not a layout transform)
-		// means the card border and the footer below reflow frame-by-frame, so the
-		// height morph and the footer move together. A ResizeObserver keeps the
-		// target in sync across question swaps, shape changes, and text wrapping.
 		const contentMeasureRef = useRef<HTMLDivElement>(null);
 		const [contentHeight, setContentHeight] = useState<number | "auto">("auto");
 		useEffect(() => {
@@ -380,37 +275,20 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 		}, []);
 
 		const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-		// Ref mirror so callbacks (markFocusRestore) can read the latest value
-		// without re-subscribing on every focus move.
 		const focusedIndexRef = useRef<number | null>(null);
 		useEffect(() => {
 			focusedIndexRef.current = focusedIndex;
 		}, [focusedIndex]);
-		// Validation message for the current freeText question (null = valid).
 		const [freeTextError, setFreeTextError] = useState<string | null>(null);
 
-		// Reset transient state when question changes
 		useEffect(() => {
 			setActiveIndex(null);
 			setFocusedIndex(null);
 			setFreeTextError(null);
 		}, [setActiveIndex]);
 
-		// ── Keyboard focus restoration across question changes ───────
-		// The question content remounts on qId, which destroys the focused row and
-		// drops focus to <body>. If we navigated *from within* the rows (i.e. the
-		// user was driving with the keyboard), refocus the new question's first row
-		// so focus-within is kept and arrows keep routing here instead of falling
-		// through to page-level navigation.
 		const restoreFocusRef = useRef(false);
 		const markFocusRestore = useCallback(() => {
-			// Only restore when the user was keyboard-driving. A mouse click also
-			// parks focus on the clicked row (Row's onMouseDown redirect), and the
-			// browser reports that script focus as :focus-visible — so we can't ask
-			// the DOM. focusedIndexRef is the component's own modality signal: it's
-			// non-null only when the morphing ring is showing, i.e. focus genuinely
-			// came from the keyboard. Restoring after a click would keyboard-focus
-			// the next question's first row and leave the ring stuck on screen.
 			if (
 				rowsContainerRef.current?.contains(document.activeElement) &&
 				focusedIndexRef.current !== null
@@ -427,11 +305,9 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			firstRow?.focus();
 		}, []);
 
-		// ── Answer actions ───────────────────────────────────────────
 		const goNext = useCallback(
 			(snapshot: Record<string, AskUserAnswer>) => {
 				if (safeIndex >= total - 1) {
-					// Review mode must never submit: the flow is read-only.
 					if (!disabled) onComplete?.(snapshot);
 				} else {
 					markFocusRestore();
@@ -444,9 +320,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 		const handleSingleSelect = useCallback(
 			(optId: string) => {
 				if (!question || disabled) return;
-				// Read through answersRef — the same source writeAnswers mutates — so
-				// a write earlier in the same tick is never missed the way a stale
-				// render-scope `answers` capture could be.
 				const text = answersRef.current[qId]?.otherText;
 				const snapshot = writeAnswers((prev) => ({
 					...prev,
@@ -484,10 +357,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			[question, qId, writeAnswers, disabled],
 		);
 
-		// Base UI Checkbox.Group reports value changes coming from its (hidden)
-		// per-row checkbox primitives. Row clicks go through handleMultiToggle
-		// directly, so in practice this only fires if a hidden control is toggled
-		// by other means — mirror it into the answer so the two never disagree.
 		const handleGroupValueChange = useCallback(
 			(vals: string[]) => {
 				if (!question || disabled) return;
@@ -507,7 +376,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 		const handleOtherChange = useCallback(
 			(text: string) => {
 				if (!question || disabled) return;
-				// Editing clears a standing validation error — the user is fixing it.
 				setFreeTextError(null);
 				writeAnswers((prev) => ({
 					...prev,
@@ -524,12 +392,8 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 
 		const handleOtherSubmit = useCallback(() => {
 			if (!question || disabled) return;
-			// answersRef (not render-scope `answers`) keeps this read consistent
-			// with writeAnswers below — see handleSingleSelect.
 			const text = (answersRef.current[qId]?.otherText ?? "").trim();
 			if (!text) return;
-			// freeText questions may validate on submit; a returned message blocks
-			// navigation and surfaces in the footer.
 			if (question.freeText && question.freeTextValidate) {
 				const message = question.freeTextValidate(text);
 				if (message) {
@@ -593,7 +457,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			}
 		}, [safeIndex, setIndex, markFocusRestore]);
 
-		// ── Keyboard shortcuts: 1-9 ──────────────────────────────────
 		useEffect(() => {
 			if (!question) return;
 			const handler = (e: KeyboardEvent) => {
@@ -604,18 +467,11 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 				const tag = target.tagName;
 				if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable)
 					return;
-				// Only one mounted instance may answer this keypress (see
-				// mountedInstances): the one containing focus, or the most recently
-				// mounted one when focus sits outside every instance.
 				const root = rootRef.current;
 				if (!root) return;
 				if (!root.contains(target)) {
 					if (mountedInstances.some((el) => el !== root && el.contains(target)))
 						return;
-					// A focused element that WRAPS instances (a docs preview frame
-					// holding keyboard scope — see click-to-focus) narrows the pick to
-					// the instances inside it; focus on <body> wraps them all, which
-					// degenerates to the original most-recently-mounted rule.
 					const wrapped = mountedInstances.filter((el) => target.contains(el));
 					const pool = wrapped.length > 0 ? wrapped : mountedInstances;
 					if (pool[pool.length - 1] !== root) return;
@@ -645,13 +501,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			handleMultiToggle,
 		]);
 
-		// ── Keyboard navigation ──────────────────────────────────────
-		// Up/Down move the highlight between rows using the SAME indicator as
-		// mouse hover (activeIndex → bg-hover), so keyboard and pointer focus look
-		// identical. Left = Back, Right = Skip. We stopPropagation on the arrows we
-		// handle so the doc page's ←/→ page-change nav (a window listener) doesn't
-		// also fire — important for multi-select, whose container is role="group"
-		// (not "radiogroup") and so isn't auto-skipped by that handler.
 		const focusRow = (idx: number) => {
 			const el = rowsContainerRef.current?.querySelector(
 				`[data-fluid-hover-index="${idx}"]`,
@@ -662,8 +511,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 		const moveActive = useCallback(
 			(next: number) => {
 				setActiveIndex(next);
-				// The Other row is a text field — focus the input directly so typing
-				// works; everything else focuses the row for Enter/Space selection.
 				if (allowOther && next === otherIndex) otherInputRef.current?.focus();
 				else focusRow(next);
 			},
@@ -677,36 +524,17 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 				target.tagName === "TEXTAREA" ||
 				target.isContentEditable;
 
-			// Inside the Other text field, ←/→ and Home/End move the caret natively.
-			// ↑/↓ are dual-purpose in the textarea: when the caret has more lines
-			// to move to in that direction (there's a \n before/after it), let the
-			// browser handle native caret movement; only steal the keystroke to
-			// navigate to an adjacent option row when the caret is already at the
-			// first / last line — otherwise the user can't edit a multi-line draft
-			// without focus jumping out of the field.
 			if (isTextInput && e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
 			if (
 				isTextInput &&
 				(e.key === "ArrowUp" || e.key === "ArrowDown") &&
 				target.tagName === "TEXTAREA"
 			) {
-				// Position-bounds check — works for BOTH explicit `\n` AND visual
-				// line wraps. Only steal the key when the caret has nowhere left
-				// to go inside the textarea: ArrowUp at the very start, or
-				// ArrowDown at the very end. Anywhere else, let the textarea
-				// handle native caret movement (line-by-line up/down, including
-				// through wrapped lines without `\n`).
 				const ta = target as HTMLTextAreaElement;
 				if (e.key === "ArrowUp" && ta.selectionStart > 0) return;
 				if (e.key === "ArrowDown" && ta.selectionEnd < ta.value.length) return;
 			}
 
-			// Our keydown handler and Base UI's RadioGroup composite are merged onto
-			// the SAME rows container (via the primitive's render prop), and the
-			// composite's roving focus targets the hidden sr-only radios. Base UI
-			// runs our (external) handler first and skips its own when we call
-			// preventBaseUIHandler — without it, every arrow press would land focus
-			// on an invisible control right after we move it to the next row.
 			const preventBaseUI = (
 				e as unknown as { preventBaseUIHandler?: () => void }
 			).preventBaseUIHandler;
@@ -719,8 +547,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 					if (safeIndex > 0) handleBack();
 				} else if (isSkippable && total > 1) {
 					if (isLast) {
-						// Last question: → submits (mirrors the submit button — needs an
-						// answer, same as the button's disabled state).
 						if (isFreeText) {
 							if (otherText.trim().length > 0) handleOtherSubmit();
 						} else if (selectedIds.length > 0 || otherText.trim().length > 0) {
@@ -747,7 +573,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 				if (e.key === "Home") next = 0;
 				else if (e.key === "End") next = rowCount - 1;
 				else {
-					// When focus is in the Other field, treat it as the Other row.
 					const base = isTextInput ? otherIndex : (activeIndex ?? -1);
 					next = e.key === "ArrowDown" ? base + 1 : base - 1;
 					next = (next + rowCount) % rowCount;
@@ -756,18 +581,11 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			}
 		};
 
-		// Cmd+Enter (macOS) / Ctrl+Enter (Windows/Linux) commits a multi-select
-		// question, mirroring the Continue button. Handled at the root so it works
-		// wherever focus sits inside the card, and scoped to this instance because
-		// the event has to bubble up from a focused descendant (no global listener,
-		// so stacked demos don't all fire at once).
 		const handleRootKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
 			if (e.key !== "Enter") return;
 			const mod = isMac ? e.metaKey : e.ctrlKey;
-			// ⌘/⌃+Enter commits multi-select and freeText alike — both use the
-			// bottom submit button rather than an inline arrow.
 			if (!mod || !(isMulti || isFreeText)) return;
-			e.preventDefault(); // keep a focused button/row from also activating
+			e.preventDefault();
 			if (isFreeText) {
 				if (otherText.trim().length > 0) handleOtherSubmit();
 				return;
@@ -776,10 +594,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			if (hasAnswer) handleMultiNext();
 		};
 
-		// ── Selected-row grouping (merges contiguous selections) ─────
-		// Hoisted ABOVE the `!question` early return: hooks must run in the
-		// same order every render. All inputs have safe defaults when there
-		// is no question (options = [], allowOther = false, itemRects = []).
 		const selectedIndices = useMemo(() => {
 			const set = new Set<number>();
 			options.forEach((opt, i) => {
@@ -798,8 +612,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 				else runs.push({ start: idx, end: idx });
 			}
 
-			// Stable run IDs so a growing/shrinking run animates instead of
-			// exit+re-enter when neighbours flip.
 			const usedIds = new Set<number>();
 			const nextGroupMap = new Map<number, number>();
 			const groups = runs.map((run) => {
@@ -842,60 +654,20 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			);
 		}
 
-		// ── Layout calculations for hover/focus indicators ───────────
-		// focusedIndex comes from the rows container's onFocus (see rowsContent),
-		// set only when the focused row matches :focus-visible — so the blue
-		// morphing ring tracks keyboard focus across option rows. It is
-		// intentionally suppressed for the Other field: that row has its own
-		// input-field treatment (the "type here" hint when empty, the merged
-		// selected bg once it has text), so the ring is redundant there and reads
-		// as noise while typing. focusedIndex is still tracked for the hint and
-		// submit-arrow visibility — we just don't draw a ring around it.
 		const focusRect =
 			focusedIndex !== null && !(allowOther && focusedIndex === otherIndex)
 				? itemRects[focusedIndex]
 				: null;
 
-		// ── Selected-row grouping (merges contiguous selections) ─────
-		// Mirrors the CheckboxGroup pattern: contiguous selected indices
-		// collapse into a single rounded background block; stable IDs let
-		// framer-motion morph block size/position when neighbours toggle.
-		// The Other row gets its own input-field-style indicator (see below) and
-		// is intentionally excluded here so it doesn't merge into a contiguous
-		// bg-accent block with adjacent selected options.
-		// Selected backgrounds (blocks) render with the merge/split boundary
-		// animation computed above.
 		const showBack = total > 1 && safeIndex > 0;
-		// Skip moves PAST a question; the last question has nothing after it, so
-		// it shows the submit button (Finish/Submit) instead of Skip.
 		const showSkip = !isLast && total > 1 && isSkippable;
-		// freeText and multi-select always commit through a bottom submit button;
-		// the last question gets one too (single-select included).
 		const showSubmit = !disabled && (isMulti || isFreeText || isLast);
 		const showFooter = showBack || showSkip || showSubmit;
 
-		// ── Roving tabindex ──────────────────────────────────────────
-		// One tab stop for the whole group, single- AND multi-select alike: the
-		// first selected row, or — when the question is unanswered — the first
-		// row, so the group stays keyboard-reachable (the hasSelection-style
-		// fallback from registry/base). Arrows handle row-to-row movement; Tab
-		// moves on past the group. The Other row never takes the stop — its
-		// textarea is natively focusable on its own.
 		const firstSelectedRow = options.findIndex((opt, i) =>
 			selectedIds.includes(optionKey(opt, i)),
 		);
 
-		// ── Option rows ──────────────────────────────────────────────
-		// The rows container is handed to a Base UI group primitive via `render`
-		// (Radio.Group for single-select, Checkbox.Group for multi-select — see
-		// the JSX below), so group semantics and selection plumbing come from
-		// Base UI while the rows keep their custom fluid-hover treatment.
-		// Each option Row hosts a hidden sr-only Radio/Checkbox primitive; the
-		// visible wrapper carries role/aria-checked. CAUTION: every keyboard-nav
-		// query in here is scoped to [data-fluid-hover-index] — a bare
-		// [role="radio"] / [role="checkbox"] selector would ALSO match the hidden
-		// primitive inside each row (two hits per row) and land arrow-key focus
-		// on invisible controls.
 		const rowsContent = (
 			<div
 				ref={rowsContainerRef}
@@ -906,11 +678,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 				onMouseLeave={handlers.onMouseLeave}
 				onClick={handlers.onClick}
 				onFocus={(e) => {
-					// Track focus at the container (React's onFocus is focusin, so row
-					// and Other-textarea focus both bubble here). activeIndex mirrors
-					// the hover highlight onto the focused row; focusedIndex feeds the
-					// morphing blue ring, gated to keyboard focus via :focus-visible —
-					// mouse clicks focus rows without drawing the ring.
 					const indexAttr = (e.target as HTMLElement)
 						.closest("[data-fluid-hover-index]")
 						?.getAttribute("data-fluid-hover-index");
@@ -926,9 +693,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 					}
 				}}
 				onBlur={(e) => {
-					// Only clear when focus leaves the whole group — row-to-row moves
-					// keep the indicators mounted so they morph instead of exiting and
-					// re-entering.
 					if (rowsContainerRef.current?.contains(e.relatedTarget as Node))
 						return;
 					setFocusedIndex(null);
@@ -937,11 +701,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 				onKeyDown={handleNavKey}
 				className="relative -mx-3 flex flex-col gap-0.5"
 			>
-				{/* Other-row input hint — shown only when the Other input is
-            focused and still empty, to signal "type here". As soon as
-            text exists, the row joins selectedIndices and inherits the
-            selected merged bg, so it visually integrates with adjacent
-            selected options instead of looking like a standalone field. */}
 				<AnimatePresence>
 					{(() => {
 						if (!allowOther) return null;
@@ -981,21 +740,10 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 					})()}
 				</AnimatePresence>
 
-				{/* Single morphing hover indicator (rendered below selected bg
-            so a hovered+selected row still reads as clearly selected) */}
 				<FluidHoverHighlight hover={hover} className={shape.bg} />
 
-				{/* Selected-row backgrounds (merged for contiguous selections).
-            A run is normally one block; mid merge/split it is drawn as two
-            abutting halves — see useMergeSplitBlocks. Uses bg-active
-            (overlay-aware) and renders ABOVE the hover indicator so the
-            selected state stays readable when mousing over a row. Corners
-            are driven numerically (around shape.bg's radius) so a single
-            selected row matches its hover. */}
 				<SelectionBackgrounds blocks={blocks} />
 
-				{/* Single morphing focus ring — fed by the container onFocus above,
-            so keyboard focus on any option row draws it. */}
 				<AnimatePresence>
 					{focusRect && (
 						<motion.div
@@ -1039,8 +787,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 							registerItem={registerItem}
 							role={isMulti ? "checkbox" : "radio"}
 							isSelected={isSelected}
-							// Roving tabindex — see firstSelectedRow above. Multi-select
-							// no longer puts a tab stop on every row.
 							tabIndex={
 								i === firstSelectedRow || (firstSelectedRow === -1 && i === 0)
 									? 0
@@ -1050,8 +796,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 								isMulti ? handleMultiToggle(oid) : handleSingleSelect(oid)
 							}
 							onKeyDown={(e) => {
-								// Let ⌘/Ctrl+Enter fall through to the root handler
-								// (Continue) instead of toggling the focused row.
 								if (
 									(e.key === " " || e.key === "Enter") &&
 									!e.metaKey &&
@@ -1070,19 +814,11 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 							disabled={disabled}
 							showArrow={!disabled && showArrow}
 							bodyLayout={question.layout === "stacked" ? "stacked" : "inline"}
-							// Anchor the chip to the first text line whenever the
-							// body can wrap to multiple lines (stacked layouts
-							// pair a title with a description that often wraps).
 							topAlign={question.layout === "stacked"}
 							chipPosition={question.chipPosition ?? "right"}
 							arrowIcon={
 								<ArrowRight size={14} strokeWidth={2} className="h-3.5 w-3.5" />
 							}
-							// Hidden Base UI primitive (sr-only): carries the group's
-							// selection plumbing while the visible row wrapper handles
-							// all interaction and styling. aria-hidden + tabIndex -1 keep
-							// it out of the a11y tree and the tab order — the row itself
-							// is the radio/checkbox as far as AT is concerned.
 							hiddenControl={
 								isMulti ? (
 									<CheckboxPrimitive.Root
@@ -1182,10 +918,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 						chipFilled={otherText.length > 0}
 						isMulti={isMulti}
 						disabled={disabled}
-						// Other body is a textarea that may grow past one line;
-						// only switch to top-aligned when it actually wraps, so
-						// the 1-line empty / single-line state stays visually
-						// centred like the surrounding option rows.
 						topAlign={isOtherMultiline}
 						chipPosition={question.chipPosition ?? "right"}
 						ariaLabel={
@@ -1224,16 +956,8 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 								}
 								onChange={(e) => handleOtherChange(e.target.value)}
 								onKeyDown={(e) => {
-									// Standard chat pattern: plain Enter submits,
-									// Shift+Enter inserts a newline. Works for both
-									// desktop and mobile soft keyboards (where ⌘/⌃
-									// isn't reachable). In multi-select we leave plain
-									// Enter to the textarea (newline) and let the
-									// root handler catch ⌘/⌃+Enter for Continue —
-									// multi-select has its own Continue button as the
-									// primary submit affordance.
 									if (e.key !== "Enter") return;
-									if (e.shiftKey) return; // Shift+Enter = newline
+									if (e.shiftKey) return;
 									if (!isMulti) {
 										e.preventDefault();
 										handleOtherSubmit();
@@ -1241,11 +965,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 								}}
 								onClick={(e) => e.stopPropagation()}
 								className={cn(
-									// Reset every textarea default that would otherwise
-									// make the field taller/boxier than the single-line
-									// input it replaces — no border, no padding, no
-									// resize handle, no scrollbars (height is JS-driven,
-									// see the auto-resize effect above).
 									"col-start-1 row-start-1 m-0 block w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-foreground leading-snug outline-none placeholder:text-muted-foreground",
 									sizeClasses.text,
 								)}
@@ -1267,12 +986,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 							node;
 				}}
 				className={cn(
-					// overflow-hidden crops the footer buttons to the card's rounded
-					// bounds, so a button animating out (e.g. Continue on exit) is
-					// clipped at the edge instead of visibly flying outside the card.
 					"relative w-full overflow-hidden border border-border bg-card",
-					// Previously capped at max-w-[520px]; dropped so callers can size it
-					// up (e.g. max-w-full) via className.
 					shape.container,
 					className,
 				)}
@@ -1282,14 +996,9 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 					handleRootKey(e);
 				}}
 			>
-				{/* Header — static top, fixed across questions; only the number
-            changes. Lives outside the morphing region so it never shifts. */}
 				<div
 					className={cn(
 						"flex items-center text-muted-foreground",
-						// The card's outer padding drops a notch at compact. px-3.5 is the
-						// floor: the option rows bleed by -mx-3, so anything tighter puts
-						// their hover background flush against the card edge.
 						compact
 							? "px-3.5 pt-2.5 pb-1.5 text-[11px] sm:px-4 sm:pt-3"
 							: "px-4 pt-3.5 pb-2 text-[12px] sm:px-5 sm:pt-4",
@@ -1300,23 +1009,7 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 					</span>
 				</div>
 
-				{/* Field context for freeText validation — one Base UI Field spans
-            both the textarea (Field.Control, in the morphing region) and the
-            footer error (Field.Error), which is how the two get auto-wired:
-            the error's generated id lands in the textarea's aria-describedby,
-            and `invalid` drives its aria-invalid. Validation itself stays
-            submit-time in handleOtherSubmit (freeTextValidate runs on
-            ⌘/⌃+Enter or the submit button and blocks navigation), so the
-            Field is driven declaratively via `invalid`. display: contents
-            keeps this wrapper out of layout, and it renders for every
-            question mode so the card's DOM shape stays stable across
-            question types. */}
 				<Field.Root invalid={freeTextError !== null} className="contents">
-					{/* Morphing Q/A region — its REAL height animates to the measured
-              natural height of the content below, so the card border and the
-              footer reflow in lockstep with the spring. overflow-hidden clips
-              the instantly-swapped content, revealing it as the height opens.
-              Header and footer sit outside, so neither is clipped or yanked. */}
 					<motion.div
 						animate={{ height: contentHeight }}
 						initial={false}
@@ -1335,7 +1028,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 							)}
 						>
 							<div key={qId} className="flex flex-col gap-2">
-								{/* Question title */}
 								<h3
 									id={`${reactId}-${qId}-title`}
 									className="text-[16px] text-foreground leading-snug"
@@ -1344,58 +1036,24 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 									{question.title}
 								</h3>
 
-								{/* freeText: a single open-ended textarea is the whole answer —
-                  no option rows, no chips. It auto-focuses (see the freeText
-                  effect) and commits via ⌘/⌃+Enter or the bottom submit
-                  button. The field auto-resizes via the shared resize effect
-                  (otherInputRef), and its value is stored in `otherText`. */}
 								{isFreeText ? (
-									// The min-height lives on the CONTAINER, not the textarea: the
-									// shared auto-resize effect drives the textarea's `height`
-									// explicitly (1 line → grows as it wraps), so a min-height on
-									// the field itself fights that and mis-measures. The box gives
-									// the field a few lines of presence at rest; clicking anywhere
-									// in it focuses the caret.
 									<div
 										onClick={() => otherInputRef.current?.focus()}
 										className={cn(
-											// Negative margin + the px token mirrors the option rows /
-											// "Something else" field: the box bleeds each side by the
-											// same amount the rows pad (so its fill spans the same
-											// width as the hover/selected backgrounds) while the text
-											// starts at the content edge, aligned with the option
-											// titles and the question heading.
 											"relative mt-1 cursor-text transition-colors",
 											compact ? "-mx-2.5 py-2" : "-mx-3 py-2.5",
 											sizeClasses.px,
-											// Resting height: a few lines for multi-line, one row for
-											// single-line. The textarea still auto-resizes above this
-											// floor as content wraps.
 											isFreeTextMultiline
 												? "min-h-[76px]"
 												: compact
 													? "min-h-8"
 													: "min-h-10",
 											shape.bg,
-											// Mirror the "Something else" field instead of a blue focus
-											// ring. Empty + at rest: no border, fully quiet. Hover
-											// lightens with bg-hover; focus shows the bg-card + border
-											// hint. Once it has text it fills with the same bg-active
-											// overlay the selected option rows use (focus-within comes
-											// after hover in the cascade, so focusing wins over hovering).
 											otherText.length > 0
 												? "bg-active"
 												: "focus-within:bg-card focus-within:ring-1 focus-within:ring-border focus-within:ring-inset hover:bg-hover",
 										)}
 									>
-										{/* Base UI Field.Control wires the textarea into the Field:
-                      the footer Field.Error's generated id lands in this
-                      element's aria-describedby, and Field.Root's `invalid`
-                      drives aria-invalid — the association the previous bare
-                      <textarea> + <p role="alert"> pairing never made. Value
-                      flows through onValueChange into the same
-                      handleOtherChange path; all visual props live on the
-                      rendered textarea. */}
 										<Field.Control
 											value={otherText}
 											onValueChange={handleOtherChange}
@@ -1409,10 +1067,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 													}
 													aria-labelledby={`${reactId}-${qId}-title`}
 													onKeyDown={(e) => {
-														// Multi-line: plain Enter is a newline; ⌘/⌃+Enter
-														// submits (caught by the root handler). Single-line:
-														// plain Enter submits like an input, so a newline is
-														// never inserted.
 														if (e.key !== "Enter") return;
 														if (e.shiftKey || e.metaKey || e.ctrlKey) return;
 														if (!isFreeTextMultiline) {
@@ -1430,23 +1084,12 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 										/>
 									</div>
 								) : isMulti ? (
-									// Multi-select: Base UI Checkbox.Group supplies group state to
-									// the hidden per-row checkbox primitives, rendered onto the
-									// rows container itself (see rowsContent above) so the DOM
-									// stays one flat container the absolute overlays can measure.
 									<CheckboxGroupPrimitive
 										value={selectedIds}
 										onValueChange={handleGroupValueChange}
 										render={rowsContent}
 									/>
 								) : (
-									// Single-select: Base UI Radio.Group, same render-onto-the-
-									// container trick. `null` (not undefined) when unanswered keeps
-									// the group controlled from the first render. onValueChange
-									// routes hidden-primitive selection through the same
-									// handleSingleSelect path as row clicks — the two never
-									// double-fire, since clicking a row doesn't click its sr-only
-									// child.
 									<RadioGroupPrimitive
 										value={selectedIds[0] ?? null}
 										onValueChange={(value) => {
@@ -1459,10 +1102,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 						</div>
 					</motion.div>
 
-					{/* Footer — outside the morphing region, so the animating height never
-              clips it. Because the height is a real layout value (not a
-              transform), the footer reflows frame-by-frame and rides the morph
-              in lockstep. */}
 					{showFooter && (
 						<div
 							className={cn(
@@ -1471,16 +1110,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 							)}
 						>
 							<div className="-mx-2 flex items-center justify-between gap-2 sm:-mx-3">
-								{/* Each button is wrapped in a motion.div so it fades + scales
-                    when it appears/disappears (e.g. Continue on multi-select).
-                    popLayout pops the exiting button out of flow so its
-                    neighbours slide to their new spot *at the same time* it fades
-                    (not sequentially). The group is `relative` so the popped
-                    (absolutely positioned) button stays put instead of flying to
-                    the page origin. */}
-								{/* Left cluster: Back, then any validation error. flex-1 so the
-                    error fills the row up to the right-hand buttons; min-w-0 lets
-                    a long message wrap instead of overflowing. */}
 								<div className="relative flex min-w-0 flex-1 items-center gap-2">
 									<AnimatePresence mode="popLayout" initial={false}>
 										{showBack && (
@@ -1495,15 +1124,11 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 													opacity: { duration: 0.1 },
 												}}
 											>
-												{/* Bare ← icon via the Button's icon slot, so it gets the
-                            proper tighter icon-side padding. */}
 												<Button
 													variant="ghost"
 													size="sm"
 													leadingIcon={ArrowLeftKey}
 													onClick={handleBack}
-													// Arrow is desktop-only; restore symmetric padding on
-													// mobile where it's hidden, tighten for the icon on ≥sm.
 													className="pl-3 sm:pl-[6px]"
 												>
 													Back
@@ -1511,15 +1136,6 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 											</motion.div>
 										)}
 									</AnimatePresence>
-									{/* Validation error — left-aligned at the content edge (the
-                      px-2/sm:px-3 cancels the row's -mx), or just after Back when
-                      present. Conditionally rendered (no exit animation) so
-                      clearing it on edit removes the node immediately instead of
-                      leaving an invisible spacer. Rendered through Base UI
-                      Field.Error so its generated id is registered on the Field
-                      and auto-appears in the textarea's aria-describedby;
-                      `match` pins it visible while our submit-time validation
-                      (handleOtherSubmit) has an error standing. */}
 									{freeTextError && (
 										<Field.Error
 											key="ft-error"
@@ -1555,14 +1171,11 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 													opacity: { duration: 0.1 },
 												}}
 											>
-												{/* Bare → icon via the Button's icon slot (mirror of Back). */}
 												<Button
 													variant="ghost"
 													size="sm"
 													trailingIcon={ArrowRightKey}
 													onClick={handleSkip}
-													// Arrow is desktop-only; restore symmetric padding on
-													// mobile where it's hidden, tighten for the icon on ≥sm.
 													className="pr-3 sm:pr-[6px]"
 												>
 													{skipLabel}
@@ -1593,19 +1206,11 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 															: selectedIds.length === 0 &&
 																otherText.trim().length === 0
 													}
-													// The shortcut chip acts as a trailing icon, so tighten
-													// the right padding to match the Button's iconRight on
-													// desktop. The chip is hidden on mobile, so restore
-													// symmetric padding there.
 													className="pr-3 sm:pr-[6px]"
 												>
 													<span className="inline-flex items-center gap-1.5">
 														{question.nextLabel ??
 															(safeIndex >= total - 1 ? "Finish" : "Continue")}
-														{/* Shortcut hint — replaces the trailing arrow. Sits
-                                inside the button so it dims with the disabled
-                                state. ⌘↵ on macOS, ⌃↵ elsewhere. Desktop-only:
-                                mobile has no physical keyboard to trigger it. */}
 														<span className="hidden sm:contents">
 															<ShortcutChip shape={shape} tone="inverted">
 																{isMac ? "⌘" : "⌃"}
@@ -1625,21 +1230,12 @@ const AskUserQuestions = forwardRef<HTMLDivElement, AskUserQuestionsProps>(
 			</div>
 		);
 
-		// A size prop pins the whole flow (rows, chips, footer) to one ladder
-		// step; otherwise it follows the surrounding SizeProvider.
 		return size ? <SizeProvider size={size}>{root}</SizeProvider> : root;
 	},
 );
 
 AskUserQuestions.displayName = "AskUserQuestions";
 
-// ── Shortcut chip ─────────────────────────────────────────────
-// Small keycap showing the keyboard shortcut for an action, so Back (←),
-// Skip (→) and Continue (⌘↵ / ⌃↵) all read consistently. `tone="inverted"`
-// sits on the dark primary button; the default reads on quiet ghost buttons.
-// suppressHydrationWarning: the ⌘/⌃ glyph is platform-detected in a lazy
-// initializer (see isMac), so the server always renders ⌃ while a Mac client
-// renders ⌘ — a benign one-character text mismatch on hydration.
 function ShortcutChip({
 	children,
 	tone = "muted",
@@ -1666,8 +1262,6 @@ function ShortcutChip({
 	);
 }
 
-// ── Row sub-component ─────────────────────────────────────────
-
 interface RowProps {
 	index: number;
 	registerItem: (index: number, element: HTMLElement | null) => void;
@@ -1685,26 +1279,10 @@ interface RowProps {
 	showArrow?: boolean;
 	arrowIcon?: React.ReactNode;
 	onArrowClick?: () => void;
-	/** Body content layout. "inline" keeps title + description on one line;
-	 *  "stacked" puts description below the title with extra vertical padding. */
 	bodyLayout?: "inline" | "stacked";
-	/** Anchor the chip to the first line of the body instead of vertically
-	 *  centering it on the row. Use when the body can grow taller than one
-	 *  line (Other row's textarea, stacked title + description, or any
-	 *  wrapping content) — otherwise the chip drifts toward the middle of a
-	 *  tall row and stops reading as a marker for the row's title. */
 	topAlign?: boolean;
-	/** Mirrors the per-question `chipPosition`. "left" moves the chip to
-	 *  the leading edge of the row; the trailing arrow slot still sits on
-	 *  the right. Defaults to "right". */
 	chipPosition?: "left" | "right";
-	/** Read-only review mode: row is not focusable, not clickable and shows
-	 *  no submit affordances. */
 	disabled?: boolean;
-	/** Hidden sr-only Base UI Radio/Checkbox primitive that binds the row to
-	 *  its Radio.Group / Checkbox.Group parent. Kept out of the a11y tree
-	 *  (aria-hidden) and the tab order (tabIndex -1) — the visible wrapper is
-	 *  the radio/checkbox as far as AT and keyboard users are concerned. */
 	hiddenControl?: React.ReactNode;
 	children: React.ReactNode;
 }
@@ -1739,9 +1317,6 @@ function Row({
 
 	useRegisterFluidHoverItem(registerItem, index, rowRef);
 
-	// The arrow keeps the same animation regardless of which slot it lands
-	// in — pull it out so the chip-on-right (overlay) and chip-on-left
-	// (separate right slot) paths can reuse the exact same element.
 	const arrowOverlay = (
 		<AnimatePresence>
 			{showArrow && (
@@ -1779,18 +1354,6 @@ function Row({
 		</AnimatePresence>
 	);
 
-	// The chip "slot" is a fixed 28×28 cell holding the chip number/circle.
-	// When topAlign is on, the slot floats up so the chip's vertical centre
-	// lines up with the centre of a `text-[13px] leading-snug` first line
-	// (line-height ≈ 18px → centre 9px; chip centre 14px → diff 5px).
-	// Stacked rows pair a title with a description, so we add 4px of
-	// breathing room back on top (effective shift -1px) — that lands the
-	// chip near the title's baseline rather than its optical centre, which
-	// reads as "row marker" instead of "title label" when descriptions wrap.
-	// The arrow overlay only co-renders here when `chipPosition === "right"`
-	// — in chip-on-left mode the arrow has its own right-edge slot so the
-	// chip stays visible while the submit affordance lives where users
-	// expect it (the trailing end of the row).
 	const chipSlot = (
 		<span
 			className={cn(
@@ -1812,9 +1375,6 @@ function Row({
 						: chipFilled
 							? "text-foreground"
 							: "text-muted-foreground",
-					// Only fade the chip when it shares a slot with the arrow — for
-					// chip-on-left the arrow has its own slot on the right, so the
-					// chip stays in place.
 					chipPosition === "right" && showArrow && "opacity-0",
 				)}
 				style={{
@@ -1829,11 +1389,6 @@ function Row({
 		</span>
 	);
 
-	// Right-edge arrow slot — only used when the chip is on the LEFT and
-	// the row can show an arrow (single-select only; in multi-select
-	// showArrow is always false and there's nothing to anchor here). Mirrors
-	// the chip slot's stacked-vs-inline shift so both end markers stay on
-	// the same horizontal line at all times.
 	const rightArrowSlot = chipPosition === "left" && !isMulti && (
 		<span
 			className={cn(
@@ -1863,20 +1418,11 @@ function Row({
 				disabled
 					? undefined
 					: (e) => {
-							// A click landing on the hidden sr-only primitive would natively
-							// focus it (nearest focusable ancestor of the click target), after
-							// which keyboard nav dead-zones on an invisible control. Prevent the
-							// native focus move (click still fires) and land focus on the row
-							// instead. Skip genuinely interactive children — the Other row's
-							// textarea must keep taking focus from clicks.
 							const interactive = (e.target as HTMLElement).closest(
 								'button:not([tabindex="-1"]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
 							);
 							if (interactive && interactive !== e.currentTarget) return;
 							e.preventDefault();
-							// Flag the redirect so the rows container's onFocus knows this focus
-							// came from a pointer, not the keyboard — the browser can't tell
-							// (script focus() reads as :focus-visible) and would draw the ring.
 							pointerFocusRedirect = true;
 							try {
 								e.currentTarget.focus();
@@ -1890,16 +1436,7 @@ function Row({
 			className={cn(
 				"relative z-10 flex select-none outline-none",
 				disabled ? "cursor-default opacity-60" : "cursor-pointer",
-				// Tighter gap when the chip sits on the left — it reads as a
-				// leading list marker, so coupling it close to the title looks
-				// more intentional than the larger right-side gap (where the
-				// chip is a trailing affordance instead).
 				chipPosition === "left" ? "gap-2" : "gap-3",
-				// items-start when the body may exceed one line (stacked layouts,
-				// multi-line textareas) so the chip tracks the first line instead
-				// of sliding to the row's vertical centre. When topAlign is OFF,
-				// items-center keeps a 1-line row visually centred — that's why
-				// the Other row defers topAlign until its textarea actually wraps.
 				topAlign ? "items-start" : "items-center",
 				bodyLayout === "stacked"
 					? compact
@@ -1908,10 +1445,6 @@ function Row({
 					: compact
 						? "min-h-8 py-1"
 						: "min-h-10 py-1.5",
-				// Mirror the horizontal padding based on chip side so the row
-				// reads visually balanced in both orientations. For chip-on-left
-				// + multi-select there's no right slot, so widen the right padding
-				// to match the chip-on-right's 12px / 6px asymmetry mirrored.
 				chipPosition === "left"
 					? isMulti
 						? "pr-3 pl-1.5"
@@ -1920,13 +1453,8 @@ function Row({
 				shape.item,
 			)}
 		>
-			{/* Selected background is drawn at the container level so contiguous
-          selections can merge into a single block (see AskUserQuestions's
-          selectedGroups / merged-bg block). Row keeps z-10 to sit above it. */}
-
 			{chipPosition === "left" && chipSlot}
 
-			{/* Body — fills row */}
 			<span
 				className={cn(
 					"min-w-0 flex-1 leading-snug",
@@ -1941,8 +1469,6 @@ function Row({
 
 			{chipPosition === "right" ? chipSlot : rightArrowSlot}
 
-			{/* Hidden Base UI Radio/Checkbox primitive (see RowProps) — rendered
-          last so it never disturbs the flex layout of chip/body/arrow. */}
 			{hiddenControl}
 		</div>
 	);

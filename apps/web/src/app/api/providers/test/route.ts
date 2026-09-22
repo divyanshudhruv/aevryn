@@ -8,8 +8,6 @@ import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Test message streams the configured provider; a cold model hop can exceed
-// the default 10s cap.
 export const maxDuration = 120;
 
 const userDataService = new UserDataService();

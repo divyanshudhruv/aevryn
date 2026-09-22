@@ -30,56 +30,27 @@ import {
 	useRef,
 } from "react";
 
-// ---------------------------------------------------------------------------
-// Card is shadcn/ui's compositional card — the same parts and `data-slot`
-// contract (Card, CardHeader, CardTitle, CardDescription, CardAction,
-// CardContent, CardFooter) — with the Fluid Functionalism layer on top:
-// design tokens, a weight-animated title, and a sibling CardGroup that owns
-// layout (stacked list, inline rows, or grid) plus the magnetic fluid hover
-// highlight that previews where a click will land.
-//
-// Unlike stock shadcn, the surface is transparent and borderless by default:
-// cards inherit whatever substrate their parent provides (see the Surfaces
-// system) and lean on hairline dividers / the fluid hover highlight rather than
-// a drawn frame. A Card renders fine on its own; inside a CardGroup it
-// registers itself so the group's highlight can find it.
-// ---------------------------------------------------------------------------
-
 type CardOrientation = "card" | "inline";
 type CardBorder = "none" | "outlined";
-
-// ── Group context ────────────────────────────────────────
 
 interface CardGroupContextValue {
 	registerItem: (index: number, element: HTMLElement | null) => void;
 	activeIndex: number | null;
-	/** Index of the persistently-selected card, or -1. Its neighbours drop the
-	 *  hairline that would otherwise cut across the selection fill. */
 	selectedIndex: number;
 	orientation: CardOrientation;
 	columns: number;
 	count: number;
-	/** Individual cards carry their own border/tile shape (separated grids). */
 	separated: boolean;
-	/** Inner hairline dividers are drawn between adjacent cards. */
 	divided: boolean;
 	outlined: boolean;
 }
 
 const CardGroupContext = createContext<CardGroupContextValue | null>(null);
 
-// ── Per-card context ─────────────────────────────────────
-// Lets the compositional parts (title, header, footer…) adapt to the card
-// they're inside without threading props: the title reads `emphasized` to
-// animate its weight; parts read `orientation` to switch padding/flow.
-
 interface CardContextValue {
 	emphasized: boolean;
 	orientation: CardOrientation;
 	clickable: boolean;
-	/** An inline card holding a full CardImage centres its text + actions in a
-	 *  column beside the image, so the footer drops below the text (hugged and
-	 *  vertically centred) instead of trailing to the right. */
 	hasImage: boolean;
 }
 
@@ -90,26 +61,12 @@ const CardContext = createContext<CardContextValue>({
 	hasImage: false,
 });
 
-// ── CardGroup ────────────────────────────────────────────
-
 interface CardGroupProps
 	extends Omit<HTMLAttributes<HTMLDivElement>, "onDrag"> {
-	/** How each card lays its own content out.
-	 *  "card" — stacked vertically (media/header on top). "inline" — a
-	 *  horizontal row (leading media, trailing footer), like a Table row.
-	 *  @default "card" */
 	orientation?: CardOrientation;
-	/** Number of grid columns. >1 enables 2-D fluid hover across rows and columns.
-	 *  @default 1 */
 	columns?: number;
-	/** "none" — borderless (default), separated only by subtle dividers.
-	 *  "outlined" — draws a border: one shared frame when grouped, or one per
-	 *  card when `separated`. @default "none" */
 	border?: CardBorder;
-	/** Split the group into individually-shaped cards with a gap between them
-	 *  (a grid of tiles) instead of one continuous divided block. @default false */
 	separated?: boolean;
-	/** Enable the magnetic fluid-hover highlight. @default true */
 	fluidHover?: boolean;
 }
 
@@ -130,26 +87,18 @@ const CardGroup = forwardRef<HTMLDivElement, CardGroupProps>(
 		const containerRef = useRef<HTMLDivElement>(null);
 		const shape = useShape();
 
-		// >1 column wraps into a grid, where nearest-item must be resolved in two
-		// dimensions; a single column is a plain vertical list.
 		const axis = columns > 1 ? "xy" : "y";
-		// A card grid has generous whitespace, so a gap click only routes when it
-		// lands within a hand's width of the highlighted card.
 		const hover = useFluidHover(containerRef, {
 			axis,
 			gapClick: { maxDistance: 16 },
 		});
 		const { activeIndex, handlers, registerItem } = hover;
 
-		// Assign each valid child a stable fluid hover index so callers never thread
-		// one through by hand (Table asks for it; here the group owns it).
 		const childArray = Children.toArray(children).filter(isValidElement);
 		const count = childArray.length;
 		const indexed = childArray.map((child, i) =>
 			cloneElement(child as ReactElement<{ index?: number }>, { index: i }),
 		);
-		// Which card is selected — so its neighbours can drop the divider that
-		// would otherwise slice through the selection fill.
 		const selectedIndex = childArray.findIndex(
 			(child) => (child.props as { selected?: boolean }).selected,
 		);
@@ -199,8 +148,6 @@ const CardGroup = forwardRef<HTMLDivElement, CardGroupProps>(
 					data-orientation={orientation}
 					className={cn(
 						"relative grid",
-						// A shared frame clips the highlight + dividers to its rounded
-						// corners; separated tiles clip themselves.
 						outlined &&
 							!separated &&
 							`overflow-hidden border border-border/60 ${shape.container}`,
@@ -219,8 +166,6 @@ const CardGroup = forwardRef<HTMLDivElement, CardGroupProps>(
 					onMouseLeave={fluidHover ? handlers.onMouseLeave : undefined}
 					onClick={fluidHover ? handlers.onClick : undefined}
 				>
-					{/* Fluid hover highlight — a single magnetic layer that springs to the
-              card nearest the cursor, previewing where a click will land. */}
 					<FluidHoverHighlight
 						hover={hover}
 						hidden={!fluidHover}
@@ -236,32 +181,17 @@ const CardGroup = forwardRef<HTMLDivElement, CardGroupProps>(
 
 CardGroup.displayName = "CardGroup";
 
-// ── Card ─────────────────────────────────────────────────
-
 interface CardProps extends Omit<HTMLAttributes<HTMLDivElement>, "onClick"> {
-	/** Makes the whole card an interactive target; fluid hover previews it.
-	 *  Renders a stretched link when `href` is set, else a stretched button. */
 	onClick?: () => void;
 	href?: string;
 	external?: boolean;
-	/** Accessible name for the stretched link/button when the whole card is
-	 *  clickable (the card's visible title isn't wired up automatically). */
 	label?: string;
-	/** Persistent selected state, on top of the transient fluid hover. */
 	selected?: boolean;
 	disabled?: boolean;
-	/** Shows a dismiss (✕) button in the corner. */
 	dismissible?: boolean;
-	/** Keep the dismiss control hidden until the card is hovered or holds
-	 *  focus — the default, so a permanent ✕ never competes with the content.
-	 *  Pass false for an always-visible control. @default true */
 	dismissOnHover?: boolean;
 	onDismiss?: () => void;
-	/** Pins the card to one step of the size ladder (see /docs/sizes) — compact
-	 *  tightens type and padding. Omitted, it follows the surrounding
-	 *  SizeProvider. */
 	size?: SizeVariant;
-	/** Injected by CardGroup — do not set by hand. */
 	index?: number;
 }
 
@@ -287,8 +217,6 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 	) => {
 		const internalRef = useRef<HTMLDivElement>(null);
 		const shape = useShape();
-		// Resolve against the explicit prop first so this card's own padding and
-		// gaps agree with the SizeProvider it renders for its children.
 		const sizeClasses = useSize(size);
 		const compact = sizeClasses.variant === "compact";
 		const group = useContext(CardGroupContext);
@@ -303,17 +231,9 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 		const activeIndex = group?.activeIndex ?? null;
 		const selectedIndex = group?.selectedIndex ?? -1;
 
-		// Depend on the stable registerItem callback, not the whole group context —
-		// the context object's identity changes on every hover/selection frame,
-		// which would otherwise re-register every card each frame.
-		// Only a card that can be clicked joins the highlight: a highlight on an
-		// informational card would promise a click that has nowhere to land.
 		const registerItem = href || onClick ? group?.registerItem : undefined;
 		useRegisterFluidHoverItem(registerItem, index, internalRef);
 
-		// Divider geometry: draw a hairline toward the neighbour below / to the
-		// right, but drop it next to the active OR selected card so the highlight
-		// and selection fill read clean (the same trick Table uses on row borders).
 		const col = index !== undefined ? index % columns : 0;
 		const hasBelow = index !== undefined && index + columns < count;
 		const hasRight =
@@ -331,10 +251,6 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 			!(touchesRight(activeIndex ?? -1) || touchesRight(selectedIndex));
 
 		const isInline = orientation === "inline";
-		// An inline card with a full-bleed image reflows so its actions stack under
-		// the text (see the body wrapper below + CardHeader/CardFooter). Match the
-		// image child by identity OR displayName so detection and the split below
-		// agree even when module identity drifts (e.g. HMR duplication).
 		const isCardImage = (child: ReactNode) =>
 			isValidElement(child) &&
 			(child.type === CardImage ||
@@ -342,26 +258,14 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 		const hasImage = Children.toArray(children).some(isCardImage);
 		const inlineImage = isInline && hasImage;
 		const clickable = !!href || !!onClick;
-		// Title weight follows the persistent selected state only — fluid hover
-		// previews via the highlight fill, not by bolding the label.
 		const emphasized = selected;
 
-		// A standalone card (no group) is its own tile — always rounded + clipped.
-		// Inside a group, a separated tile carries its own rounding + clip only when
-		// it draws a visible frame; a borderless separated tile has no surface to
-		// hug, so it stays unclipped and its media reads as a plain square, and a
-		// card in a continuous block leans on the shared group frame for both.
 		const tileShape = !group
 			? cn(shape.container, "overflow-hidden")
 			: separated && outlined
 				? cn(shape.container, "overflow-hidden border border-border/60")
 				: "";
 
-		// Stretched overlay makes the whole card the click target while keeping
-		// action buttons (higher z) independently clickable — the accessible
-		// alternative to nesting interactive elements inside a button/anchor. A
-		// disabled card drops the overlay entirely so it can't be tabbed to or
-		// activated by keyboard (pointer-events-none only blocks the mouse).
 		const overlay =
 			clickable && !disabled ? (
 				href ? (
@@ -389,9 +293,6 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 			[emphasized, orientation, clickable, hasImage],
 		);
 
-		// Inline image cards wrap their non-image parts in a centred column so the
-		// title, description, and actions hug together and sit vertically centred
-		// against the image instead of stretching to its full height.
 		let body: ReactNode = children;
 		if (inlineImage) {
 			const parts = Children.toArray(children);
@@ -432,26 +333,17 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 					className={cn(
 						"group/card relative z-10 min-h-[60px] min-w-0",
 						inlineImage
-							? // Image on the left; the text + actions ride in a centred
-								// column beside it (see the wrapper in the body below).
-								cn("flex flex-row items-center", compact ? "gap-2.5" : "gap-3")
+							? cn("flex flex-row items-center", compact ? "gap-2.5" : "gap-3")
 							: isInline
 								? cn(
 										"flex flex-row items-center",
 										compact ? "gap-2.5 pl-3" : "gap-3 pl-4",
 									)
 								: cn("flex flex-col", compact ? "pb-3" : "pb-4"),
-						// Standalone (no group) cards can't lean on the group highlight, so
-						// they carry their own hover tint when interactive.
 						!group &&
 							clickable &&
 							!disabled &&
 							"transition-colors duration-80 hover:bg-hover",
-						// Inline rows are single-line, so the corner dismiss would sit on
-						// the title's tail: the header yields right padding whenever the
-						// control is present — only while it's revealed in the on-hover
-						// case, so the resting text keeps the full row (the group-header
-						// gutter-swap pattern; instant, not transitioned).
 						dismissible &&
 							isInline &&
 							(dismissOnHover
@@ -463,10 +355,6 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 					)}
 					{...props}
 				>
-					{/* Persistent selected fill + dividers sit behind the static content
-              (-z-10); the stretched overlay (z-20) sits above content so the
-              whole card is clickable, and actions/dismiss (z-30) rise above the
-              overlay to stay independently interactive. */}
 					{selected && (
 						<span
 							aria-hidden
@@ -509,19 +397,9 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 							aria-label="Dismiss"
 							className={cn(
 								"absolute top-2 right-2 z-30 flex h-7 w-7 cursor-pointer items-center justify-center text-muted-foreground outline-none transition-colors duration-80 hover:text-foreground focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
-								// Over media the control needs its own ground, or the icon
-								// reads against whatever the image happens to be. Elsewhere
-								// the usual hover fill is enough. The chip takes the button
-								// radius either way.
 								hasImage
 									? "bg-card/70 backdrop-blur-sm hover:bg-card"
 									: "hover:bg-hover",
-								// Revealed on hover / focus. focus-visible covers the keyboard
-								// path, since the control is the only way to dismiss.
-								// pointer-events gates alongside opacity: an invisible
-								// control must not swallow taps meant for the card (touch has
-								// no hover to reveal it). Keyboard focus still reaches it —
-								// pointer-events never blocks tabbing.
 								dismissOnHover &&
 									"pointer-events-none opacity-0 transition-opacity duration-80 focus-visible:pointer-events-auto focus-visible:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100 group-hover/card:pointer-events-auto group-hover/card:opacity-100",
 								shape.button,
@@ -534,18 +412,11 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 			</CardContext.Provider>
 		);
 
-		// A size prop pins the card (and everything ladder-aware inside it) to one
-		// ladder step; the parts read the context.
 		return size ? <SizeProvider size={size}>{card}</SizeProvider> : card;
 	},
 );
 
 Card.displayName = "Card";
-
-// ── CardHeader ───────────────────────────────────────────
-// shadcn's header grid: title + description stack, with CardAction pinned to
-// the top-right column. In an inline card it becomes the flexible text column
-// between the leading media and trailing footer.
 
 const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 	({ className, ...props }, ref) => {
@@ -576,27 +447,13 @@ const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 
 CardHeader.displayName = "CardHeader";
 
-// ── CardTitle ────────────────────────────────────────────
-
 const CardTitle = forwardRef<HTMLSpanElement, HTMLAttributes<HTMLSpanElement>>(
 	({ className, children, ...props }, ref) => {
 		const { emphasized, orientation } = useContext(CardContext);
 		const sizeClasses = useSize();
 		const compact = sizeClasses.variant === "compact";
-		// Inline rows trim the title to cap height so it centres tightly against
-		// the media/actions; stacked cards keep the natural line box.
 		const trim =
 			orientation === "inline" ? "[text-box:trim-both_cap_alphabetic]" : "";
-		// Ghost-span pattern: an invisible semibold copy reserves the width so the
-		// resting→active weight animation never reflows the row.
-		//
-		// Truncation support: a consumer's `truncate` lands on this grid, whose
-		// text-overflow can't ellipsize (only a block's own line boxes can — grid
-		// children just clip). The nowrap it sets inherits into the cell spans,
-		// so giving those spans overflow-hidden + ellipsis renders the … there
-		// instead; minmax(0,1fr) clamps the implicit track to the clipped grid's
-		// width so the ellipsis falls inside the visible box. All of it is inert
-		// while titles wrap normally.
 		return (
 			<span
 				ref={ref}
@@ -624,8 +481,6 @@ const CardTitle = forwardRef<HTMLSpanElement, HTMLAttributes<HTMLSpanElement>>(
 						trim,
 					)}
 					style={{
-						// normal → semibold on emphasis, matching nav-item / menu-item /
-						// table (the opsz-paired tokens keep the advance width ~constant).
 						fontVariationSettings: emphasized
 							? fontWeights.semibold
 							: fontWeights.normal,
@@ -639,8 +494,6 @@ const CardTitle = forwardRef<HTMLSpanElement, HTMLAttributes<HTMLSpanElement>>(
 );
 
 CardTitle.displayName = "CardTitle";
-
-// ── CardDescription ──────────────────────────────────────
 
 const CardDescription = forwardRef<
 	HTMLParagraphElement,
@@ -664,10 +517,6 @@ const CardDescription = forwardRef<
 
 CardDescription.displayName = "CardDescription";
 
-// ── CardAction ───────────────────────────────────────────
-// Pinned to the header's top-right column (shadcn's slot). Sits above the
-// stretched overlay so any control inside stays independently clickable.
-
 const CardAction = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 	({ className, ...props }, ref) => (
 		<div
@@ -683,8 +532,6 @@ const CardAction = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 );
 
 CardAction.displayName = "CardAction";
-
-// ── CardContent ──────────────────────────────────────────
 
 const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 	({ className, ...props }, ref) => {
@@ -707,10 +554,6 @@ const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 
 CardContent.displayName = "CardContent";
 
-// ── CardFooter ───────────────────────────────────────────
-// Actions row. Rises above the stretched overlay (z-30) so buttons stay
-// clickable. In an inline card it becomes the trailing, right-aligned slot.
-
 const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 	({ className, ...props }, ref) => {
 		const { orientation, hasImage } = useContext(CardContext);
@@ -724,9 +567,7 @@ const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 				className={cn(
 					"relative z-30 flex items-center gap-1",
 					inlineImage
-						? // Under the text, left-aligned in natural order (the inline
-							// wrapper owns the spacing).
-							"flex-wrap"
+						? "flex-wrap"
 						: orientation === "inline"
 							? cn("ml-auto shrink-0", compact ? "pr-3" : "pr-4")
 							: cn("flex-wrap", compact ? "px-3 pt-2.5" : "px-4 pt-3"),
@@ -739,11 +580,6 @@ const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 );
 
 CardFooter.displayName = "CardFooter";
-
-// ── CardMedia ────────────────────────────────────────────
-// FF addition: a leading icon or brand logo(s). Not part of shadcn's anatomy,
-// but the connective tissue most product cards need. A tuple renders a
-// connected logo pair (e.g. a trigger — target).
 
 type CardLogo = string | [string, string];
 
@@ -766,9 +602,6 @@ function CardMedia({
 	const shape = useShape();
 	const sizeClasses = useSize();
 	const compact = sizeClasses.variant === "compact";
-	// Stacked: sits in the header grid; add an extra 8px so the gap below the
-	// icon reads 12px (header gap-1 + mb-2). Inline: leading slot — the card owns
-	// the left inset, so no extra padding here.
 	const wrap = cn(orientation === "inline" ? "" : "mb-2", className);
 
 	if (logo) {
@@ -781,7 +614,6 @@ function CardMedia({
 				{logos.map((src, i) => (
 					<span key={i} className="inline-flex items-center gap-1.5">
 						{i > 0 && <span aria-hidden className="h-px w-2 bg-border" />}
-						{/* eslint-disable-next-line @next/next/no-img-element */}
 						<img
 							src={src}
 							alt={logoAlt ?? ""}
@@ -796,9 +628,6 @@ function CardMedia({
 		);
 	}
 	if (Icon) {
-		// The icon sits in a 32×32 tinted tile so it reads as a media slot rather
-		// than a bare glyph. The tile is an overlay tint (not a solid surface) so it
-		// blends over whatever is behind it — the substrate or the hover highlight.
 		return (
 			<span
 				data-slot="card-media"
@@ -819,11 +648,6 @@ function CardMedia({
 	return null;
 }
 
-// ── CardImage ────────────────────────────────────────────
-// FF addition: the prominent, full-bleed image (distinct from a small logo).
-// Stacked → a top banner; inline → a full-height leading image on the left that
-// bleeds past the card's left inset to sit flush against the edge.
-
 interface CardImageProps {
 	src: string;
 	alt?: string;
@@ -838,9 +662,6 @@ function CardImage({ src, alt, className }: CardImageProps) {
 			src={src}
 			alt={alt ?? ""}
 			data-slot="card-image"
-			// The image keeps a fixed 2px corner radius in every state — stacked or
-			// inline, framed or borderless — rather than inheriting a frame's larger
-			// clip. (A framed tile still clips the surrounding surface as before.)
 			className={cn(
 				"rounded-[2px] object-cover",
 				orientation === "inline" ? "size-40 shrink-0" : "aspect-[16/9] w-full",
@@ -850,13 +671,7 @@ function CardImage({ src, alt, className }: CardImageProps) {
 	);
 }
 
-// A stable marker so the Card can recognise an image child by name, surviving
-// module-identity mismatches (e.g. HMR duplication) that break `type ===`.
 CardImage.displayName = "CardImage";
-
-// ── CardEyebrow ──────────────────────────────────────────
-// Small uppercase label above the title (e.g. "New Model"). Typographically
-// it's the caption role of the type scale in uppercase — see /docs/sizes.
 
 const CardEyebrow = forwardRef<
 	HTMLSpanElement,
@@ -879,10 +694,6 @@ const CardEyebrow = forwardRef<
 });
 
 CardEyebrow.displayName = "CardEyebrow";
-
-// ── CardFeature ──────────────────────────────────────────
-// FF addition: an icon + title + description row, for feature lists inside
-// CardContent.
 
 interface CardFeatureProps {
 	icon?: IconComponent;
@@ -930,10 +741,6 @@ function CardFeature({ icon: Icon, title, description }: CardFeatureProps) {
 	);
 }
 
-// ── CardButton ───────────────────────────────────────────
-// Self-contained action button for the footer (keeps Card free of a Button
-// dependency, so it installs standalone). Renders an anchor when `href` is set.
-
 type CardButtonVariant = "primary" | "secondary" | "ghost" | "link";
 
 const CARD_BUTTON_VARIANTS: Record<CardButtonVariant, string> = {
@@ -952,7 +759,6 @@ interface CardButtonProps {
 	variant?: CardButtonVariant;
 	icon?: IconComponent;
 	iconPosition?: "start" | "end";
-	/** Opens the href in a new tab and appends an outward arrow glyph. */
 	external?: boolean;
 	disabled?: boolean;
 }

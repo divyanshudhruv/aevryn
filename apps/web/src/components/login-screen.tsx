@@ -17,8 +17,6 @@ export function LoginScreen() {
 			provider: "google",
 			options: {
 				redirectTo: `${window.location.origin}/auth/callback`,
-				// Always show Google's account chooser — never silently reuse
-				// the provider session (stale accounts get picked otherwise).
 				queryParams: { prompt: "select_account" },
 			},
 		});

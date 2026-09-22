@@ -32,9 +32,6 @@ export function Logo({
 							? "h-14"
 							: "h-5";
 
-	// Wordmark sits optically above the box baseline; nudge it down to sit
-	// flush with the logo glyph. Calibrated at md (-2.25px) and xl (-4.45px),
-	// scaled linearly by text height for the rest.
 	const wordmarkMargin =
 		size === "md"
 			? "-mb-[2.25px]"
@@ -51,7 +48,6 @@ export function Logo({
 	const glyph = cn("w-auto shrink-0 opacity-90", logoHeight);
 	const wordmark = cn("w-auto shrink-0 opacity-90", textHeight, wordmarkMargin);
 
-	// Both variants rendered; CSS picks by theme — no hydration flash, no JS.
 	return (
 		<a href="/">
 			<div

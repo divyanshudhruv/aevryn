@@ -21,20 +21,12 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { WorkflowService } from "./workflow-service";
 
-// ─── Plan binding (resume path) ───────────────────────────────────────────
-
-/** Result of scanning a resume payload for a presentPlan decision that
- *  still needs its workflow bound. `bound-approved` marks an "Approve" (run
- *  now) decision — the route overrides the turn to run mode so execution
- *  starts immediately regardless of the client's transport mode (the client
- *  flips itself via the realtime status/binding broadcasts this turn emits). */
 export type PlanBindResult =
 	| { status: "no-decision" }
 	| { status: "already-bound"; workflowId: string }
 	| { status: "bound"; workflowId: string }
 	| { status: "bound-approved"; workflowId: string };
 
-/** Result of a run/stop request on a thread's bound workflow. */
 export type RunControlResult =
 	| { status: "stopped" }
 	| { status: "ok" }
@@ -47,8 +39,6 @@ export class ChatService {
 	constructor(private readonly client: Db = db) {
 		this.workflowSvc = new WorkflowService(this.client);
 	}
-
-	// ─── Workflow / plan steps ────────────────────────────────────────────────
 
 	async updatePlanStepStatus(input: {
 		userId: string;
@@ -99,8 +89,6 @@ export class ChatService {
 		}
 	}
 
-	/** Update thread metadata (title / group move). User-scoped → 404 via null
-	 *  when the thread isn't found. */
 	async updateThread(input: {
 		threadId: string;
 		userId: string;
@@ -116,12 +104,6 @@ export class ChatService {
 		return row ?? null;
 	}
 
-	/**
-	 * Marks a thread as wanting to run (or stop) its bound workflow. The stop
-	 * path unwinds the workflow's in-flight plan steps too — otherwise the
-	 * PlanStepsCard and the agent's step slider stay stuck on a mid-run state.
-	 * Throws `{ code: "THREAD_NOT_FOUND" }` when the thread row is missing.
-	 */
 	async runControl(input: {
 		threadId: string;
 		userId: string;
@@ -172,13 +154,6 @@ export class ChatService {
 
 		if (!thread.boundWorkflowId) return { status: "no-bound-workflow" };
 
-		// Run-race guard: two tabs POSTing /run concurrently both passed the
-		// status read above and both would dispatch trigger messages → the
-		// workflow double-executes. The transaction-scoped advisory lock keyed
-		// to the thread serializes the check: the second caller re-reads the
-		// status INSIDE the lock, so only one of the overlapping requests
-		// returns "ok". (The lock covers the overlapping window; a status
-		// write that has already landed still short-circuits via the check.)
 		return this.client.transaction(async (tx) => {
 			await tx.execute(
 				sql`select pg_advisory_xact_lock(hashtext(${input.threadId}))`,
@@ -235,21 +210,12 @@ export class ChatService {
 		return row ?? null;
 	}
 
-	// ─── Messages + steps ─────────────────────────────────────────────────────
-
 	async saveMessage(input: {
 		userId: string;
 		threadId: string;
 		role: "user" | "assistant" | "system";
 		content: string;
-		/** Full UIMessage parts — persisted so replay restores tool cards,
-		 *  QuestionFlow answers, plan decisions, and approvals exactly. */
 		parts?: unknown[];
-		/** Client draft id — idempotency key. A retried send re-uses the same
-		 *  draft id until the server echo replaces it, so the persisted row's
-		 *  (threadId, userId, clientMessageId) unique index turns the second
-		 *  write into a conflict → the existing row is returned instead of a
-		 *  duplicate. */
 		clientMessageId?: string;
 		usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
 		steps?: Array<{
@@ -287,11 +253,6 @@ export class ChatService {
 				.returning();
 
 			if (!savedMessage) {
-				// Conflict on the client idempotency key — this turn was already
-				// persisted. Return the prior row; no thread bump, no step/log
-				// writes (those happened on the first insert).
-				// A unique-index conflict here can only mean a non-null clientMessageId
-				// (NULLs can never conflict), so the key is present.
 				const [existing] = await tx
 					.select()
 					.from(messages)
@@ -327,8 +288,6 @@ export class ChatService {
 					)
 					.returning();
 
-				// One audit-log row per server tool call, keyed off the inserted
-				// step rows (real step ids, not the input positions).
 				const logRows: ToolCallLogInput[] = [];
 				for (let stepIndex = 0; stepIndex < insertedSteps.length; stepIndex++) {
 					const stepRow = insertedSteps[stepIndex];
@@ -369,11 +328,6 @@ export class ChatService {
 		});
 	}
 
-	// Client-tool resumes (askUser answers, plan decisions, approvals) log the
-	// answer on the wire back from the client. The message id is unknown at
-	// that point, so it uses a sentinel; the (message_id, tool_call_id) unique
-	// index still keys each tool call to one row. A follow-up can migrate the
-	// sentinel rows to real message ids.
 	async logClientToolCall(input: {
 		threadId: string;
 		userId: string;
@@ -402,14 +356,9 @@ export class ChatService {
 		});
 	}
 
-	/** Load a thread's messages, oldest → newest, user-scoped. The model
-	 *  prompt and the chat replay both render from persisted message parts;
-	 *  the `steps` table is written for auditing but not read here. */
 	async loadThread(input: {
 		threadId: string;
 		userId: string;
-		/** Fetch only the most recent N messages (newest wins; result stays
-		 *  chronological). Omitted ↔ full history. */
 		limit?: number;
 	}): Promise<{ messages: Message[] }> {
 		const messagesQuery = this.client
@@ -427,8 +376,6 @@ export class ChatService {
 						.orderBy(desc(messages.createdAt))
 						.limit(input.limit)
 				: await messagesQuery.orderBy(asc(messages.createdAt));
-		// Limit kept a window of the newest; restore chronological order so
-		// downstream renderers/prompt builders see oldest→newest as before.
 		if (input.limit != null) {
 			messageRows.reverse();
 		}
@@ -436,23 +383,6 @@ export class ChatService {
 		return { messages: messageRows };
 	}
 
-	// ─── Plan binding (resume path) ───────────────────────────────────────────
-
-	/**
-	 * Bind the approved/bound plan decision carried in a resume payload to a
-	 * real workflow + plan steps. Runs after the client-tool answer has been
-	 * logged but before the resumed agent loop starts. The decision arrives
-	 * two ways — as an explicit body.toolAnswer, or merged into the client's
-	 * messages array by useChat's auto-resume. Both are already reflected into
-	 * `uiMessages` by the time this is called; this method scans the synced
-	 * list for the answered presentPlan part that has not been bound yet.
-	 *
-	 * Idempotent: a thread that already has a bound workflow yields
-	 * `already-bound` (an earlier resume processed it). Ownership is enforced
-	 * before any write — a plan decision for a thread the user doesn't own
-	 * must never bind a workflow into someone else's thread (IDOR). Throws
-	 * `{ code: "THREAD_NOT_FOUND" }` when the thread row is missing.
-	 */
 	async bindPlanDecision(input: {
 		userId: string;
 		threadId: string;
@@ -478,8 +408,6 @@ export class ChatService {
 				a.output.workflowId == null,
 		);
 		if (!unboundDecision) return { status: "no-decision" };
-		// "Approve" means run now; "Bind" means run later. The route turns
-		// bound-approved resumes into run-mode turns (server-authoritative).
 		const wantsRunNow = unboundDecision.output.decision === "approved";
 
 		const [threadRow] = await this.client
@@ -501,9 +429,6 @@ export class ChatService {
 				unboundDecision.toolCallId,
 				threadRow.boundWorkflowId,
 			);
-			// A re-sent "Approve" decision on an already-bound thread still
-			// wants execution (the earlier resume may have raced the client's
-			// mode flip and run in chat mode) — report it as bound-approved.
 			return wantsRunNow
 				? { status: "bound-approved", workflowId: threadRow.boundWorkflowId }
 				: { status: "already-bound", workflowId: threadRow.boundWorkflowId };
@@ -529,9 +454,6 @@ export class ChatService {
 					description?: string;
 				}>,
 			});
-			// Reflect the binding on the decision AND the client message parts
-			// so the resumed loop knows the workflow id (run mode uses it for
-			// updateStepStatus) and no double-bind happens on the next resume.
 			this.reflectWorkflowId(
 				input.uiMessages,
 				unboundDecision.toolCallId,
@@ -564,25 +486,11 @@ export class ChatService {
 		}
 	}
 
-	/**
-	 * On resume, the client sends the authoritative message list with the tool
-	 * output already merged in. Returns that list (sanitized) for the model
-	 * loop, but persists only genuinely new user text turns that were never
-	 * saved: assistant rows belong to the stream (saveMessage persists them
-	 * server-side at stream end), and persisting transport snapshots back
-	 * would overwrite the merged tool parts with stale client copies.
-	 */
 	async syncClientMessages(input: {
 		threadId: string;
 		userId: string;
 		clientMessages: Array<{ id?: string; role: string; parts: unknown[] }>;
 	}): Promise<UIMessage[]> {
-		// Never trust a client-supplied persisted-looking id: a malicious
-		// payload could claim someone else's `msg_` row (or an id this thread
-		// has never seen) and the id-swap below would legitimize it. Collect
-		// the `msg_` ids this thread ACTUALLY owns and strip the rest — a
-		// claimed-but-unknown id is demoted to an anonymous draft (fresh
-		// synthetic id) so it can never collide with a real row.
 		const claimedIds = input.clientMessages
 			.map((m) => m.id)
 			.filter(
@@ -605,18 +513,11 @@ export class ChatService {
 		let anonCounter = 0;
 		const nextAnonId = () => `local_${Date.now()}_anon${anonCounter++}`;
 
-		// Dedupe by id while sanitizing — first occurrence wins. A duplicated
-		// id in the transport payload (retried/auto-resumed sends mixing
-		// persisted `msg_` rows with local drafts) must not emit two messages
-		// with the same id: duplicated parts render as duplicate cards in the
-		// timeline. Synthetic ids get an index suffix so same-millisecond
-		// fallbacks can't collide either.
 		const sanitized: UIMessage[] = [];
 		const seenIds = new Set<string>();
 		input.clientMessages.forEach((m, index) => {
 			let id = m.id ?? `local_${Date.now()}_${index}`;
 			if (id.startsWith("msg_") && !ownedIds.has(id)) {
-				// Claimed id that isn't in this thread's DB history → not real.
 				id = nextAnonId();
 			}
 			if (seenIds.has(id)) return;
@@ -631,11 +532,6 @@ export class ChatService {
 			});
 		});
 
-		// Persist only a never-before-seen user text turn. Skip messages we can
-		// identify as already-persisted (real message ids) and id-less local
-		// rows that only carry tool answers. Real network retries re-send the
-		// same draft id, so passing it as the idempotency key lets saveMessage
-		// skip turns already written (unique (threadId, userId, clientMessageId)).
 		for (const m of sanitized) {
 			if (m.role !== "user") continue;
 			if (m.id.startsWith("msg_") || m.id.startsWith("local_")) continue;
@@ -654,11 +550,6 @@ export class ChatService {
 				parts: m.parts as unknown[],
 				clientMessageId: m.id,
 			});
-			// The persisted row's id is the single source of truth. On a retried
-			// draft saveMessage dedups against the unique index and returns the
-			// prior row, so swap the draft id for the real one — callers that
-			// look messages up by id get a stable handle. Never swap onto an id
-			// another message in this list already holds (would duplicate).
 			if (saved.id !== m.id && !seenIds.has(saved.id)) {
 				seenIds.delete(m.id);
 				seenIds.add(saved.id);
@@ -669,10 +560,6 @@ export class ChatService {
 		return sanitized;
 	}
 
-	/** Mark a failed turn with an in-thread error tile + `failed` thread status
-	 *  so the failure survives refresh (a re-run triggers the retryAgent
-	 *  repair). Never throws — failure persistence must not mask the original
-	 *  streaming error. */
 	async persistFailedTurn(input: {
 		threadId: string;
 		userId: string;
@@ -695,8 +582,6 @@ export class ChatService {
 			console.error("[chat-service] failed-turn persistence error", persistErr);
 		}
 	}
-
-	// ─── Internal ─────────────────────────────────────────────────────────────
 
 	private async assertThreadOwned(
 		threadId: string,

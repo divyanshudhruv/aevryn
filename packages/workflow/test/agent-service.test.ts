@@ -20,10 +20,6 @@ import { AgentService } from "../src/services/agent-service";
 import { ChatService } from "../src/services/chat-service";
 
 const userId = "00000000-0000-0000-0000-000000000004";
-// STABLE workspace/thread ids: the DB triggers cap workspaces per user (3)
-// and threads per user, so per-run random ids self-destruct the suite after
-// a few runs. Recreating stable rows each run cascades the previous run's
-// messages/steps, keeping trigger counts flat.
 const workspaceId = "wsp_test_agent";
 const threadId = "thd_test_agent";
 

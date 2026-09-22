@@ -30,8 +30,6 @@ import {
 	useState,
 } from "react";
 
-/* ─────────────────────── Contexts ─────────────────────── */
-
 interface TabsValueOrderContextValue {
 	valueOrder: string[];
 	setValueOrder: (order: string[]) => void;
@@ -57,8 +55,6 @@ function useTabsList() {
 	return ctx;
 }
 
-/* ─────────────────────── Tabs (Root) ─────────────────────── */
-
 interface TabsProps
 	extends Omit<
 		ComponentPropsWithoutRef<typeof TabsPrimitive.Root>,
@@ -69,9 +65,6 @@ interface TabsProps
 	selectedIndex?: number;
 	onSelect?: (index: number) => void;
 	defaultValue?: string;
-	/** Pins the segmented control to one step of the size ladder (default 36px
-	 *  outer, compact 28px — see /docs/sizes). Omitted, it follows the
-	 *  surrounding SizeProvider. */
 	size?: SizeVariant;
 }
 
@@ -105,16 +98,12 @@ const Tabs = forwardRef<HTMLDivElement, TabsProps>(
 			});
 		}, []);
 
-		// Resolve value: explicit value > selectedIndex lookup > uncontrolled state.
-		// Uncontrolled with no defaultValue falls back to the first tab so the
-		// FF layer's selectedValue matches what the primitive shows.
 		const resolvedValue =
 			value ??
 			(selectedIndex != null
 				? valueOrder[selectedIndex]
 				: (uncontrolledValue ?? valueOrder[0]));
 
-		// Base UI passes (value, eventDetails); we only need value.
 		const handleValueChange = useCallback(
 			(newValue: unknown) => {
 				const v = newValue as string;
@@ -138,13 +127,6 @@ const Tabs = forwardRef<HTMLDivElement, TabsProps>(
 					selectedValue: resolvedValue,
 				}}
 			>
-				{/*
-          Always controlled: Base UI's useControlled logs a dev warning when
-          value flips undefined → defined. valueOrder is empty on the first
-          commit, so fall back to an empty-string sentinel — TabsList's
-          layout effect populates valueOrder pre-paint, so the corrected
-          value lands before anything is visible.
-        */}
 				<TabsPrimitive.Root
 					ref={ref}
 					value={resolvedValue ?? ""}
@@ -156,14 +138,11 @@ const Tabs = forwardRef<HTMLDivElement, TabsProps>(
 			</TabsValueOrderContext.Provider>
 		);
 
-		// A size prop pins the whole compound (list + items) to one ladder step.
 		return size ? <SizeProvider size={size}>{root}</SizeProvider> : root;
 	},
 );
 
 Tabs.displayName = "Tabs";
-
-/* ─────────────────────── TabsList ─────────────────────── */
 
 type TabsListProps = ComponentPropsWithoutRef<typeof TabsPrimitive.List>;
 
@@ -240,8 +219,6 @@ const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
 		const isHovering = hoveredIndex !== null && !isHoveringSelected;
 
 		const indexedChildren = Children.map(children, (child, i) => {
-			// Skip plain DOM elements — injecting _index into e.g. a <div>
-			// triggers React's unknown-prop warning.
 			if (isValidElement(child) && typeof child.type !== "string") {
 				return cloneElement(child, { _index: i } as Record<string, unknown>);
 			}
@@ -258,7 +235,6 @@ const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
 				}}
 			>
 				<TabsPrimitive.List
-					// Match Radix's `activationMode="automatic"` — arrow keys move + activate.
 					activateOnFocus
 					ref={(node) => {
 						(
@@ -292,9 +268,6 @@ const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
 						setHoveredIndex(null);
 					}}
 					className={cn(
-						// segmentPad + segmentItem add up to the ladder's control height
-						// (36px default, 28px compact) so the segmented control's outer
-						// box lines up with buttons, selects, and inputs beside it.
 						"relative inline-flex select-none items-center bg-muted",
 						sizeClasses.segmentPad,
 						shape.container,
@@ -302,7 +275,6 @@ const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
 					)}
 					{...props}
 				>
-					{/* Active segment indicator */}
 					{selectedRect && (
 						<motion.div
 							className={cn(
@@ -370,7 +342,6 @@ const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
 						)}
 					</AnimatePresence>
 
-					{/* Focus ring */}
 					<AnimatePresence>
 						{focusRect && (
 							<motion.div
@@ -403,14 +374,11 @@ const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
 
 TabsList.displayName = "TabsList";
 
-/* ─────────────────────── TabItem ─────────────────────── */
-
 interface TabItemProps
 	extends ComponentPropsWithoutRef<typeof TabsPrimitive.Tab> {
 	value: string;
 	icon?: IconComponent;
 	label: string;
-	/** @internal Auto-assigned by TabsList. */
 	_index?: number;
 }
 
@@ -434,8 +402,6 @@ const TabItem = forwardRef<HTMLButtonElement, TabItemProps>(
 
 		return (
 			<TabsPrimitive.Tab
-				// Composed (not spread-overridable): a consumer onClick must not
-				// replace the optimistic indicator jump.
 				onClick={(e) => {
 					setOptimisticIdx(_index);
 					onClick?.(e);
@@ -451,8 +417,6 @@ const TabItem = forwardRef<HTMLButtonElement, TabItemProps>(
 				value={value}
 				data-fluid-hover-index={_index}
 				className={cn(
-					// Fixed height (not py) so the text-box trim below doesn't shrink
-					// the tab — browsers without text-box support render identically.
 					"relative z-10 flex cursor-pointer items-center border-none bg-transparent px-3 outline-none",
 					sizeClasses.segmentItem,
 					sizeClasses.gap,
@@ -500,8 +464,6 @@ const TabItem = forwardRef<HTMLButtonElement, TabItemProps>(
 );
 
 TabItem.displayName = "TabItem";
-
-/* ─────────────────────── TabPanel ─────────────────────── */
 
 interface TabPanelProps
 	extends ComponentPropsWithoutRef<typeof TabsPrimitive.Panel> {

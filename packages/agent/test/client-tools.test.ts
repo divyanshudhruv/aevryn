@@ -8,8 +8,6 @@ describe("askUser (client tool)", () => {
 	});
 
 	it("accepts old-workspace question shapes", () => {
-		// Mirrors @aevryn/ui AskUserQuestion minus view-only fields
-		// (chipPosition, nextLabel, freeTextValidate are render-side only).
 		const parsed = (
 			askUserTool.inputSchema as unknown as {
 				parse: (v: unknown) => unknown;

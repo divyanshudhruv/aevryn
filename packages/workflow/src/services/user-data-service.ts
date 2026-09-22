@@ -24,13 +24,8 @@ export type UserSettingsPatch = {
 	defaultQuality?: UserSettingsData["defaultQuality"];
 };
 
-// ─── Settings ────────────────────────────────────────────────────────────────
-
-/** Load the user's settings row, falling back to app defaults when absent. */
 export class UserDataService {
 	constructor(private readonly client: Db = db) {}
-
-	// ─── Settings ──────────────────────────────────────────────────────────
 
 	async getSettings(userId: string): Promise<UserSettingsData> {
 		const [row] = await this.client
@@ -40,7 +35,6 @@ export class UserDataService {
 		return row?.settings ?? DEFAULT_USER_SETTINGS;
 	}
 
-	/** Merge partial settings over the stored ones and upsert the row. */
 	async updateSettings(
 		userId: string,
 		patch: UserSettingsPatch,
@@ -72,8 +66,6 @@ export class UserDataService {
 		return merged;
 	}
 
-	// ─── API keys ──────────────────────────────────────────────────────────
-
 	async listKeys(
 		userId: string,
 	): Promise<Array<{ name: string; updatedAt: Date }>> {
@@ -83,7 +75,6 @@ export class UserDataService {
 			.where(eq(userKeys.userId, userId));
 	}
 
-	/** Insert or rotate a user key. Value is plaintext here, encrypted here. */
 	async upsertKey(
 		userId: string,
 		name: string,
@@ -107,8 +98,6 @@ export class UserDataService {
 			.where(and(eq(userKeys.userId, userId), eq(userKeys.name, name)));
 	}
 
-	// ─── Provider endpoints ────────────────────────────────────────────────
-
 	async listProviders(userId: string): Promise<ProviderSummary[]> {
 		return this.client
 			.select({
@@ -123,7 +112,6 @@ export class UserDataService {
 			.where(eq(userProviders.userId, userId));
 	}
 
-	/** Full row (incl. encrypted key) for outbound calls like a test ping. */
 	async getProvider(
 		userId: string,
 		slug: string,
@@ -137,10 +125,6 @@ export class UserDataService {
 		return row ?? null;
 	}
 
-	/**
-	 * Upsert a provider endpoint. Re-saving a key (Keys tab) with no models
-	 * must not wipe the stored model list, so empty payloads inherit it.
-	 */
 	async upsertProvider(input: {
 		userId: string;
 		slug: string;
@@ -179,11 +163,6 @@ export class UserDataService {
 		return row!;
 	}
 
-	/**
-	 * Replace a provider's model list wholesale, or append a single model.
-	 * Throws `PROVIDER_NOT_FOUND` when the provider row is missing and
-	 * `MODEL_EXISTS` when the appended id already exists.
-	 */
 	async updateProviderModels(
 		userId: string,
 		slug: string,

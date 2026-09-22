@@ -14,7 +14,6 @@ import {
 type ShapeVariant = "pill" | "rounded";
 
 interface ShapeClasses {
-	/** The variant these classes belong to — handy for conditionals. */
 	variant: ShapeVariant;
 	item: string;
 	bg: string;
@@ -23,9 +22,6 @@ interface ShapeClasses {
 	container: string;
 	button: string;
 	input: string;
-	// Numeric counterparts of `bg` / `mergedBg`, in px. Needed where individual
-	// corners are animated (e.g. the selected-background merge/split animation),
-	// which requires per-corner numeric border-radii rather than a class.
 	bgRadius: number;
 	mergedRadius: number;
 }
@@ -35,9 +31,6 @@ const shapeMap: Record<ShapeVariant, ShapeClasses> = {
 		variant: "pill",
 		item: "rounded-[20px]",
 		bg: "rounded-[20px]",
-		// +2px over `item` because the focus ring sits 2px outside the element
-		// (top/left -2, width/height +4); this keeps the corners concentric so a
-		// pill element gets a pill ring (matches the rounded-mode 8px→10px bump).
 		focusRing: "rounded-[22px]",
 		mergedBg: "rounded-2xl",
 		container: "rounded-3xl",
@@ -68,10 +61,6 @@ interface ShapeContextValue {
 
 const ShapeContext = createContext<ShapeContextValue | null>(null);
 
-// Rounded is the default on every path: the site demos render under
-// <ShapeProvider defaultShape="rounded">, the shipped :focus-visible fallback
-// ring assumes its 8px radius, and the preset generators only emit a provider
-// for pill. A consumer with no provider gets the corners the docs show.
 function useShape(): ShapeClasses {
 	const ctx = useContext(ShapeContext);
 	if (!ctx) return shapeMap.rounded;
@@ -97,9 +86,6 @@ function ShapeProvider({
 		null,
 	);
 
-	// Run a state change under the `.transitioning` guard (added + reflow-flushed
-	// first so the 180ms border-radius cross-fade applies). Clearing the previous
-	// timeout first keeps a double-press from removing the class mid-fade.
 	const transitionShape = useCallback((callback: () => void) => {
 		const root = document.documentElement;
 		root.classList.add("transitioning");
@@ -120,10 +106,6 @@ function ShapeProvider({
 		[transitionShape],
 	);
 
-	// Publish the current element radius as a CSS custom property so plain-CSS
-	// consumers that can't read React context stay in sync with the shape
-	// system — e.g. the @layer base :focus-visible fallback ring in
-	// globals.css. Set on <html> so portalled content sees it too.
 	useEffect(() => {
 		document.documentElement.style.setProperty(
 			"--shape-input-radius",

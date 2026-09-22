@@ -1,17 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-/**
- * Client tools (no `execute`): the model emits the call, the AI SDK streams
- * it as a tool-input part, the UI renders it (QuestionFlow / plan card), and
- * the human's answer returns into the loop via `addToolResult` /
- * `addToolApprovalResponse`. Task 9 wires the client side.
- */
-
-// ─── askUser ────────────────────────────────────────────────────────────────
-// Mirrors @aevryn/ui `AskUserQuestion` minus view-only fields (chipPosition,
-// nextLabel, freeTextValidate are render-side and never sent to the model).
-
 const questionOptionSchema = z.object({
 	id: z.string().optional().describe("Stable id returned in the answer."),
 	title: z.string().min(1),
@@ -35,18 +24,11 @@ export const askUserQuestionSchema = z
 		freeTextPlaceholder: z.string().optional(),
 		freeTextMultiline: z.boolean().optional(),
 	})
-	// A question is either option-based or free-text — never an optionless
-	// non-free-text question (the UI would have nothing to render).
 	.refine(
 		(q) => q.freeText === true || (q.options != null && q.options.length > 0),
 		{ message: "Provide options, or set freeText: true." },
 	);
 
-/**
- * Accepts a bare array of questions OR `{ questions: [...] }` — weaker
- * models often wrap the array in an object, and strict validation would
- * kill the turn. Both normalize to the array the UI expects.
- */
 const askUserInputSchema = z
 	.union([
 		z.array(askUserQuestionSchema).min(1).max(6),
@@ -61,14 +43,8 @@ export const askUserTool = tool({
 	description:
 		"Ask clarifying questions via an interactive card. ALWAYS use this tool instead of typing questions as markdown text — plain-text question lists are a bug, not a style. Use BEFORE presentPlan whenever the request is vague or missing params (dates, cities, budget, preferences, user decisions). Pauses conversation until answered. Write 1–2 sentences of text BEFORE this call explaining why you're asking — never emit the card alone. Pass questions as top-level ARRAY: [{ title: '...', options: [{ title: '...' }] }].",
 	inputSchema: askUserInputSchema,
-	// No contextSchema needed: the tool carries no per-request state.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- client tool has no execute
 } as any);
-
-// ─── presentPlan ────────────────────────────────────────────────────────────
-// The plan card. On approve, ChatService.createWorkflowFromPlan persists the
-// workflow + plan_steps BEFORE the approval response resumes the loop; the
-// agent then executes step-by-step with updateStepStatus.
 
 export const presentPlanTool = tool({
 	description:

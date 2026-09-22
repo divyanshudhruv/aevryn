@@ -27,15 +27,7 @@ export const messages = pgTable(
 		userId: uuid("user_id").notNull(),
 		role: messageRoleEnum("role").notNull(),
 		content: text("content").notNull().default(""),
-		/** Idempotency key supplied by the client (its own draft message id).
-		 *  Persisted row keeps it so a retried turn — the client re-sends the
-		 *  same draft id before the server echo replaces it — hits the unique
-		 *  index and dedups instead of writing a second copy. Chain to the
-		 *  (thread_id, user_id) pair, same scoping as every other row. */
 		clientMessageId: text("client_message_id"),
-		/** Full UIMessage parts (text + tool calls + client-tool answers +
-		 *  approvals) persisted at stream end so replay restores the exact
-		 *  timeline — QuestionFlow cards, plan accordions, system events. */
 		parts: jsonb("parts").$type<unknown[]>(),
 		usage: jsonb("usage").$type<{
 			inputTokens: number;

@@ -247,7 +247,6 @@ export default function WorkspacePage() {
 							</div>
 
 							<div className="flex flex-row items-center gap-2">
-								{/* NEWTODO this button will be visible only after a workflow is finally planned and approoved and binded to this */}
 								<Button variant="ghost" leadingIcon={play}>
 									Run
 								</Button>
@@ -255,7 +254,6 @@ export default function WorkspacePage() {
 								<Button leadingIcon={gear} onClick={() => setOpen(true)}>
 									Settings
 								</Button>
-								{/* More will open a dialog similar to settigns dialog with sidebar, but More will contain 2 button, one for share, and one for prompts and instructions, all the questions asked and answered by user earlier can be edited there + veen more can be added */}
 							</div>
 						</div>
 					</header>
@@ -320,7 +318,6 @@ export default function WorkspacePage() {
 										time="Wednesday 6:08 PM"
 										actions={actions}
 									>
-										{/* the questions flow has a definite schema, and llm can create the working, ask questions for clarifications, and it has a input too, so user cnainput its own too */}
 										<div className="flex w-full flex-col gap-5">
 											<QuestionFlow
 												className="flex w-full flex-col"
@@ -332,7 +329,6 @@ export default function WorkspacePage() {
 											</p>
 										</div>
 									</ChatMessage>
-									{/* NEWTODO there will always be mb-40 below, so maybe create a new component or use it inline */}
 									<SystemMessage fill={true} className="mb-[40px]">
 										<p>Questions filled and submitted by the user</p>
 									</SystemMessage>
@@ -347,7 +343,6 @@ export default function WorkspacePage() {
 												and here's the final view of the workflow addition for
 												you.
 											</p>
-											{/* the according will contain the plan selected by llm and user so that user can review it */}
 											<AccordionGroup
 												type="single"
 												className="w-full"
@@ -387,13 +382,7 @@ export default function WorkspacePage() {
 												research and event...
 											</p>
 											<div className="flex flex-col gap-1">
-												<ResearchAgent />{" "}
-												{/* <SystemMessage variant="error" fill={true}>
-                          <p>Error: Failed to call tools</p>
-                        </SystemMessage>
-                        <SystemMessage variant="warning" fill={true}>
-                          <p>Retrying event id eve_49X94009cur9</p>
-                        </SystemMessage> */}
+												<ResearchAgent /> {}
 												<WebScrapeAgent />
 												<CompilingAgent />
 												<FinalAnswerStep />
@@ -425,7 +414,6 @@ export default function WorkspacePage() {
 										2 laptops and it's specifications, probably in a table
 										format?
 									</ChatMessage>
-									{/* thinking step, then hide it onc'e llm returns the steps to be done or anything */}
 
 									<ChatMessage
 										from="assistant"
@@ -483,8 +471,6 @@ export default function WorkspacePage() {
 										<ThinkingIndicator />
 									</ChatMessage>
 
-									{/* now the thinking windicator will be present until the final message is not provied, got it? SO SOME MESSAGES OR USER CHATS WITH THE AGENT HERE*/}
-
 									<SystemMessage
 										fill={true}
 										className="mb-[40px]"
@@ -501,13 +487,7 @@ export default function WorkspacePage() {
 										<div className="flex w-full flex-col gap-5">
 											<p>Running the scheduled workflow again.</p>
 											<div className="flex flex-col gap-1">
-												<ResearchAgent />{" "}
-												{/* <SystemMessage variant="error" fill={true}>
-                          <p>Error: Failed to call tools</p>
-                        </SystemMessage>
-                        <SystemMessage variant="warning" fill={true}>
-                          <p>Retrying event id eve_49X94009cur9</p>
-                        </SystemMessage> */}
+												<ResearchAgent /> {}
 												<WebScrapeAgent />
 												<CompilingAgent />
 												<FinalAnswerStep />

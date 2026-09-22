@@ -4,13 +4,6 @@ import { SidebarTrigger, useSidebar } from "@aevryn/ui/components/ui/sidebar";
 import { cn } from "@aevryn/ui/lib/utils";
 import type { ReactNode } from "react";
 
-// ---------------------------------------------------------------------------
-// The main region's topbar. While the sidebar is only PEEKED the trigger
-// hides (the overlay covers it anyway); after a pin it fades back in
-// slightly late, so it appears at its settled position instead of riding
-// the inset's slide.
-// ---------------------------------------------------------------------------
-
 export function SidebarInsetTopbar({
 	children,
 	className,

@@ -11,12 +11,11 @@ export const dynamic = "force-dynamic";
 
 const userDataService = new UserDataService();
 
-// Extensible key names — Anakin and Mem0 today, more services later.
 const KEY_NAMES = ["anakin", "mem0"] as const;
 
 const keyInputSchema = z.object({
 	name: z.enum(KEY_NAMES),
-	value: z.string().min(1), // plaintext over TLS; stored AES-256-GCM encrypted
+	value: z.string().min(1),
 });
 
 export async function GET(): Promise<Response> {

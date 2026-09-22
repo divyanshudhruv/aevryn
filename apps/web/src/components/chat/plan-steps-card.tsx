@@ -14,9 +14,6 @@ export function PlanStepsCard({ steps }: { steps: TimelinePlanStep[] }) {
 			s.status === "awaiting_approval" ||
 			s.status === "failed",
 	);
-	// Active step (running/failed) wins; otherwise show the last completed
-	// step (all done) or step 1 when everything is idle (fresh load, or a
-	// re-run just reset the statuses).
 	const value =
 		currentIdx !== -1
 			? currentIdx

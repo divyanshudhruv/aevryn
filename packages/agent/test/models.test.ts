@@ -28,7 +28,6 @@ describe("ModelRegistry", () => {
 		);
 
 		expect(model).toBeDefined();
-		// LanguageModelV2 contract — providerImplementation marker exists.
 		expect((model as { provider?: string }).provider).toBeDefined();
 	});
 
@@ -42,9 +41,6 @@ describe("ModelRegistry", () => {
 
 	it("decrypts the stored key (does not pass ciphertext to the provider)", () => {
 		const provider = makeProvider();
-		// If this threw, the encrypted blob would have been used as the API key
-		// (openai-compatible does not validate format, so assert via no-throw +
-		// distinct resolutions succeed).
 		expect(() =>
 			ModelRegistry.resolve(provider, "llama-3.3-70b-versatile"),
 		).not.toThrow();

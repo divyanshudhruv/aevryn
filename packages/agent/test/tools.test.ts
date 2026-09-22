@@ -224,7 +224,6 @@ describe("keyed tools", () => {
 
 describe("country validation", () => {
 	it("mapSite has no country param (API doesn't support it)", () => {
-		// Map API has no geography parameter — verify the schema strips unknown keys.
 		const parsed = (
 			mapSiteTool.inputSchema as unknown as { parse: (v: unknown) => unknown }
 		).parse({

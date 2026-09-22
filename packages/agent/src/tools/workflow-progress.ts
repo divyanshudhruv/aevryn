@@ -43,8 +43,6 @@ export const updateStepStatusTool = tool({
 		}
 
 		try {
-			// Imported lazily to keep this module free of DB side effects at
-			// import time (tool modules are loaded in edge-ish contexts too).
 			const { planSteps, workflows } = await import("@aevryn/db");
 			const { and, eq } = await import("drizzle-orm");
 			const { db } = await import("@aevryn/db");
@@ -63,7 +61,6 @@ export const updateStepStatusTool = tool({
 					),
 				);
 
-			// Reflect overall workflow progress.
 			if (input.status === "completed") {
 				const steps = await db
 					.select({ status: planSteps.status })

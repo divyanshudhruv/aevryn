@@ -1,5 +1,6 @@
 import "dotenv/config";
 import postgres from "postgres";
+
 const sql = postgres(process.env.DATABASE_URL ?? "", { max: 1 });
 const r = await sql`
   select tablename,
@@ -11,9 +12,19 @@ const r = await sql`
   group by tablename order by tablename`;
 let bad = 0;
 for (const p of r) {
-  const ok = p.sel_scoped > 0 && p.ins_scoped > 0 && p.upd_scoped > 0 && p.del_scoped > 0;
-  if (!ok) bad++;
-  console.log(`${ok ? "OK " : "!! "}${p.tablename}  sel=${p.sel_scoped} ins=${p.ins_scoped} upd=${p.upd_scoped} del=${p.del_scoped}`);
+	const ok =
+		p.sel_scoped > 0 &&
+		p.ins_scoped > 0 &&
+		p.upd_scoped > 0 &&
+		p.del_scoped > 0;
+	if (!ok) bad++;
+	console.log(
+		`${ok ? "OK " : "!! "}${p.tablename}  sel=${p.sel_scoped} ins=${p.ins_scoped} upd=${p.upd_scoped} del=${p.del_scoped}`,
+	);
 }
-console.log(bad === 0 ? "\nALL TABLES FULLY SCOPED ✅" : `\n${bad} table(s) still unscoped`);
+console.log(
+	bad === 0
+		? "\nALL TABLES FULLY SCOPED ✅"
+		: `\n${bad} table(s) still unscoped`,
+);
 await sql.end();

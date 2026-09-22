@@ -15,7 +15,6 @@ import {
 	useState,
 } from "react";
 
-// SSR-safe layout effect (client components still server-render in Next).
 const useIsoLayoutEffect =
 	typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
@@ -33,13 +32,6 @@ import {
 import { spring } from "@aevryn/ui/lib/springs";
 import { cn } from "@aevryn/ui/lib/utils";
 
-// ─── Shared collapsible parts ───────────────────────────────────────────────
-//
-// ThinkingSteps and ThinkingStepDetails are both single collapsible sections,
-// built directly on Base UI's Collapsible (Root/Trigger/Panel) with the
-// library's framer-motion springs layered on top.
-
-/** Open state of the nearest ThinkingSteps root, for the header trigger/panel. */
 const ThinkingStepsOpenContext = createContext(false);
 
 interface TriggerRowProps extends HTMLAttributes<HTMLButtonElement> {
@@ -47,11 +39,6 @@ interface TriggerRowProps extends HTMLAttributes<HTMLButtonElement> {
 	children: ReactNode;
 }
 
-/**
- * Trigger row: hover background, dual-layer variable-weight label, and a
- * chevron that rotates from right (closed) to down (open). Mirrors the
- * library's accordion trigger styling.
- */
 const TriggerRow = forwardRef<HTMLButtonElement, TriggerRowProps>(
 	({ open, children, className, ...props }, ref) => {
 		const ChevronRight = useIcon("chevron-right");
@@ -88,7 +75,6 @@ const TriggerRow = forwardRef<HTMLButtonElement, TriggerRowProps>(
 					)}
 					{...(props as React.ButtonHTMLAttributes<HTMLButtonElement>)}
 				>
-					{/* Label with dual-layer text (invisible bold layer reserves width) */}
 					<span className={cn("inline-grid text-left", sizeClasses.text)}>
 						<span
 							className="invisible col-start-1 row-start-1"
@@ -112,7 +98,6 @@ const TriggerRow = forwardRef<HTMLButtonElement, TriggerRowProps>(
 						</span>
 					</span>
 
-					{/* Chevron — right when collapsed, rotates 90° down when expanded */}
 					<motion.span
 						className="inline-flex shrink-0 items-center justify-center"
 						animate={{ rotate: open ? 90 : 0 }}
@@ -139,31 +124,11 @@ interface CollapsePanelProps {
 	children: ReactNode;
 }
 
-/**
- * Collapsible panel with a framer-motion height + spring animation.
- *
- * Base UI's Panel would apply `hidden` the moment a controlled collapsible
- * closes (it can't observe the JS-driven exit animation), which is
- * `display: none` and would freeze the exit mid-flight. So we render through
- * `keepMounted` + `render`, strip Base UI's premature `hidden`, and only
- * apply the attribute ourselves once the framer exit has actually completed.
- * The persistent panel element keeps the trigger ↔ panel ARIA contract
- * intact (the trigger's `aria-controls` id lives on it).
- */
 function CollapsePanel({ open, children }: CollapsePanelProps) {
 	const compactStep = useSize().variant === "compact";
-	// The open height is animated to a self-measured LAYOUT pixel value, not
-	// `height: "auto"`: framer resolves an "auto" target by measuring the
-	// element's *visual* (transformed) size, so under a scaled ancestor
-	// (e.g. /demo's 1.7x card) the animation overshoots to scale× the real
-	// height and snaps back when the final "auto" lands. offsetHeight and
-	// ResizeObserver are transform-immune. Same setup as the accordions.
 	const innerRef = useRef<HTMLDivElement | null>(null);
 	const roRef = useRef<ResizeObserver | null>(null);
 	const [contentHeight, setContentHeight] = useState<number | null>(null);
-	// Panels open at mount render `initial: "auto"` and receive their first
-	// pixel target a commit later; that hand-off must SNAP (duration 0), not
-	// spring. Panels that open later spring normally.
 	const needsSnap = useRef(open);
 
 	const measureRef = useCallback((el: HTMLDivElement | null) => {
@@ -173,15 +138,12 @@ function CollapsePanel({ open, children }: CollapsePanelProps) {
 		if (!el) return;
 		if (el.offsetHeight > 0) setContentHeight(el.offsetHeight);
 		const ro = new ResizeObserver(() => {
-			// Ignore the 0 that fires while the panel is display:none.
 			if (el.offsetHeight > 0) setContentHeight(el.offsetHeight);
 		});
 		ro.observe(el);
 		roRef.current = ro;
 	}, []);
 
-	// Re-measure synchronously (pre-paint) when opening, so the spring's
-	// target is the fresh layout height from its first frame.
 	useIsoLayoutEffect(() => {
 		if (open && innerRef.current && innerRef.current.offsetHeight > 0) {
 			setContentHeight(innerRef.current.offsetHeight);
@@ -194,8 +156,6 @@ function CollapsePanel({ open, children }: CollapsePanelProps) {
 
 	const [exitComplete, setExitComplete] = useState(!open);
 	if (open && exitComplete) {
-		// Reset during render so the panel is un-hidden before the opening
-		// animation's first paint.
 		setExitComplete(false);
 	}
 
@@ -204,11 +164,7 @@ function CollapsePanel({ open, children }: CollapsePanelProps) {
 			keepMounted
 			render={(panelProps) => {
 				const {
-					// Applied too early for our exit animation (see above); we
-					// control the attribute ourselves.
 					hidden: _baseHidden,
-					// Only carries the --collapsible-panel-height/width vars, which
-					// stay 'auto' since Base UI never measures JS-driven animations.
 					style: _baseStyle,
 					...restPanel
 				} = panelProps as React.HTMLAttributes<HTMLDivElement> & {
@@ -220,7 +176,6 @@ function CollapsePanel({ open, children }: CollapsePanelProps) {
 							className="overflow-hidden"
 							initial={{ height: open ? "auto" : 0 }}
 							animate={{ height: open ? (contentHeight ?? 0) : 0 }}
-							// bounce: 0 — pure height looks better without overshoot.
 							transition={
 								needsSnap.current
 									? { duration: 0 }
@@ -247,11 +202,7 @@ function CollapsePanel({ open, children }: CollapsePanelProps) {
 	);
 }
 
-// ─── ThinkingSteps (root) ───────────────────────────────────────────────────
-
 interface ThinkingStepsProps extends HTMLAttributes<HTMLDivElement> {
-	/** Step on the size ladder. Wins over the surrounding SizeProvider and
-	 *  propagates to every row inside. */
 	size?: SizeVariant;
 	defaultOpen?: boolean;
 	open?: boolean;
@@ -272,8 +223,6 @@ const ThinkingSteps = forwardRef<HTMLDivElement, ThinkingStepsProps>(
 		},
 		ref,
 	) => {
-		// Always drive Base UI as controlled so the header/panel can read the
-		// open state (chevron rotation, framer enter/exit) from context.
 		const [internalOpen, setInternalOpen] = useState(defaultOpen);
 		const isOpen = open ?? internalOpen;
 
@@ -294,13 +243,10 @@ const ThinkingSteps = forwardRef<HTMLDivElement, ThinkingStepsProps>(
 			</Collapsible.Root>
 		);
 
-		// A size prop pins every row inside to one ladder step.
 		return size ? <SizeProvider size={size}>{root}</SizeProvider> : root;
 	},
 );
 ThinkingSteps.displayName = "ThinkingSteps";
-
-// ─── ThinkingStepsHeader ────────────────────────────────────────────────────
 
 interface ThinkingStepsHeaderProps extends HTMLAttributes<HTMLButtonElement> {
 	children?: ReactNode;
@@ -318,8 +264,6 @@ const ThinkingStepsHeader = forwardRef<
 	);
 });
 ThinkingStepsHeader.displayName = "ThinkingStepsHeader";
-
-// ─── ThinkingStepsContent ───────────────────────────────────────────────────
 
 interface ThinkingStepsContentProps extends HTMLAttributes<HTMLDivElement> {
 	children: ReactNode;
@@ -340,8 +284,6 @@ const ThinkingStepsContent = forwardRef<
 });
 ThinkingStepsContent.displayName = "ThinkingStepsContent";
 
-// ─── ThinkingStep ───────────────────────────────────────────────────────────
-
 type StepStatus = "complete" | "active" | "pending";
 
 interface ThinkingStepProps {
@@ -356,12 +298,6 @@ interface ThinkingStepProps {
 	className?: string;
 }
 
-/** Measured layout height for a step's opening animation. `height: "auto"`
- *  is resolved by framer from the element's *visual* (transformed) size, so
- *  under a scaled ancestor (the /demo card) every step springs out to scale x
- *  its real height and snaps back when "auto" lands — the whole list visibly
- *  overshoots as it builds. offsetHeight and ResizeObserver are
- *  transform-immune. Same setup as CollapsePanel above. */
 function useStepHeight() {
 	const roRef = useRef<ResizeObserver | null>(null);
 	const [height, setHeight] = useState<number | null>(null);
@@ -401,24 +337,19 @@ function ThinkingStep({
 	const isActive = status === "active";
 
 	return (
-		/* Outer: animates height to create space smoothly */
 		<motion.div
 			className={cn("relative z-10 overflow-hidden", className)}
 			initial={{ height: 0 }}
 			animate={{ height: stepHeight ?? 0 }}
 			transition={spring.slow}
 		>
-			{/* Inner: fades content in after space starts opening — and is the
-            element measured for the height above. */}
 			<motion.div
 				ref={stepRef}
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
 				transition={{ duration: 0.24, delay, ease: "easeOut" }}
 			>
-				{/* Content row — this is the fluid hover target */}
 				<div className={cn("flex gap-2.5 px-2 py-1.5", shape.item)}>
-					{/* Icon column with continuous connector line */}
 					<div className="flex w-[14px] shrink-0 flex-col items-center">
 						<div className="pt-0.5">
 							{showIcon ? (
@@ -433,11 +364,9 @@ function ThinkingStep({
 								</div>
 							)}
 						</div>
-						{/* Line stretches from icon to bottom of this step */}
 						{!isLast && <div className="mt-1 w-px flex-1 bg-border/60" />}
 					</div>
 
-					{/* Text content */}
 					<div className="flex min-w-0 flex-1 flex-col gap-1">
 						<span
 							className={cn(
@@ -467,8 +396,6 @@ function ThinkingStep({
 		</motion.div>
 	);
 }
-
-// ─── ThinkingStepDetails (nested collapsible) ───────────────────────────────
 
 interface ThinkingStepDetailsProps {
 	summary: string;
@@ -517,8 +444,6 @@ function ThinkingStepDetails({
 	);
 }
 
-// ─── ThinkingStepSources ────────────────────────────────────────────────────
-
 interface ThinkingStepSourcesProps extends HTMLAttributes<HTMLDivElement> {
 	children: ReactNode;
 }
@@ -538,8 +463,6 @@ const ThinkingStepSources = forwardRef<
 	);
 });
 ThinkingStepSources.displayName = "ThinkingStepSources";
-
-// ─── ThinkingStepSource ─────────────────────────────────────────────────────
 
 interface ThinkingStepSourceProps {
 	color?: BadgeColor;
@@ -572,8 +495,6 @@ function ThinkingStepSource({
 }
 ThinkingStepSource.displayName = "ThinkingStepSource";
 
-// ─── ThinkingStepImage ──────────────────────────────────────────────────────
-
 interface ThinkingStepImageProps {
 	src: string;
 	alt?: string;
@@ -590,7 +511,6 @@ function ThinkingStepImage({
 	className,
 }: ThinkingStepImageProps) {
 	const shape = useShape();
-	// The caption role of the type scale — see /docs/sizes.
 	const compact = useSize().variant === "compact";
 	return (
 		<motion.div
@@ -621,8 +541,6 @@ function ThinkingStepImage({
 	);
 }
 ThinkingStepImage.displayName = "ThinkingStepImage";
-
-// ─── Exports ────────────────────────────────────────────────────────────────
 
 export type {
 	StepStatus,

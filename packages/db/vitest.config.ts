@@ -4,7 +4,6 @@ export default defineConfig({
 	test: {
 		environment: "node",
 		env: {
-			// Test fixture key — derives the AES key inside crypto.test.ts.
 			VAULT_KEY:
 				"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 			APPROVAL_SECRET:

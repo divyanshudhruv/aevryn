@@ -4,7 +4,6 @@ export default defineConfig({
 	test: {
 		environment: "node",
 		env: {
-			// Test fixtures — mirror packages/db/vitest.config.ts.
 			VAULT_KEY:
 				"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 			APPROVAL_SECRET:

@@ -27,19 +27,12 @@ export function WorkspaceSidebar() {
 			if (!res.ok) return;
 			const json = (await res.json()) as { data: SidebarData };
 			setData(json.data);
-		} catch {
-			// Sidebar renders the preset demo data until the first successful fetch.
-		}
+		} catch {}
 	}, [workspaceId]);
 
 	useEffect(() => {
 		void refresh();
 
-		// Realtime replaces the 15s polling: thread status/title/binding changes
-		// for this workspace patch the local rows in place; hard-deleted threads
-		// are removed from the list. No reordering — the initial listThreads
-		// fetch stays the source of order; NEW threads are ignored until a
-		// later refresh (they arrive with their first UPDATE).
 		const unsubscribe = subscribeToRealtime({
 			supabase: supabaseClient,
 			channelName: `sidebar-threads:${workspaceId ?? "all"}`,
@@ -212,12 +205,6 @@ export function WorkspaceSidebar() {
 		router.push("/signup");
 	}, [router]);
 
-	/** Run trigger: POST /run validates the thread is bound, then dispatch a
-	 *  window event the open thread page listens for to send the run-trigger
-	 *  message (the POST alone never starts a run). When the thread is NOT the
-	 *  one already open, the event can fire before the navigating page mounts
-	 *  its listener — so the intent also lands in a sessionStorage flag that
-	 *  the thread page consumes on mount. */
 	const runThread = useCallback(
 		async (threadId: string) => {
 			const res = await fetch(

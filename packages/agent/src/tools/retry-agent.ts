@@ -13,9 +13,6 @@ const SUB_AGENT_TOOLS = {
 	mapSite: mapSiteTool,
 } as const;
 
-// Wall-clock cap on a repair run: the parent loop already owns the concurrency
-// budget, so a wedged sub-agent (hanging network call the abortSignal doesn't
-// cover) must not hold a step hostage forever.
 const SUB_AGENT_WALL_CLOCK_MS = 90_000;
 const SUB_AGENT_MAX_STEPS = 8;
 const SUB_AGENT_BUDGET_USD = 0.1;
@@ -100,10 +97,6 @@ export function makeRetryAgentTool(opts: { model: LanguageModel }) {
 				};
 			}
 
-			// Scope the sub-agent's tool context down to what its tools actually
-			// consume (search/scrape/map only ever touch `anakinKey`). Never hand
-			// the sub-agent secrets it doesn't need — mem0Key in particular is
-			// dead weight here and must not leave the parent context.
 			const subContext: ToolContext = {
 				...context,
 				mem0Key: null,
@@ -122,9 +115,6 @@ export function makeRetryAgentTool(opts: { model: LanguageModel }) {
 				],
 			});
 
-			// Chain the parent abort (client stop / turn abort) with a wall-clock
-			// cap so a hung sub-agent can't wedge the step. The child signal is what
-			// the model + tools actually race on.
 			const childController = new AbortController();
 			const wallClock = setTimeout(
 				() => childController.abort(),

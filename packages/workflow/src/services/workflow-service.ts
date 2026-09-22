@@ -2,17 +2,9 @@ import type { Db, PlanStep, Workflow } from "@aevryn/db";
 import { db, ids, planSteps, threads, workflows } from "@aevryn/db";
 import { and, asc, eq } from "drizzle-orm";
 
-/**
- * CRUD for bound workflows and their plan steps. Owned by the workflow API
- * routes (GET/PATCH/DELETE /api/workflows/[workflowId]); runtime status
- * updates stay in ChatService.
- */
 export class WorkflowService {
 	constructor(private readonly client: Db = db) {}
 
-	/** Creates a workflow + its plan steps in one transaction and binds the
-	 *  thread to it. Called by ChatService when a plan decision arrives and
-	 *  by tests as a fixture. */
 	async createWorkflowFromPlan(input: {
 		userId: string;
 		threadId: string;
@@ -53,7 +45,7 @@ export class WorkflowService {
 						id: ids.planStep(),
 						workflowId,
 						userId: input.userId,
-						position: index + 1, // 1-based, matches updateStepStatus
+						position: index + 1,
 						title: step.title,
 						description: step.description ?? null,
 						status: "idle" as const,
@@ -123,7 +115,6 @@ export class WorkflowService {
 		return row ?? null;
 	}
 
-	/** Deletes the workflow, unbinds any threads pointing at it, drops steps. */
 	async delete(input: {
 		workflowId: string;
 		userId: string;
@@ -152,12 +143,6 @@ export class WorkflowService {
 		return true;
 	}
 
-	/**
-	 * Replaces the full plan-step list (reorder / add / remove / edit).
-	 * Statuses are preserved for steps whose id survives the edit; new steps
-	 * start idle. Ownership is enforced here (workflow must belong to the
-	 * caller) so this is a security boundary on its own, not just at the route.
-	 */
 	async replaceSteps(input: {
 		workflowId: string;
 		userId: string;

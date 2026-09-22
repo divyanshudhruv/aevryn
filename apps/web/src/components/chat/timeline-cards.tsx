@@ -6,8 +6,6 @@ import {
 } from "@aevryn/ui/components/ui/plan-approval-card";
 import type { ToolCallStepSegment } from "@aevryn/ui/components/ui/tool-call-step";
 
-/** Completed askUser output → per-question answers for the locked card.
- *  The tool returns { answers: {...} }; tolerate a bare answers map. */
 export function answersFromAskUserOutput(
 	output: unknown,
 ): Record<string, AskUserAnswer> | undefined {
@@ -32,7 +30,6 @@ export function answersFromAskUserOutput(
 	return result;
 }
 
-/** Completed presentPlan output → the decision shown on the locked card. */
 export function decisionFromOutput(
 	output: unknown,
 ): PlanDecisionResult | undefined {
@@ -60,16 +57,10 @@ export function AskUserCard({
 }) {
 	return (
 		<QuestionFlow
-			// The UI component's contract: AskUserQuestion[] minus view-only fields.
 			questions={questions as never}
 			defaultAnswers={answers as never}
 			disabled={disabled}
-			onComplete={
-				onComplete ??
-				(() => {
-					// Disabled/review mode must never fire an answer callback.
-				})
-			}
+			onComplete={onComplete ?? (() => {})}
 		/>
 	);
 }

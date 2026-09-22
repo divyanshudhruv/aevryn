@@ -2,8 +2,6 @@
 
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
-/** Failure statuses worth reconnecting over — supabase-js emits these when
- *  the channel can't subscribe (auth/network/limits). */
 const RETRYABLE_STATUSES = new Set([
 	"CHANNEL_ERROR",
 	"SUBSCRIBE_ERROR",
@@ -17,16 +15,6 @@ interface RealtimeChangesConfig {
 	filter?: string;
 }
 
-/**
- * Subscribe to a postgres_changes channel with automatic reconnection.
- *
- * On a failure status the channel is removed and re-created with exponential
- * backoff (1s, 2s, 4s — max `maxRetries` attempts). Same channel name on the
- * same client shares one websocket, so parallel subscribers don't multiply
- * the connection count.
- *
- * Returns an unsubscribe function; call it in the effect cleanup.
- */
 export function subscribeToRealtime({
 	supabase,
 	channelName,
@@ -47,9 +35,6 @@ export function subscribeToRealtime({
 		old?: Record<string, unknown>;
 	}) => void;
 	onStatus?: (status: string) => void;
-	/** Fired once after the channel successfully re-subscribes following a
-	 *  detected drop (subscribe callback or heartbeat). Consumers use it to
-	 *  re-query any state that may have gone stale while disconnected. */
 	onReconnected?: () => void;
 	maxRetries?: number;
 	baseDelayMs?: number;
@@ -87,14 +72,10 @@ export function subscribeToRealtime({
 			if (RETRYABLE_STATUSES.has(status)) {
 				console.error(`[realtime ${channelName}]`, status, err ?? "");
 			} else if (status !== "SUBSCRIBED") {
-				// CLOSED etc. is expected on unsubscribe (page navigation) and on
-				// the heartbeat's forced resubscribe — debug, not error.
 				console.debug(`[realtime ${channelName}]`, status, err ?? "");
 			}
 			onStatus?.(status);
 			if (status === "SUBSCRIBED") {
-				// Healthy again: reset the budget so a long-lived session never
-				// exhausts it permanently, and let consumers re-sync if we ever left.
 				attempts = 0;
 				if (dropped) {
 					dropped = false;
@@ -112,10 +93,6 @@ export function subscribeToRealtime({
 		});
 	};
 
-	// Heartbeat: supabase-js can strand a channel in "errored"/"closed" without
-	// ever surfacing a retryable subscribe callback (WS killed by a proxy,
-	// network blip mid-longpoll). Poll channel.state and force a re-subscribe
-	// so a silent drop isn't missed until the next change event.
 	heartbeat = setInterval(() => {
 		if (cancelled || timer) return;
 		const state = current?.state;

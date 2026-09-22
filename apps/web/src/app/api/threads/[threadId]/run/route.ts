@@ -6,13 +6,10 @@ import { createServerSupabaseForNext } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Workflow runs can dispatch many steps; keep the request alive past the
-// default 10s cap while the run-progress stream is open.
 export const maxDuration = 300;
 
 type RouteContext = { params: Promise<{ threadId: string }> };
 
-/** Marks a thread as wanting to run (or stop) its bound workflow. */
 export async function POST(
 	request: Request,
 	{ params }: RouteContext,
@@ -29,9 +26,7 @@ export async function POST(
 	let body: { action?: string } = {};
 	try {
 		body = (await request.json()) as { action?: string };
-	} catch {
-		// Empty body defaults to "run".
-	}
+	} catch {}
 
 	const chatService = new ChatService();
 	let result: Awaited<ReturnType<typeof chatService.runControl>>;

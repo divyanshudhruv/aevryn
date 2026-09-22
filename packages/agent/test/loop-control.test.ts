@@ -7,12 +7,6 @@ import {
 	replayedStepGuardStop,
 } from "../src/loop-control";
 
-// The guards are pure StopConditions over the `steps` array the AI SDK
-// passes — build minimal step shapes that exercise exactly what each guard
-// reads (toolResults for replayedStepGuardStop, finishReason for
-// attemptReplayGuardStop). Cast through unknown: the SDK's real StepResult
-// type carries many more fields the guards deliberately don't touch.
-
 type GuardSteps = Parameters<
 	ReturnType<typeof replayedStepGuardStop>
 >[0]["steps"];
@@ -144,8 +138,6 @@ describe("attemptReplayGuardStop", () => {
 
 describe("guard thresholds match the loop-control defaults", () => {
 	it("the exported constants match what loopGuardrails passes", () => {
-		// The service layer mirrors these thresholds for its user-facing
-		// tile; if they drift, the tile text and the actual stop point disagree.
 		expect(MAX_PROVIDER_REPLAYS).toBe(2);
 		expect(MAX_IDENTICAL_TOOL_ERRORS).toBe(2);
 	});

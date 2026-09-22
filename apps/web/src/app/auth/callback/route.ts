@@ -18,9 +18,6 @@ export async function GET(request: Request) {
 			} = await supabase.auth.getUser();
 
 			if (user) {
-				// Write through the postgres connection (owns the table), not a
-				// Supabase role — avoids relying on dashboard GRANTs. RLS still
-				// gates reads for authenticated sessions.
 				const identity = identityFromAuthUser(user);
 				await db
 					.insert(userProfiles)

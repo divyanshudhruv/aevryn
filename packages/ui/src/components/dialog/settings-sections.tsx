@@ -13,13 +13,7 @@ import { SidebarMenuSkeleton } from "../ui/sidebar-menu";
 import { Switch } from "../ui/switch";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 
-// Switches carry their own (required) label for assistive tech; the row
-// already shows it, so the switch's copy is visually hidden.
 const SWITCH_LABEL_HIDDEN = "[&>span:last-child]:sr-only";
-
-// ---------------------------------------------------------------------------
-// Shared row used by settings section panels.
-// ---------------------------------------------------------------------------
 
 function SettingRow({
 	label,
@@ -51,14 +45,6 @@ function SettingRow({
 		</div>
 	);
 }
-
-// ---------------------------------------------------------------------------
-// Section panels — placeholder settings built from the library's controls.
-// Swap for your own; each row is a label + description on the left and a
-// control on the right.
-// ---------------------------------------------------------------------------
-
-// --- Models (real: /api/providers) -----------------------------------------
 
 interface ProviderRow {
 	id: string;
@@ -438,8 +424,6 @@ function ModelsPanel() {
 	);
 }
 
-// --- BYOK (real: /api/keys) ------------------------------------------------
-
 const BYOK_KEYS = [
 	{
 		name: "anakin" as const,
@@ -569,8 +553,6 @@ function ByokPanel() {
 		</div>
 	);
 }
-
-// --- Notifications (real: /api/settings) -----------------------------------
 
 interface NotificationsData {
 	runFailed: boolean;
@@ -706,9 +688,6 @@ function WorkspacePanel({
 		}
 		setDeleteWorkspaceOpen(false);
 		onMutated?.();
-		// Point the browser at the NEW entry route (the old /chat path no longer
-		// exists — Next would render the not-found page, making it look like the
-		// delete failed).
 		window.location.href = "/workspace";
 	};
 

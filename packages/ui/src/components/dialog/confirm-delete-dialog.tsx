@@ -16,17 +16,11 @@ export interface ConfirmDeleteDialogProps {
 	open?: boolean;
 	defaultOpen?: boolean;
 	onOpenChange?: (open: boolean) => void;
-	/** Heading shown above the item list. */
 	title: string;
-	/** Body text explaining what will happen. */
 	description: string;
-	/** Label on the destructive primary button. */
 	actionLabel: string;
-	/** Items shown in the confirmation list (thread/group names). */
 	items: Array<{ value: string }>;
-	/** Called when the user confirms. The dialog does not close itself. */
 	onConfirm?: () => void;
-	/** When true, the primary button shows a spinner and is disabled. */
 	loading?: boolean;
 }
 

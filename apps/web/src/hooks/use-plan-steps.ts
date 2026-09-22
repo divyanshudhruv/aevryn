@@ -44,9 +44,6 @@ export function usePlanSteps(workflowId: string | null) {
 		);
 	}, [workflowId]);
 
-	/** Client-side reset: marks every step idle so the progress slider jumps
-	 *  back to step 1 the moment a new run starts, before the agent's
-	 *  updateStepStatus writes arrive over realtime. */
 	const reset = useCallback(() => {
 		setSteps((prev) => prev.map((s) => ({ ...s, status: "idle" })));
 	}, []);

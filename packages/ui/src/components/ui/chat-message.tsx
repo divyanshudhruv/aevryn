@@ -10,32 +10,15 @@ import { type HTMLMotionProps, motion } from "framer-motion";
 import { forwardRef, type ReactNode } from "react";
 
 interface ChatMessageProps extends Omit<HTMLMotionProps<"div">, "children"> {
-	/** Who sent the message. Drives alignment and bubble colour:
-	 *  `user` → right-aligned accent bubble, `assistant` → left-aligned plain text. */
 	from: "user" | "assistant";
-	/** Optional attachments rendered as square thumbnails above the bubble. */
 	files?: File[];
-	/** Side length of each attachment thumbnail in pixels. Defaults to 64. */
 	thumbnailSize?: number;
-	/** Timestamp shown in the hover-revealed meta row, before the actions.
-	 *  User-message only — ignored on assistant replies. Caller pre-formats it
-	 *  (e.g. `"Wednesday 6:08 PM"`). */
 	time?: ReactNode;
-	/** Icon-only action buttons shown in the hover-revealed meta row (e.g. copy,
-	 *  edit, regenerate). Rendered next to the timestamp. */
 	actions?: ReactNode;
-	/** Message body. When omitted the text bubble is dropped (attachment-only message). */
 	children?: ReactNode;
-	/** Pins the message to one step of the size ladder (see /docs/sizes) —
-	 *  compact tightens bubble type and padding. Omitted, it follows the
-	 *  surrounding SizeProvider. */
 	size?: SizeVariant;
 }
 
-// ─── ChatMessage ──────────────────────────────────────────────────────────
-// A single transcript entry with baked-in entrance + layout motion. Pairs with
-// InputMessage's onSend: render one per sent/received message. `layout="position"`
-// lets earlier messages slide up smoothly when a new one is appended.
 const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
 	(
 		{
@@ -54,9 +37,7 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
 		const shape = useShape();
 		const compact = useSize(size).variant === "compact";
 		const isUser = from === "user";
-		// Hover-reveal is unreachable on touch — keep the meta row visible there.
 		const isTouch = useTouchPrimary();
-		// Timestamps render for both roles when provided.
 		const showTime = time != null;
 
 		return (
@@ -69,10 +50,6 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
 				style={{ transformOrigin: isUser ? "bottom right" : "bottom left" }}
 				className={cn(
 					"group flex flex-col gap-1.5",
-					// Assistant replies occupy the full lane on small screens and the
-					// 80% lane on sm+ — wide widgets (plan cards, step cards, tables)
-					// span it instead of shrinking to fit the shortest text. User
-					// bubbles stay fit-width at 80% always.
 					isUser
 						? "max-w-[80%] items-end self-end"
 						: "w-full max-w-full items-start self-start sm:max-w-[80%]",
@@ -99,25 +76,15 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
 				{children != null && children !== "" && (
 					<div
 						className={cn(
-							// Assistant replies run full message width (so wide widgets like
-							// the plan/ask-user cards span it); user bubbles stay fit-width.
 							!isUser && "w-full",
 							"flex flex-col",
 							isUser ? "gap-1.5" : "gap-5",
 							"whitespace-pre-wrap break-words",
 							compact ? "py-1.5 text-[13px]" : "py-2 text-[14px]",
-							// User keeps the bubble chrome (rounded fill + horizontal padding);
-							// the assistant reply is flush-left plain text with no background.
 							isUser
 								? cn(
 										shape.bg,
 										compact ? "px-3" : "px-3.5",
-										// `text-pretty` is reserved for settled user bubbles. On the
-										// assistant reply it's left off on purpose: `text-wrap: pretty`
-										// re-balances the last lines on every content change, so a
-										// word-by-word stream visibly reflows earlier words to new
-										// lines. Default (normal) wrapping appends left-to-right and
-										// stays put as the text grows.
 										"text-pretty bg-[color-mix(in_oklab,var(--accent),var(--background)_25%)] text-accent-foreground",
 									)
 								: "text-foreground",
@@ -127,11 +94,6 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
 					</div>
 				)}
 				{(showTime || actions != null) && (
-					// Meta row: timestamp + icon-only actions. Always rendered (so it
-					// reserves its height and the gap between bubbles never shifts) but
-					// hidden until the message is hovered or an action is focused.
-					// The timestamp is a user-message affordance only — assistant replies
-					// show their actions alone. User rows read date → icons left-to-right.
 					<div
 						className={cn(
 							"flex select-none items-center gap-2 whitespace-nowrap px-1 text-muted-foreground leading-none",
