@@ -24,14 +24,11 @@
 ## Features
 
 - **`🎯 Goal-driven loop`** - `clarify` --> `plan` --> `approve` --> `execute` --> `report`, not open-ended chat
-- **`📋 Question cards`** - the agent asks for missing details with structured interactive cards
-- **`📑 Plan cards`** - a step-by-step plan is presented and only runs after you approve
-- **`⚡ Chat vs Run mode`** - cheap `conversational` turns for quick questions, full `approved runs` for real work
+- **`📋 Cards`** - the agent asks for missing details or for plan approval with structured interactive cards
 - **`🔁 Re-runnable workflows`** - bound plans `re-run` anytime
 - **`⌨️ BYOK providers`** - bring your own key for any `OpenAI-compatible` provider (Groq, OpenAI, OpenRouter…)
 - **`🛡️ Tool safety`** - SSRF guard on `web` tooling, `prompt-injection` defense, `replay` protection, `tool-call` limits
-- **`🔒 Ownership everywhere`** - every thread/workflow read-write is `user-scoped`; cross-user access yields `404`
-- **`💾 Durable state`** - every turn lands in the DB exactly `once`; retries, reconnects and tab refreshes never duplicate content
+- **`💾 Durable state`** - every turn lands in the DB exactly `once`
 
 ## Tech Stack
 
@@ -89,13 +86,6 @@ _Security runs through every request: `authenticated` and `owns-the-thread` chec
 - **`packages/ui`** - the design system: `chat-composer`, `question-flow`, plan cards, command menu
 - **`packages/auth`** - `Supabase` auth (`SSR` + browser clients)
 - **`packages/env`** / **`config`** - env validation and shared types
-
-## Design Notes
-
-- **`🎯 One loop, one contract`** - every turn is `clarify -> plan -> execute`; the model never free-runs
-- **`🧱 Persistence before display`** - the DB row is the source of truth; the ui renders what landed, never what streamed
-- **`🛡️ Assume hostile input`** - tool results and web content are `untrusted` by default and screened before they reach the model
-- **`♻️ Idempotent by design`** - approvals, dedupe and step snapshots make every side effect `replay-safe`
 
 ## Roadmap
 
